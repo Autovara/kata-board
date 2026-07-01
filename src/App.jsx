@@ -156,11 +156,55 @@ function Header({ pathname, loading, error, generatedAt, onNavigate }) {
           </button>
         ))}
       </nav>
-      <div className="header-status">
-        <Status label={error ? "error" : loading ? "syncing" : "live"} tone={error ? "bad" : "ok"} />
-        <span>{formatDateTime(generatedAt)}</span>
+      <div className="header-right">
+        <div className="social-links" aria-label="Project links">
+          <a
+            className="social-link"
+            href="https://github.com/Autovara/kata"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open Kata on GitHub"
+          >
+            <GitHubIcon />
+          </a>
+          <a
+            className="social-link"
+            href="https://discord.com/users/1494519136800346174"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open Kata Discord contact"
+          >
+            <DiscordIcon />
+          </a>
+        </div>
+        <div className="header-status">
+          <Status label={error ? "error" : loading ? "syncing" : "live"} tone={error ? "bad" : "ok"} />
+          <span>{formatDateTime(generatedAt)}</span>
+        </div>
       </div>
     </header>
+  );
+}
+
+function GitHubIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.4 7.86 10.93.58.1.79-.25.79-.56v-2.02c-3.2.7-3.88-1.38-3.88-1.38-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.04 1.76 2.72 1.25 3.38.96.1-.75.4-1.25.73-1.54-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18A11.1 11.1 0 0 1 12 6.17c.98 0 1.97.13 2.89.39 2.2-1.49 3.16-1.18 3.16-1.18.64 1.58.24 2.75.12 3.04.74.8 1.18 1.82 1.18 3.08 0 4.42-2.69 5.39-5.25 5.68.42.36.79 1.07.79 2.16v3.03c0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
+      />
+    </svg>
+  );
+}
+
+function DiscordIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M20.32 4.37A19.8 19.8 0 0 0 15.36 2.8a13.6 13.6 0 0 0-.64 1.32 18.5 18.5 0 0 0-5.44 0 13.6 13.6 0 0 0-.64-1.32 19.7 19.7 0 0 0-4.97 1.57C.53 9.1-.32 13.7.1 18.24a19.9 19.9 0 0 0 6.09 3.08c.49-.66.92-1.36 1.29-2.1-.71-.27-1.39-.6-2.02-.97.17-.12.33-.25.49-.38a14.2 14.2 0 0 0 12.1 0l.49.38c-.64.38-1.31.7-2.03.97.37.74.8 1.44 1.29 2.1a19.9 19.9 0 0 0 6.09-3.08c.5-5.27-.84-9.83-3.57-13.87ZM8.02 15.45c-1.18 0-2.15-1.08-2.15-2.41 0-1.33.95-2.42 2.15-2.42 1.2 0 2.17 1.1 2.15 2.42 0 1.33-.95 2.41-2.15 2.41Zm7.96 0c-1.18 0-2.15-1.08-2.15-2.41 0-1.33.95-2.42 2.15-2.42 1.2 0 2.17 1.1 2.15 2.42 0 1.33-.95 2.41-2.15 2.41Z"
+      />
+    </svg>
   );
 }
 
@@ -204,8 +248,8 @@ function Dashboard({ payload, selectedLane, onNavigate }) {
       <section className="stat-row">
         <Stat label="repo packs" value={overview.activeRepoPacks} />
         <Stat label="active lanes" value={overview.activeLanes} />
-        <Stat label="primary tasks" value={`${overview.publicLiveTasks || 0}/${overview.publicTargetTasks || 0}`} />
-        <Stat label="hidden tasks" value={`${overview.privateLiveTasks || 0}/${overview.privateTargetTasks || 0}`} />
+        <Stat label="primary tasks" value={selectedLane?.publicPool?.liveTasks ?? overview.publicLiveTasks ?? 0} />
+        <Stat label="hidden tasks" value={selectedLane?.privatePool?.liveTasks ?? overview.privateLiveTasks ?? 0} />
         <Stat label="queued PRs" value={overview.validatorPendingJobs || 0} />
       </section>
 
@@ -254,7 +298,7 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
     <div className="stack">
       <PageIntro
         eyebrow="Live Arena"
-        title="King v Candidate"
+        title="king versus Candidate"
         text="Current duel state, score deltas, and the public primary task draw."
       />
 
@@ -410,7 +454,7 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Miner ranking."
-        text={`Source: ${leaderboardSource(leaderboard?.source)}. Promotions are historical verified wins; active kings are lanes the miner currently holds.`}
+        text={`Source: ${leaderboardSource(leaderboard?.source)}. Promotions are verified merged wins; submissions is total candidate PRs seen.`}
       />
 
       <section className="table-section">
@@ -418,7 +462,7 @@ function Leaderboard({ leaderboard }) {
           <span>rank</span>
           <span>miner</span>
           <span>promotions</span>
-          <span>active kings</span>
+          <span>submissions</span>
           <span>open</span>
           <span>score</span>
         </div>
@@ -428,7 +472,7 @@ function Leaderboard({ leaderboard }) {
               <span>{index + 1}</span>
               <strong>{row.author}</strong>
               <span>{row.wins}</span>
-              <span>{row.currentFrontiers}</span>
+              <span>{row.totalSubmissions}</span>
               <span>{row.openSubmissions}</span>
               <strong>{row.score}</strong>
             </div>
@@ -451,10 +495,8 @@ function Docs({ selectedLane, kataRepoSlug }) {
     { id: "agent", label: "Agent" },
     { id: "scoring", label: "Scoring" },
     { id: "bot", label: "Bot" },
-    { id: "gittensor", label: "GitTensor" },
     { id: "milestones", label: "Milestones" },
-    { id: "privacy", label: "Privacy" },
-    { id: "references", label: "References" }
+    { id: "privacy", label: "Privacy" }
   ];
 
   return (
@@ -481,10 +523,8 @@ function Docs({ selectedLane, kataRepoSlug }) {
         {activeTab === "agent" ? <DocAgent links={links} /> : null}
         {activeTab === "scoring" ? <DocScoring selectedLane={selectedLane} /> : null}
         {activeTab === "bot" ? <DocBot /> : null}
-        {activeTab === "gittensor" ? <DocGitTensor links={links} /> : null}
         {activeTab === "milestones" ? <DocMilestones /> : null}
         {activeTab === "privacy" ? <DocPrivacy /> : null}
-        {activeTab === "references" ? <DocReferences links={links} /> : null}
       </article>
     </div>
   );
@@ -522,15 +562,6 @@ function DocOverview({ selectedLane, links }) {
         <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"} />
         <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "+10 primary, +10 holdout"} />
       </div>
-      <h2>// vocabulary</h2>
-      <DocGrid>
-        <DocCard title="repo-pack" text="A registered target repository lane, encoded as owner__repo." />
-        <DocCard title="mode" text="The competition role. Current MVP uses contributor agents." />
-        <DocCard title="king / frontier" text="The current best verified agent for a repo-pack and mode." />
-        <DocCard title="candidate" text="The submitted challenger agent from a miner PR." />
-        <DocCard title="primary tasks" text="Public live benchmark tasks randomly sampled for a duel." />
-        <DocCard title="holdout tasks" text="Private hidden tasks used to test generalization and prevent overfitting." />
-      </DocGrid>
       <DocLinks
         links={[
           ["System workflow", links.systemWorkflow],
@@ -743,32 +774,6 @@ function DocBot() {
   );
 }
 
-function DocGitTensor({ links }) {
-  return (
-    <section>
-      <p className="kicker">Reward Adapter</p>
-      <h1>How GitTensor sees Kata</h1>
-      <p>
-        GitTensor scores merged PRs. Kata scores candidate agents. The adapter
-        is trusted labels: kata-bot merges only verified winners and labels them
-        before merge, so GitTensor rewards objective promotion events.
-      </p>
-      <CodeBlock value={`trusted_label_pipeline: true\ndefault_label_multiplier: 0.0\nfixed_base_score: 1.0\nlabel_multipliers:\n  kata:winner:*: 1.0\n  kata:invalid: 0.0\n  kata:losing: 0.0\n  kata:stale: 0.0\n  kata:hold: 0.0`} />
-      <RequirementList
-        title="Operational rules"
-        items={[
-          "Winner PRs receive kata:winner:<repo-pack> and kata:mode:<mode> before merge.",
-          "Losing, invalid, stale, and held PRs are non-reward states.",
-          "Issue discovery should stay disabled for Kata.",
-          "PR size should not affect rewards; fixed_base_score is the reward boundary.",
-          "GitTensor time decay makes newer king promotions score higher than old wins."
-        ]}
-      />
-      <DocLinks links={[["GitTensor integration doc", links.gittensorIntegration]]} />
-    </section>
-  );
-}
-
 function DocMilestones() {
   return (
     <section>
@@ -776,8 +781,7 @@ function DocMilestones() {
       <h1>Milestones</h1>
       <p>
         Kata is being built in layers: first objective repo-specific duels,
-        then robust automation, then broader GitTensor registration and
-        multi-repo expansion.
+        then robust automation, benchmark hardening, and multi-repo expansion.
       </p>
       <MilestoneList
         items={[
@@ -787,7 +791,6 @@ function DocMilestones() {
           ["complete", "Dashboard public deployment", "kata-board supports GitHub Pages static deployment with generated status.json."],
           ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
           ["current", "Benchmark quality upgrade", "Improve task-specific oracles so checks prove semantic correctness, not only formatting validity."],
-          ["next", "GitTensor registration", "Register Kata with trusted labels, fixed base score, zero issue discovery, and winner-label multipliers."],
           ["next", "Multi-repo lanes", "Add more registered repos so each repo-pack can have its own king and benchmark pool."],
           ["next", "Pool rotation", "Reveal retired private tasks publicly and generate fresh hidden holdouts without leaking live validation data."],
           ["later", "Advanced analytics", "Track per-task solve rates, agent regressions, win history, cost, and benchmark coverage over time."]
@@ -821,34 +824,6 @@ function DocPrivacy() {
         title="Important"
         text="Agents receive the visible task text only. Checks receive oracle and path-policy metadata after the agent has produced a patch."
       />
-    </section>
-  );
-}
-
-function DocReferences({ links }) {
-  return (
-    <section>
-      <p className="kicker">Source Docs</p>
-      <h1>Read the source contracts</h1>
-      <p>
-        The dashboard is a guide. The source repos remain the authority for
-        validator behavior, submission rules, and production operations.
-      </p>
-      <DocLinks
-        links={[
-          ["Kata README", links.kataReadme],
-          ["System workflow", links.systemWorkflow],
-          ["Submission workflow", links.submissions],
-          ["Scoring specification", links.scoring],
-          ["Benchmark evaluation", links.benchmarkEvaluation],
-          ["GitHub automation", links.githubAutomation],
-          ["GitTensor integration", links.gittensorIntegration],
-          ["kata-bot deployment", links.botDeployment],
-          ["kata-bot production checklist", links.botChecklist],
-          ["kata-bot config reference", links.botConfig]
-        ]}
-      />
-      <CodeBlock value={`Useful local commands:\n\nuv run kata submission validate --path submissions/<repo-pack>/<mode>/<submission-id>\nuv run kata submission evaluate --path submissions/<repo-pack>/<mode>/<submission-id> --agent-command scripts/run_python_agent_eval.sh\nuv run kata submission verify --path submissions/<repo-pack>/<mode>/<submission-id> --challenge-run runs/<run>/challenge_summary.json\nuv run kata submission decide --path submissions/<repo-pack>/<mode>/<submission-id> --challenge-run runs/<run>/challenge_summary.json`} />
     </section>
   );
 }
@@ -944,7 +919,6 @@ function sourceLinks(kataRepoSlug) {
     scoring: `${kataBase}/docs/SCORING.md`,
     benchmarkEvaluation: `${kataBase}/docs/benchmark-evaluation.md`,
     githubAutomation: `${kataBase}/docs/github-automation.md`,
-    gittensorIntegration: `${kataBase}/docs/gittensor-integration.md`,
     botDeployment: `${botBase}/docs/deployment.md`,
     botChecklist: `${botBase}/docs/production-checklist.md`,
     botConfig: `${botBase}/docs/config-reference.md`

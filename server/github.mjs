@@ -92,16 +92,12 @@ export async function loadGithubLeaderboard({
       currentFrontiers: [...latestLaneWinners.entries()].filter(
         ([, lane]) => lane.author === entry.author
       ).length,
-      score:
-        entry.wins * 100 +
-        entry.currentFrontiers * 30 +
-        entry.openSubmissions * 5
+      score: entry.wins * 100 + entry.openSubmissions * 5
     }))
     .sort((left, right) => {
       return (
         right.score - left.score ||
         right.wins - left.wins ||
-        right.currentFrontiers - left.currentFrontiers ||
         right.totalSubmissions - left.totalSubmissions
       );
     });

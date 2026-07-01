@@ -150,6 +150,52 @@ button {
   transform: translateY(-1px);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.social-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.social-link {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--soft);
+  background:
+    radial-gradient(circle at 30% 18%, rgba(185, 255, 93, 0.1), transparent 42%),
+    rgba(16, 19, 16, 0.72);
+  text-decoration: none;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.social-link:hover {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.48);
+  background:
+    radial-gradient(circle at 30% 18%, rgba(185, 255, 93, 0.2), transparent 48%),
+    rgba(16, 19, 16, 0.9);
+  transform: translateY(-2px);
+}
+
+.social-link svg {
+  width: 17px;
+  height: 17px;
+}
+
 .header-status {
   display: flex;
   align-items: center;
@@ -334,7 +380,6 @@ button {
 .stat:hover,
 .section-block:hover,
 .winner-card:hover,
-.table-row:hover,
 .task-select:hover,
 .doc-card:hover,
 .doc-step:hover {
@@ -1079,6 +1124,11 @@ button {
     justify-self: start;
     overflow-x: auto;
     max-width: 100%;
+  }
+
+  .header-right {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .header-status {

@@ -624,7 +624,7 @@ function loadEventLeaderboard(eventLogPath) {
       currentFrontiers: [...latestLaneWinners.values()].filter(
         (winner) => winner.author === entry.author
       ).length,
-      score: entry.wins * 100 + entry.currentFrontiers * 30 + entry.openSubmissions * 5
+      score: entry.wins * 100 + entry.openSubmissions * 5
     }))
     .sort((left, right) => right.score - left.score);
 

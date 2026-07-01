@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
-const POLL_INTERVAL_MS = 5000;
+const STATUS_SOURCE = import.meta.env.VITE_STATUS_SOURCE || "api";
+const IS_STATIC_STATUS = STATUS_SOURCE === "static";
+const BASE_PATH = normalizeBasePath(import.meta.env.BASE_URL || "/");
+const STATUS_URL =
+  import.meta.env.VITE_STATUS_URL ||
+  (IS_STATIC_STATUS ? `${BASE_PATH}status.json` : "/api/status");
+const POLL_INTERVAL_MS = IS_STATIC_STATUS ? 60000 : 5000;
 const PAGES = [
   { path: "/", label: "Dashboard" },
   { path: "/arena", label: "Arena" },
@@ -10,7 +16,7 @@ const PAGES = [
 ];
 
 export default function App() {
-  const [pathname, setPathname] = useState(window.location.pathname);
+  const [pathname, setPathname] = useState(readCurrentRoute);
   const [selectedLaneId, setSelectedLaneId] = useState(null);
   const [state, setState] = useState({
     loading: true,
@@ -19,9 +25,13 @@ export default function App() {
   });
 
   useEffect(() => {
-    const onPopState = () => setPathname(window.location.pathname);
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    const onLocationChange = () => setPathname(readCurrentRoute());
+    window.addEventListener("popstate", onLocationChange);
+    window.addEventListener("hashchange", onLocationChange);
+    return () => {
+      window.removeEventListener("popstate", onLocationChange);
+      window.removeEventListener("hashchange", onLocationChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -29,7 +39,7 @@ export default function App() {
 
     async function fetchStatus() {
       try {
-        const response = await fetch("/api/status");
+        const response = await fetch(statusUrl());
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.message || "failed to load board status");
@@ -85,7 +95,7 @@ export default function App() {
     if (nextPath === pathname) {
       return;
     }
-    window.history.pushState({}, "", nextPath);
+    window.history.pushState({}, "", routeUrl(nextPath));
     setPathname(nextPath);
   }
 
@@ -660,6 +670,54 @@ function CodeBlock({ value }) {
 
 function Empty({ text }) {
   return <div className="empty">{text}</div>;
+}
+
+function statusUrl() {
+  if (!IS_STATIC_STATUS) {
+    return STATUS_URL;
+  }
+  const separator = STATUS_URL.includes("?") ? "&" : "?";
+  return `${STATUS_URL}${separator}t=${Date.now()}`;
+}
+
+function readCurrentRoute() {
+  if (IS_STATIC_STATUS && window.location.hash.startsWith("#/")) {
+    return normalizeRoute(window.location.hash.slice(1));
+  }
+  return normalizeRoute(stripBasePath(window.location.pathname));
+}
+
+function routeUrl(routePath) {
+  const normalized = normalizeRoute(routePath);
+  if (!IS_STATIC_STATUS) {
+    return normalized;
+  }
+  if (normalized === "/") {
+    return BASE_PATH;
+  }
+  return `${BASE_PATH}#${normalized}`;
+}
+
+function normalizeBasePath(value) {
+  if (!value || value === ".") {
+    return "/";
+  }
+  const withLeading = value.startsWith("/") ? value : `/${value}`;
+  return withLeading.endsWith("/") ? withLeading : `${withLeading}/`;
+}
+
+function stripBasePath(pathname) {
+  if (BASE_PATH === "/" || !pathname.startsWith(BASE_PATH)) {
+    return pathname;
+  }
+  return pathname.slice(BASE_PATH.length - 1) || "/";
+}
+
+function normalizeRoute(value) {
+  const path = value || "/";
+  const withoutQuery = path.split("?")[0].split("#")[0] || "/";
+  const withLeading = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  return withLeading === "" ? "/" : withLeading;
 }
 
 function duelFormat(lane) {

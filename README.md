@@ -159,6 +159,58 @@ Current server endpoints:
 - leaderboard rows
 - data-source flags
 
+## GitHub Pages Deployment
+
+`kata-board` can deploy like the SparkInfer dashboard:
+
+```text
+https://autovara.github.io/kata-board/
+```
+
+The Pages build is static. It does not run the Express API. Instead, GitHub
+Actions exports the current board payload to `status.json`, builds the Vite app,
+and deploys `dist/` to GitHub Pages.
+
+Enable Pages:
+
+1. Open GitHub repo settings for `Autovara/kata-board`.
+2. Go to `Settings -> Pages`.
+3. Set source to `GitHub Actions`.
+4. Run `Deploy GitHub Pages` from the Actions tab, or push to `main`.
+
+Recommended repository variables:
+
+- `KATA_REPO_SLUG=Autovara/kata`
+- `KATA_BENCHMARKS_REPO_SLUG=Autovara/kata-benchmarks`
+- `KATA_PRIVATE_BENCHMARKS_REPO_SLUG=Autovara/kata-benchmarks-private`
+- `KATA_REPO_SLUG_FOR_LINKS=Autovara/kata`
+
+If the private benchmark repo is private, add this repository secret:
+
+- `KATA_PRIVATE_REPO_TOKEN`
+
+The token only needs read access to `kata-benchmarks-private`. If it is missing,
+the public board still deploys, but hidden holdout counts may be incomplete.
+
+The workflow runs:
+
+```bash
+npm run export:status
+VITE_STATUS_SOURCE=static VITE_BASE_PATH=/kata-board/ npm run build
+```
+
+Static mode reads:
+
+```text
+/kata-board/status.json
+```
+
+Local development still uses the live API:
+
+```text
+/api/status
+```
+
 ## Current Kata Workflow
 
 The board mirrors the current PR-only Kata workflow:

@@ -7,6 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:api": "node server/index.mjs",
     "dev:web": "vite",
+    "export:status": "node scripts/export-status.mjs public/status.json",
     "build": "vite build",
     "start": "node server/index.mjs"
   },

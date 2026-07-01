@@ -308,12 +308,14 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
   const candidateName =
+    activeEvaluation?.candidateGithubLogin ||
     activeEvaluation?.candidateAuthor ||
     activeEvaluation?.candidateSubmissionId ||
     latest?.candidateAuthor ||
     latest?.candidateSubmissionId ||
     "waiting";
   const candidateAvatarName =
+    activeEvaluation?.candidateGithubLogin ||
     activeEvaluation?.candidateAuthor ||
     latest?.candidateAuthor ||
     inferSubmissionAuthorFromId(
@@ -422,6 +424,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
             label="candidate"
             name={candidateName}
             avatarName={candidateAvatarName}
+            avatarUrl={activeEvaluation?.candidateAvatarUrl}
             sub={
               activeEvaluation?.candidateSubmissionId ||
               latest?.candidateSubmissionId ||
@@ -433,6 +436,13 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           />
         </section>
       ) : null}
+
+      <section className="arena-meta-grid">
+        <KeyValue label="phase" value={activeEvaluation ? activeEvaluationStatus(activeEvaluation) : latest ? duelStatus(latest, selectedLane) : "idle"} />
+        <KeyValue label="candidate" value={candidateName} />
+        <KeyValue label="pull" value={activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-"} />
+        <KeyValue label="updated" value={formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt)} />
+      </section>
 
       <section className="arena-visual-grid">
         <ArenaProgressCard
@@ -459,29 +469,6 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           candidate={candidateHoldout}
           delta={latest?.holdout?.candidateDelta}
         />
-      </section>
-
-      <section className="split">
-        <div className="section-block">
-          <SectionTitle title="Duel snapshot" />
-          <KeyValue label="phase" value={activeEvaluation ? activeEvaluationStatus(activeEvaluation) : latest ? duelStatus(latest, selectedLane) : "idle"} />
-          <KeyValue label="candidate" value={candidateName} />
-          <KeyValue label="pull" value={activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-"} />
-          <KeyValue label="latest run" value={latest ? shortRunId(latest.runId) : "-"} />
-          <KeyValue label="updated" value={formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt)} />
-        </div>
-        <div className="section-block">
-          <SectionTitle title="Live task status" />
-          {activeEvaluation?.primary?.taskStatuses?.length ? (
-            <div className="compact-list">
-              {activeEvaluation.primary.taskStatuses.map((task) => (
-                <TaskRuntimeRow key={task.taskId} task={task} />
-              ))}
-            </div>
-          ) : (
-            <Empty text="Task-level progress appears here during an active primary run." />
-          )}
-        </div>
       </section>
 
       {selectedLane ? (
@@ -1098,10 +1085,10 @@ function ProcessItem({ step, title, text }) {
   );
 }
 
-function BattleSide({ label, name, avatarName, sub, primaryScore, holdoutScore, totalScore }) {
+function BattleSide({ label, name, avatarName, avatarUrl, sub, primaryScore, holdoutScore, totalScore }) {
   return (
-    <div className="battle-side">
-      <Avatar name={name} avatarName={avatarName} />
+    <div className={`battle-side battle-side-${label}`}>
+      <Avatar name={name} avatarName={avatarName} avatarUrl={avatarUrl} />
       <span>{label}</span>
       <h2>{name}</h2>
       <p>{sub}</p>
@@ -1168,8 +1155,8 @@ function ProgressBar({ value }) {
   );
 }
 
-function Avatar({ name, avatarName }) {
-  const src = avatarUrl(avatarName || name);
+function Avatar({ name, avatarName, avatarUrl: explicitAvatarUrl }) {
+  const src = explicitAvatarUrl || avatarUrl(avatarName || name);
   if (src) {
     return <img className="avatar" src={src} alt={name ? `${name} avatar` : ""} />;
   }

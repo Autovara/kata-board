@@ -521,12 +521,64 @@ async function loadValidatorStatus(env, roots) {
     roots.workRoot,
     queue.activeJob
   );
+  const activePullAuthor = await loadActivePullAuthor(env, queue.activeJob);
   return {
     mode: "resident",
     queue,
     health,
-    activeEvaluation
+    activeEvaluation: enrichActiveEvaluationWithPullAuthor(
+      activeEvaluation,
+      activePullAuthor
+    )
   };
+}
+
+async function loadActivePullAuthor(env, activeJob) {
+  if (!activeJob?.pullNumber || !activeJob?.kataRepo) {
+    return null;
+  }
+  try {
+    const pull = await githubApiRequest(
+      `/repos/${activeJob.kataRepo}/pulls/${activeJob.pullNumber}`,
+      env.KATA_GITHUB_TOKEN
+    );
+    const user = pull?.user || {};
+    return {
+      login: typeof user.login === "string" ? user.login : null,
+      avatarUrl: typeof user.avatar_url === "string" ? user.avatar_url : null,
+      htmlUrl: typeof user.html_url === "string" ? user.html_url : null
+    };
+  } catch {
+    return null;
+  }
+}
+
+function enrichActiveEvaluationWithPullAuthor(activeEvaluation, pullAuthor) {
+  if (!activeEvaluation || !pullAuthor?.login) {
+    return activeEvaluation;
+  }
+  return {
+    ...activeEvaluation,
+    candidateGithubLogin: pullAuthor.login,
+    candidateAvatarUrl: pullAuthor.avatarUrl,
+    candidateGithubUrl: pullAuthor.htmlUrl,
+    candidateAuthor: pullAuthor.login
+  };
+}
+
+async function githubApiRequest(requestPath, githubToken) {
+  const headers = {
+    "User-Agent": "kata-board",
+    Accept: "application/vnd.github+json"
+  };
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`;
+  }
+  const response = await fetch(`https://api.github.com${requestPath}`, { headers });
+  if (!response.ok) {
+    throw new Error(`GitHub API request failed: ${response.status}`);
+  }
+  return response.json();
 }
 
 function loadQueueStatus(queueStatePath, healthQueuePayload = null) {
@@ -667,7 +719,11 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     repoPack: payload.repo_pack || null,
     mode: payload.mode || null,
     candidateSubmissionId: payload.candidate_submission_id || null,
+    candidateGithubLogin: payload.candidate_github_login || null,
+    candidateAvatarUrl: payload.candidate_avatar_url || null,
+    candidateGithubUrl: payload.candidate_github_url || null,
     candidateAuthor:
+      payload.candidate_github_login ||
       payload.candidate_author ||
       inferSubmissionAuthorFromId(payload.candidate_submission_id),
     pullNumber: payload.job.pull_number || activeJob.pullNumber || null,

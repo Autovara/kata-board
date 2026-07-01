@@ -313,6 +313,12 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
     latest?.candidateAuthor ||
     latest?.candidateSubmissionId ||
     "waiting";
+  const candidateAvatarName =
+    activeEvaluation?.candidateAuthor ||
+    latest?.candidateAuthor ||
+    inferSubmissionAuthorFromId(
+      activeEvaluation?.candidateSubmissionId || latest?.candidateSubmissionId
+    );
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const publicTasks = selectedLane?.publicPool?.tasks || [];
   const publicTaskById = new Map(publicTasks.map((task) => [task.taskId, task]));
@@ -415,6 +421,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           <BattleSide
             label="candidate"
             name={candidateName}
+            avatarName={candidateAvatarName}
             sub={
               activeEvaluation?.candidateSubmissionId ||
               latest?.candidateSubmissionId ||
@@ -1091,10 +1098,10 @@ function ProcessItem({ step, title, text }) {
   );
 }
 
-function BattleSide({ label, name, sub, primaryScore, holdoutScore, totalScore }) {
+function BattleSide({ label, name, avatarName, sub, primaryScore, holdoutScore, totalScore }) {
   return (
     <div className="battle-side">
-      <Avatar name={name} />
+      <Avatar name={name} avatarName={avatarName} />
       <span>{label}</span>
       <h2>{name}</h2>
       <p>{sub}</p>
@@ -1161,10 +1168,10 @@ function ProgressBar({ value }) {
   );
 }
 
-function Avatar({ name }) {
-  const src = avatarUrl(name);
+function Avatar({ name, avatarName }) {
+  const src = avatarUrl(avatarName || name);
   if (src) {
-    return <img className="avatar" src={src} alt="" />;
+    return <img className="avatar" src={src} alt={name ? `${name} avatar` : ""} />;
   }
   return <div className="avatar avatar-fallback">{initials(name || "?")}</div>;
 }
@@ -1375,6 +1382,24 @@ function avatarUrl(name) {
     return null;
   }
   return `https://github.com/${name}.png?size=160`;
+}
+
+function inferSubmissionAuthorFromId(submissionId) {
+  if (!submissionId) {
+    return null;
+  }
+  if (submissionId.startsWith("kata-init")) {
+    return "Kata Seed";
+  }
+  const parts = submissionId.split("-");
+  if (parts.length >= 3) {
+    const sequence = parts[parts.length - 1];
+    const date = parts[parts.length - 2];
+    if (/^\d+$/.test(sequence) && /^\d+$/.test(date)) {
+      return parts.slice(0, -2).join("-");
+    }
+  }
+  return submissionId;
 }
 
 function initials(value) {

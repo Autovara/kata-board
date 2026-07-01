@@ -14,7 +14,10 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Do not cancel an in-flight Pages deployment. GitHub can keep the Pages
+  # deployment marked in progress after the workflow run is cancelled, which
+  # makes the next deploy-pages request fail with "in progress deployment".
+  cancel-in-progress: false
 
 jobs:
   build:

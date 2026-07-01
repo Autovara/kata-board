@@ -650,7 +650,7 @@ function findLatestActiveWorkspace(workRoot) {
 }
 
 function inferLaneFromWorkspace(workspaceRoot) {
-  const changedPaths = readText(path.join(workspaceRoot, "changed-paths.txt"))
+  const changedPaths = readTextSafe(path.join(workspaceRoot, "changed-paths.txt"))
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
@@ -1038,11 +1038,15 @@ function listDirectories(rootPath) {
   if (!fs.existsSync(rootPath)) {
     return [];
   }
-  return fs
-    .readdirSync(rootPath, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .filter((name) => !name.startsWith("."));
+  try {
+    return fs
+      .readdirSync(rootPath, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((name) => !name.startsWith("."));
+  } catch {
+    return [];
+  }
 }
 
 function collectFiles(rootPath, fileName) {
@@ -1059,7 +1063,12 @@ function collectFiles(rootPath, fileName) {
 }
 
 function walk(rootPath, visitor) {
-  const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+  let entries = [];
+  try {
+    entries = fs.readdirSync(rootPath, { withFileTypes: true });
+  } catch {
+    return;
+  }
   for (const entry of entries) {
     if (entry.name.startsWith(".")) {
       continue;
@@ -1093,6 +1102,14 @@ function readText(filePath) {
     return "";
   }
   return fs.readFileSync(filePath, "utf-8");
+}
+
+function readTextSafe(filePath) {
+  try {
+    return readText(filePath);
+  } catch {
+    return "";
+  }
 }
 
 function extractTaskDescription(taskText) {

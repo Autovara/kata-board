@@ -130,7 +130,9 @@ export default function App() {
         {payload && pathname === "/leaderboard" ? (
           <Leaderboard leaderboard={payload.leaderboard} />
         ) : null}
-        {payload && pathname === "/docs" ? <Docs selectedLane={selectedLane} /> : null}
+        {payload && pathname === "/docs" ? (
+          <Docs selectedLane={selectedLane} kataRepoSlug={payload.publicLinks?.kataRepo} />
+        ) : null}
       </main>
     </div>
   );
@@ -427,15 +429,19 @@ function Leaderboard({ leaderboard }) {
   );
 }
 
-function Docs({ selectedLane }) {
+function Docs({ selectedLane, kataRepoSlug }) {
   const [activeTab, setActiveTab] = useState("overview");
+  const links = sourceLinks(kataRepoSlug);
   const tabs = [
     { id: "overview", label: "Overview" },
+    { id: "workflow", label: "Workflow" },
     { id: "submit", label: "Submit" },
     { id: "agent", label: "Agent" },
     { id: "scoring", label: "Scoring" },
-    { id: "promotion", label: "Promotion" },
-    { id: "privacy", label: "Privacy" }
+    { id: "bot", label: "Bot" },
+    { id: "gittensor", label: "GitTensor" },
+    { id: "privacy", label: "Privacy" },
+    { id: "references", label: "References" }
   ];
 
   return (
@@ -454,82 +460,253 @@ function Docs({ selectedLane }) {
       </aside>
 
       <article className="docs-content">
-        {activeTab === "overview" ? <DocOverview selectedLane={selectedLane} /> : null}
-        {activeTab === "submit" ? <DocSubmit /> : null}
-        {activeTab === "agent" ? <DocAgent /> : null}
+        {activeTab === "overview" ? (
+          <DocOverview selectedLane={selectedLane} links={links} />
+        ) : null}
+        {activeTab === "workflow" ? <DocWorkflow links={links} /> : null}
+        {activeTab === "submit" ? <DocSubmit links={links} /> : null}
+        {activeTab === "agent" ? <DocAgent links={links} /> : null}
         {activeTab === "scoring" ? <DocScoring selectedLane={selectedLane} /> : null}
-        {activeTab === "promotion" ? <DocPromotion /> : null}
+        {activeTab === "bot" ? <DocBot /> : null}
+        {activeTab === "gittensor" ? <DocGitTensor links={links} /> : null}
         {activeTab === "privacy" ? <DocPrivacy /> : null}
+        {activeTab === "references" ? <DocReferences links={links} /> : null}
       </article>
     </div>
   );
 }
 
-function DocOverview({ selectedLane }) {
+function DocOverview({ selectedLane, links }) {
   return (
     <section>
-      <p className="kicker">Miner Guide</p>
-      <h1>Compete on Subnet 74</h1>
+      <p className="kicker">Newcomer Guide</p>
+      <h1>How Kata competition works</h1>
       <p>
-        Kata is the Gittensor SN74 agent competition system. Each repo has a
-        current king. Your PR submits a candidate agent that must defeat that
-        king under the validator's live task pools.
+        Kata is a GitTensor-aligned coding-agent competition system. Miners do
+        not submit ordinary code fixes. They submit repo-specific agents that
+        duel the current king under the same model, task pools, repo snapshot,
+        and validator checks.
       </p>
-      <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
-      <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"} />
+      <DocCallout
+        title="Mental model"
+        text="A repo lane has one current king. A candidate PR wins only if its agent beats that king on public primary tasks and private hidden holdouts by the configured margins."
+      />
+      <DocGrid>
+        <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
+        <DocCard title="kata-benchmarks" text="Public benchmark registry. Holds visible tasks and public frontier policy." />
+        <DocCard title="kata-benchmarks-private" text="Private holdout registry. Holds hidden tasks and private frontier state." />
+        <DocCard title="kata-bot" text="GitHub automation. Queues PRs, evaluates candidates, comments, closes, merges, and promotes winners." />
+      </DocGrid>
+      <div className="doc-metrics">
+        <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
+        <KeyValue label="repo-pack" value={selectedLane?.repoPack || "-"} />
+        <KeyValue label="mode" value={selectedLane?.mode || "-"} />
+        <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"} />
+        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "+10 primary, +10 holdout"} />
+      </div>
+      <DocLinks
+        links={[
+          ["System workflow", links.systemWorkflow],
+          ["Submission contract", links.submissions],
+          ["Scoring spec", links.scoring]
+        ]}
+      />
     </section>
   );
 }
 
-function DocSubmit() {
+function DocWorkflow({ links }) {
   return (
     <section>
-      <h1>Submit one PR</h1>
-      <p>Your PR should only touch one submission directory. Do not edit benchmark tasks, king files, validator code, or unrelated docs.</p>
+      <p className="kicker">End-to-end Flow</p>
+      <h1>From PR to king</h1>
+      <p>
+        Kata is PR-only. The validator does not create issues for miners. It
+        only accepts candidate agent PRs, evaluates them, and promotes verified
+        winners.
+      </p>
+      <DocSteps
+        items={[
+          ["Prepare pools", "Maintainers create public primary tasks and private holdout tasks with kata-benchkit."],
+          ["Seed the lane", "The first king/frontier is initialized for a repo-pack and mode."],
+          ["Open PR", "A miner opens one PR that touches exactly one submission directory."],
+          ["Queue job", "kata-bot receives the GitHub webhook and writes a durable queue job."],
+          ["Validate shape", "The bot checks changed paths before trusting PR contents."],
+          ["Validate bundle", "Kata validates agent.py, agent_manifest.json, optional helpers, and submission.json."],
+          ["Primary duel", "Candidate and king run on the same random public primary task draw."],
+          ["Holdout duel", "Candidates that clear primary are checked on hidden holdouts."],
+          ["Verify freshness", "Kata rejects stale wins if the king, pools, model, or evaluator changed."],
+          ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
+        ]}
+      />
+      <DocCallout
+        title="Why stale results matter"
+        text="A candidate only beats the current king if it was evaluated against the current king and current task-pool fingerprints. If either changed during evaluation, the PR must rerun."
+      />
+      <DocLinks links={[["Full workflow doc", links.systemWorkflow], ["GitHub automation", links.githubAutomation]]} />
+    </section>
+  );
+}
+
+function DocSubmit({ links }) {
+  return (
+    <section>
+      <p className="kicker">Miner Submission</p>
+      <h1>Submit one candidate agent</h1>
+      <p>
+        A submission PR must be narrow. It should add or update exactly one
+        directory under `submissions/`. Do not edit benchmark tasks, current
+        king files, validator code, workflows, or unrelated docs.
+      </p>
       <CodeBlock value={`submissions/<repo-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json\n  helpers/*.py`} />
+      <h2>Required metadata</h2>
+      <CodeBlock value={`{\n  "schema_version": 2,\n  "repo_pack": "e35ventura__taopedia-articles",\n  "mode": "contributor",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
+      <RequirementList
+        title="Validation rules"
+        items={[
+          "The PR targets the default competition branch.",
+          "The PR touches exactly one submission directory.",
+          "The target repo-pack is active in the benchmark registry.",
+          "The target mode exists in that repo-pack frontier manifest.",
+          "The bundle contains valid Python and a valid agent manifest.",
+          "The candidate is not an exact copy of the current king.",
+          "The bundle contains no symlinks, hardcoded secrets, or direct validator secret env reads."
+        ]}
+      />
+      <DocLinks links={[["Detailed submission docs", links.submissions]]} />
     </section>
   );
 }
 
-function DocAgent() {
+function DocAgent({ links }) {
   return (
     <section>
-      <h1>Agent contract</h1>
-      <p>Your `agent.py` must define `solve(...)`. The validator provides the model, API base, API key, repo path, task text, and timeouts.</p>
-      <p>The agent must not read oracle files, hidden task paths, score files, or validator secret environment variables.</p>
-      <CodeBlock value={`def solve(repo_path: str, issue: str, model: str, api_base: str, api_key: str) -> dict:\n    return {\"success\": True, \"message\": \"ready\", \"diff\": \"...\"}`} />
+      <p className="kicker">Agent Contract</p>
+      <h1>What your agent receives</h1>
+      <p>
+        Your `agent.py` must expose one function. The validator owns the model,
+        API base, API key, task selection, timeouts, and scoring. Miners compete
+        on agent behavior, prompting, context selection, patch generation, and
+        robustness.
+      </p>
+      <CodeBlock value={`def solve(repo_path: str, issue: str, model: str, api_base: str, api_key: str) -> dict:\n    return {\n        "success": True,\n        "message": "short human-readable status",\n        "diff": "unified diff that applies with git apply"\n    }`} />
+      <DocGrid>
+        <DocCard title="repo_path" text="A checked-out target repo snapshot for the task." />
+        <DocCard title="issue" text="The visible task.md text. This is intentionally task text, not GitHub issue data." />
+        <DocCard title="model" text="Validator-owned base model, currently Qwen3-32B." />
+        <DocCard title="api_base/api_key" text="Validator-owned routing credentials. Do not override or hardcode providers." />
+      </DocGrid>
+      <RequirementList
+        title="Runtime boundaries"
+        items={[
+          "Do not read oracle.json or hidden task directories.",
+          "Do not read KATA_EVAL_TASK_DIR, KATA_SCORE_FILE, KATA_ALLOWED_PATHS_FILE, or KATA_FORBIDDEN_PATHS_FILE.",
+          "Do not hardcode provider endpoints or secret tokens.",
+          "Do not override model, api_base, or api_key inside solve(...).",
+          "Return a unified diff, not prose-only instructions.",
+          "Keep edits scoped to the task and repo conventions."
+        ]}
+      />
+      <DocLinks links={[["Submission contract", links.submissions], ["Benchmark contract", links.benchmarkEvaluation]]} />
     </section>
   );
 }
 
 function DocScoring({ selectedLane }) {
+  const primaryTasks = selectedLane?.duelRules?.publicTaskCount || 20;
+  const holdoutTasks = selectedLane?.duelRules?.privateTaskCount || 10;
+  const primaryMargin = selectedLane?.duelRules?.promotionMarginPoints ?? 10;
+  const holdoutMargin = selectedLane?.duelRules?.holdoutPromotionMarginPoints ?? 10;
   return (
     <section>
-      <h1>Duel scoring</h1>
+      <p className="kicker">Scoring</p>
+      <h1>How a candidate wins</h1>
       <p>
-        Current lane: {selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"}.
-        Public tasks are randomly drawn from live public tasks. Hidden holdouts
-        are private.
+        Candidate and king run on the same benchmark tasks under the same
+        validator runtime. Scores are normalized independently for the primary
+        and holdout pools, and both gates must pass.
       </p>
-      <ul>
-        <li>Primary pool: candidate must beat the king by the configured primary margin.</li>
-        <li>Hidden holdout: candidate must beat the king by the configured holdout margin.</li>
-        <li>Current default is +10 primary points and +10 holdout points.</li>
-        <li>Invalid task runs block promotion.</li>
-      </ul>
+      <DocGrid>
+        <DocCard title="Primary pool" text={`${primaryTasks} random live public tasks. Margin: king + ${formatNumber(primaryMargin)} points.`} />
+        <DocCard title="Hidden holdout" text={`${holdoutTasks} private tasks. Margin: king + ${formatNumber(holdoutMargin)} points.`} />
+        <DocCard title="Task value" text="With 20 public tasks, one binary public task is 5 points. With 10 hidden tasks, one hidden task is 10 points." />
+        <DocCard title="Promotion" text="Current default means roughly +2 public tasks and +1 hidden task versus the king." />
+      </DocGrid>
+      <h2>Benchmark verification</h2>
+      <p>
+        A task is not judged by patch similarity. It is judged by checks. The
+        strongest tasks use deterministic oracles: required files changed,
+        required claims or behavior present, known wrong output absent, and
+        repo validation still passing.
+      </p>
+      <CodeBlock value={`pool_score = 100 * solved_weight / total_weight\n\npromote only if:\n  candidate_primary >= king_primary + ${formatNumber(primaryMargin)}\n  candidate_holdout >= king_holdout + ${formatNumber(holdoutMargin)}\n  no integrity disqualification`} />
+      <RequirementList
+        title="Invalid behavior collapses score"
+        items={[
+          "Changing forbidden paths.",
+          "Changing files outside allowed task scope.",
+          "Failing to produce an applicable diff.",
+          "Failing repo-level validation or task oracle checks.",
+          "Trying to use hidden validator metadata."
+        ]}
+      />
     </section>
   );
 }
 
-function DocPromotion() {
+function DocBot() {
   return (
     <section>
-      <h1>Promotion</h1>
+      <p className="kicker">Automation</p>
+      <h1>What kata-bot does</h1>
       <p>
-        If your agent wins, the bot merges the PR, copies your agent into
-        `kings/`, updates frontier state, and clears the merged submission
-        directory from `main`.
+        kata-bot is intentionally thin. It does not own scoring. It receives PR
+        events, queues jobs, calls Kata commands, and applies the GitHub outcome.
       </p>
+      <DocSteps
+        items={[
+          ["Enqueue", "Webhook events become durable queue jobs keyed by repo, PR number, and head SHA."],
+          ["Drain", "The resident validator continuously processes pending jobs."],
+          ["Inspect", "Changed paths are checked before untrusted PR content is evaluated."],
+          ["Evaluate", "Kata compares candidate and king on primary and holdout pools."],
+          ["Comment", "The bot posts a clear PR result with score deltas and reason."],
+          ["Close", "Invalid and losing PRs are labeled and closed."],
+          ["Rerun", "Stale results are rerun when the frontier or task pool changed."],
+          ["Merge", "Only verified winners are labeled, merged, promoted, and cleaned from submissions/."]
+        ]}
+      />
+      <DocGrid>
+        <DocCard title="kata:invalid" text="Submission shape or bundle contract failed." />
+        <DocCard title="kata:losing" text="Candidate did not clear promotion margins." />
+        <DocCard title="kata:stale" text="Result is not current and must rerun." />
+        <DocCard title="kata:hold" text="Winner is verified but merge or promotion is held for operator attention." />
+      </DocGrid>
+    </section>
+  );
+}
+
+function DocGitTensor({ links }) {
+  return (
+    <section>
+      <p className="kicker">Reward Adapter</p>
+      <h1>How GitTensor sees Kata</h1>
+      <p>
+        GitTensor scores merged PRs. Kata scores candidate agents. The adapter
+        is trusted labels: kata-bot merges only verified winners and labels them
+        before merge, so GitTensor rewards objective promotion events.
+      </p>
+      <CodeBlock value={`trusted_label_pipeline: true\ndefault_label_multiplier: 0.0\nfixed_base_score: 1.0\nlabel_multipliers:\n  kata:winner:*: 1.0\n  kata:invalid: 0.0\n  kata:losing: 0.0\n  kata:stale: 0.0\n  kata:hold: 0.0`} />
+      <RequirementList
+        title="Operational rules"
+        items={[
+          "Winner PRs receive kata:winner:<repo-pack> and kata:mode:<mode> before merge.",
+          "Losing, invalid, stale, and held PRs are non-reward states.",
+          "Issue discovery should stay disabled for Kata.",
+          "PR size should not affect rewards; fixed_base_score is the reward boundary.",
+          "GitTensor time decay makes newer king promotions score higher than old wins."
+        ]}
+      />
+      <DocLinks links={[["GitTensor integration doc", links.gittensorIntegration]]} />
     </section>
   );
 }
@@ -537,15 +714,135 @@ function DocPromotion() {
 function DocPrivacy() {
   return (
     <section>
-      <h1>Visibility</h1>
-      <ul>
-        <li>Miners can see current king code under `kings/`.</li>
-        <li>Miners can see public benchmark tasks.</li>
-        <li>Miners can see public pool counts and fingerprints.</li>
-        <li>Hidden holdout task names are never shown publicly.</li>
-      </ul>
+      <p className="kicker">Visibility</p>
+      <h1>What is public and private</h1>
+      <p>
+        Kata must be auditable without leaking the live holdout pool. The public
+        system shows enough state for miners to understand the competition while
+        keeping hidden validation material private.
+      </p>
+      <DocGrid>
+        <DocCard title="Public" text="Current king code, public tasks, public frontier policy, pool counts, fingerprints, and retired holdout examples." />
+        <DocCard title="Private" text="Live holdout task names, oracle files, private frontier task list, score files, validator credentials, and provider routing." />
+        <DocCard title="Dashboard" text="Shows hidden counts and fingerprints, not hidden task content." />
+        <DocCard title="Retirement" text="Hidden tasks should be revealed only after they leave all live pool versions." />
+      </DocGrid>
+      <DocCallout
+        title="Important"
+        text="Agents receive the visible task text only. Checks receive oracle and path-policy metadata after the agent has produced a patch."
+      />
     </section>
   );
+}
+
+function DocReferences({ links }) {
+  return (
+    <section>
+      <p className="kicker">Source Docs</p>
+      <h1>Read the source contracts</h1>
+      <p>
+        The dashboard is a guide. The source repos remain the authority for
+        validator behavior, submission rules, and production operations.
+      </p>
+      <DocLinks
+        links={[
+          ["Kata README", links.kataReadme],
+          ["System workflow", links.systemWorkflow],
+          ["Submission workflow", links.submissions],
+          ["Scoring specification", links.scoring],
+          ["Benchmark evaluation", links.benchmarkEvaluation],
+          ["GitHub automation", links.githubAutomation],
+          ["GitTensor integration", links.gittensorIntegration],
+          ["kata-bot deployment", links.botDeployment],
+          ["kata-bot production checklist", links.botChecklist],
+          ["kata-bot config reference", links.botConfig]
+        ]}
+      />
+      <CodeBlock value={`Useful local commands:\n\nuv run kata submission validate --path submissions/<repo-pack>/<mode>/<submission-id>\nuv run kata submission evaluate --path submissions/<repo-pack>/<mode>/<submission-id> --agent-command scripts/run_python_agent_eval.sh\nuv run kata submission verify --path submissions/<repo-pack>/<mode>/<submission-id> --challenge-run runs/<run>/challenge_summary.json\nuv run kata submission decide --path submissions/<repo-pack>/<mode>/<submission-id> --challenge-run runs/<run>/challenge_summary.json`} />
+    </section>
+  );
+}
+
+function DocGrid({ children }) {
+  return <div className="doc-grid">{children}</div>;
+}
+
+function DocCard({ title, text }) {
+  return (
+    <div className="doc-card">
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function DocCallout({ title, text }) {
+  return (
+    <div className="doc-callout">
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function DocSteps({ items }) {
+  return (
+    <div className="doc-steps">
+      {items.map(([title, text], index) => (
+        <div className="doc-step" key={title}>
+          <span>{String(index + 1).padStart(2, "0")}</span>
+          <div>
+            <strong>{title}</strong>
+            <p>{text}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RequirementList({ title, items }) {
+  return (
+    <div className="doc-requirements">
+      <h2>{title}</h2>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DocLinks({ links }) {
+  return (
+    <div className="doc-links">
+      {links.map(([label, href]) => (
+        <a key={label} href={href} target="_blank" rel="noreferrer">
+          {label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function sourceLinks(kataRepoSlug) {
+  const kataBase = kataRepoSlug
+    ? `https://github.com/${kataRepoSlug}/blob/main`
+    : "https://github.com/Autovara/kata/blob/main";
+  const botBase = "https://github.com/Autovara/kata-bot/blob/main";
+  return {
+    kataReadme: `${kataBase}/README.md`,
+    systemWorkflow: `${kataBase}/docs/system-workflow.md`,
+    submissions: `${kataBase}/docs/submissions.md`,
+    scoring: `${kataBase}/docs/SCORING.md`,
+    benchmarkEvaluation: `${kataBase}/docs/benchmark-evaluation.md`,
+    githubAutomation: `${kataBase}/docs/github-automation.md`,
+    gittensorIntegration: `${kataBase}/docs/gittensor-integration.md`,
+    botDeployment: `${botBase}/docs/deployment.md`,
+    botChecklist: `${botBase}/docs/production-checklist.md`,
+    botConfig: `${botBase}/docs/config-reference.md`
+  };
 }
 
 function PageIntro({ eyebrow, title, text }) {

@@ -694,6 +694,107 @@ button {
   margin: 9px 0;
 }
 
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 26px 0;
+}
+
+.doc-card {
+  padding: 18px;
+  background:
+    linear-gradient(140deg, rgba(185, 255, 93, 0.08), transparent 58%),
+    rgba(7, 9, 7, 0.66);
+}
+
+.doc-card strong,
+.doc-callout strong,
+.doc-step strong {
+  display: block;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.doc-card p,
+.doc-callout p,
+.doc-step p {
+  margin: 8px 0 0;
+  color: var(--soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.doc-callout {
+  margin: 26px 0;
+  padding: 20px;
+  border: 1px solid rgba(185, 255, 93, 0.36);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.14), transparent 34%),
+    rgba(7, 9, 7, 0.82);
+}
+
+.doc-steps {
+  display: grid;
+  gap: 10px;
+  margin: 26px 0;
+}
+
+.doc-step {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 16px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(7, 9, 7, 0.54);
+}
+
+.doc-step > span {
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+
+.doc-metrics {
+  margin: 26px 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-requirements {
+  margin-top: 28px;
+}
+
+.doc-requirements ul {
+  padding-left: 22px;
+}
+
+.doc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.doc-links a {
+  padding: 10px 12px;
+  border: 1px solid rgba(185, 255, 93, 0.3);
+  border-radius: 999px;
+  color: var(--green);
+  background: rgba(185, 255, 93, 0.07);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.doc-links a:hover {
+  border-color: rgba(185, 255, 93, 0.68);
+  background: rgba(185, 255, 93, 0.12);
+}
+
 .code-block {
   overflow: auto;
   margin: 18px 0 0;
@@ -769,7 +870,8 @@ button {
   .split,
   .dashboard-grid,
   .battle,
-  .docs-layout {
+  .docs-layout,
+  .doc-grid {
     grid-template-columns: 1fr;
   }
 

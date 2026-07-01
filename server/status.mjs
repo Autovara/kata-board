@@ -640,8 +640,8 @@ function buildOverview(lanes, activity, leaderboard, validator) {
     (accumulator, lane) => {
       accumulator.publicLiveTasks += lane.publicPool.liveTasks;
       accumulator.privateLiveTasks += lane.privatePool.liveTasks;
-      accumulator.publicTargetTasks += lane.publicPool.targetTaskCount;
-      accumulator.privateTargetTasks += lane.privatePool.targetTaskCount;
+      accumulator.publicTargetTasks += lane.publicPool.liveTasks;
+      accumulator.privateTargetTasks += lane.privatePool.liveTasks;
       return accumulator;
     },
     {

@@ -38,6 +38,48 @@ body {
   background-size: 48px 48px;
 }
 
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(185, 255, 93, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(185, 255, 93, 0.08);
+  }
+}
+
+@keyframes terminal-scan {
+  from {
+    transform: translateY(-120%);
+  }
+  to {
+    transform: translateY(420%);
+  }
+}
+
+@keyframes ring-breathe {
+  0%,
+  100% {
+    border-color: var(--line-strong);
+    transform: scale(1);
+  }
+  50% {
+    border-color: rgba(185, 255, 93, 0.62);
+    transform: scale(1.03);
+  }
+}
+
 button {
   font: inherit;
 }
@@ -50,6 +92,7 @@ button {
   width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 22px 0 64px;
+  animation: page-rise 420ms ease-out both;
 }
 
 .header {
@@ -91,12 +134,20 @@ button {
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .nav-item:hover,
 .nav-item.active {
   color: var(--text);
   background: var(--panel-3);
+}
+
+.nav-item:hover {
+  transform: translateY(-1px);
 }
 
 .header-status {
@@ -170,6 +221,10 @@ button {
   background: var(--panel-2);
   cursor: pointer;
   font-weight: 800;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .button.primary {
@@ -178,12 +233,28 @@ button {
   background: var(--green);
 }
 
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
 .hero-terminal {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(16, 19, 16, 0.84);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.hero-terminal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  height: 34%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(185, 255, 93, 0.045), transparent);
+  animation: terminal-scan 7s linear infinite;
 }
 
 .terminal-top {
@@ -198,6 +269,19 @@ button {
   height: 8px;
   border-radius: 999px;
   background: var(--muted);
+}
+
+.terminal-top span:nth-child(1) {
+  background: var(--red);
+}
+
+.terminal-top span:nth-child(2) {
+  background: var(--orange);
+}
+
+.terminal-top span:nth-child(3) {
+  background: var(--green);
+  animation: live-pulse 2.4s ease-in-out infinite;
 }
 
 .terminal-line {
@@ -241,6 +325,21 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(16, 19, 16, 0.84);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.stat:hover,
+.section-block:hover,
+.winner-card:hover,
+.table-row:hover,
+.task-select:hover,
+.doc-card:hover,
+.doc-step:hover {
+  transform: translateY(-2px);
+  border-color: rgba(185, 255, 93, 0.22);
 }
 
 .stat {
@@ -298,6 +397,24 @@ button {
   gap: 16px;
   padding: 16px 0;
   border-bottom: 1px solid var(--line);
+  animation: page-rise 360ms ease-out both;
+}
+
+.process-item:nth-child(2),
+.doc-step:nth-child(2),
+.task-select:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.process-item:nth-child(3),
+.doc-step:nth-child(3),
+.task-select:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.doc-step:nth-child(4),
+.task-select:nth-child(4) {
+  animation-delay: 120ms;
 }
 
 .process-item:last-child {
@@ -370,11 +487,19 @@ button {
   background: var(--panel);
   text-align: left;
   cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .lane-tab.active {
   border-color: rgba(185, 255, 93, 0.8);
   background: rgba(185, 255, 93, 0.08);
+}
+
+.lane-tab:hover {
+  transform: translateY(-2px);
 }
 
 .lane-tab strong {
@@ -392,6 +517,7 @@ button {
   grid-template-columns: minmax(0, 1fr) 260px minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
+  animation: page-rise 420ms ease-out both;
 }
 
 .battle-side {
@@ -457,6 +583,7 @@ button {
   border-radius: 999px;
   color: var(--green);
   font-weight: 800;
+  animation: ring-breathe 3s ease-in-out infinite;
 }
 
 .score-mini {
@@ -479,6 +606,14 @@ button {
   align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
+  transition:
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.duel-row:hover {
+  transform: translateX(3px);
+  background: rgba(185, 255, 93, 0.04);
 }
 
 .duel-row:last-child {
@@ -592,6 +727,11 @@ button {
   background: var(--panel-2);
   text-align: left;
   cursor: pointer;
+  animation: page-rise 300ms ease-out both;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .task-select:hover,
@@ -649,6 +789,11 @@ button {
   text-align: left;
   cursor: pointer;
   font-size: 14px;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .docs-side button:hover,
@@ -656,6 +801,10 @@ button {
   color: var(--text);
   border-color: rgba(185, 255, 93, 0.45);
   background: rgba(185, 255, 93, 0.08);
+}
+
+.docs-side button:hover {
+  transform: translateX(2px);
 }
 
 .docs-content {
@@ -706,6 +855,7 @@ button {
   background:
     linear-gradient(140deg, rgba(185, 255, 93, 0.08), transparent 58%),
     rgba(7, 9, 7, 0.66);
+  animation: page-rise 320ms ease-out both;
 }
 
 .doc-card strong,
@@ -749,6 +899,7 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(7, 9, 7, 0.54);
+  animation: page-rise 320ms ease-out both;
 }
 
 .doc-step > span {
@@ -788,11 +939,74 @@ button {
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
   text-decoration: none;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .doc-links a:hover {
   border-color: rgba(185, 255, 93, 0.68);
   background: rgba(185, 255, 93, 0.12);
+  transform: translateY(-2px);
+}
+
+.milestone-list {
+  display: grid;
+  gap: 12px;
+  margin: 30px 0;
+}
+
+.milestone {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 18px;
+  align-items: start;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(185, 255, 93, 0.06), transparent 44%),
+    rgba(7, 9, 7, 0.58);
+  animation: page-rise 320ms ease-out both;
+}
+
+.milestone > span {
+  width: fit-content;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.milestone strong {
+  display: block;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.milestone p {
+  margin: 8px 0 0;
+  color: var(--soft);
+  font-size: 14px;
+}
+
+.milestone-complete > span {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.45);
+}
+
+.milestone-current > span {
+  color: var(--cyan);
+  border-color: rgba(37, 208, 171, 0.45);
+}
+
+.milestone-next > span {
+  color: var(--orange);
+  border-color: rgba(255, 138, 61, 0.45);
 }
 
 .code-block {
@@ -817,11 +1031,16 @@ button {
   border: 1px solid var(--line);
   background: var(--panel-2);
   white-space: nowrap;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .status-ok {
   color: var(--green);
   border-color: rgba(185, 255, 93, 0.45);
+  animation: live-pulse 2.8s ease-in-out infinite;
 }
 
 .status-bad {
@@ -871,7 +1090,8 @@ button {
   .dashboard-grid,
   .battle,
   .docs-layout,
-  .doc-grid {
+  .doc-grid,
+  .milestone {
     grid-template-columns: 1fr;
   }
 
@@ -921,5 +1141,20 @@ button {
 
   .table-section {
     overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .hero-terminal::after {
+    display: none;
   }
 }

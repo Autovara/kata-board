@@ -234,7 +234,19 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
   const latest = laneActivity[0] || null;
   const candidateName = latest?.candidateAuthor || latest?.candidateSubmissionId || "waiting";
   const [selectedTaskId, setSelectedTaskId] = useState(null);
-  const tasks = selectedLane?.publicPool?.tasks || [];
+  const publicTasks = selectedLane?.publicPool?.tasks || [];
+  const publicTaskById = new Map(publicTasks.map((task) => [task.taskId, task]));
+  const duelTaskIds = latest?.primary?.taskIds || [];
+  const tasks = duelTaskIds.map(
+    (taskId) =>
+      publicTaskById.get(taskId) || {
+        taskId,
+        title: taskId,
+        description: "This task was part of the current duel draw.",
+        status: "duel",
+        tags: []
+      }
+  );
   const selectedTask =
     tasks.find((task) => task.taskId === selectedTaskId) || tasks[0] || null;
 
@@ -242,8 +254,8 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
     <div className="stack">
       <PageIntro
         eyebrow="Live Arena"
-        title="King versus candidate."
-        text="Useful live state while a duel is running."
+        title="King v Candidate"
+        text="Current duel state, score deltas, and the public primary task draw."
       />
 
       <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
@@ -314,7 +326,7 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
       {selectedLane ? (
         <section className="split task-browser">
           <div className="section-block">
-            <SectionTitle title="Public tasks" />
+            <SectionTitle title="Duel primary tasks" />
             <div className="task-select-list">
               {tasks.length ? (
                 tasks.map((task) => (
@@ -329,7 +341,7 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
                   </button>
                 ))
               ) : (
-                <Empty text="No public tasks." />
+                <Empty text="No current duel task draw." />
               )}
             </div>
           </div>
@@ -398,15 +410,15 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Miner ranking."
-        text={`Source: ${leaderboardSource(leaderboard?.source)}.`}
+        text={`Source: ${leaderboardSource(leaderboard?.source)}. Promotions are historical verified wins; active kings are lanes the miner currently holds.`}
       />
 
       <section className="table-section">
         <div className="table-head">
           <span>rank</span>
           <span>miner</span>
-          <span>wins</span>
-          <span>kings</span>
+          <span>promotions</span>
+          <span>active kings</span>
           <span>open</span>
           <span>score</span>
         </div>
@@ -440,6 +452,7 @@ function Docs({ selectedLane, kataRepoSlug }) {
     { id: "scoring", label: "Scoring" },
     { id: "bot", label: "Bot" },
     { id: "gittensor", label: "GitTensor" },
+    { id: "milestones", label: "Milestones" },
     { id: "privacy", label: "Privacy" },
     { id: "references", label: "References" }
   ];
@@ -469,6 +482,7 @@ function Docs({ selectedLane, kataRepoSlug }) {
         {activeTab === "scoring" ? <DocScoring selectedLane={selectedLane} /> : null}
         {activeTab === "bot" ? <DocBot /> : null}
         {activeTab === "gittensor" ? <DocGitTensor links={links} /> : null}
+        {activeTab === "milestones" ? <DocMilestones /> : null}
         {activeTab === "privacy" ? <DocPrivacy /> : null}
         {activeTab === "references" ? <DocReferences links={links} /> : null}
       </article>
@@ -488,6 +502,10 @@ function DocOverview({ selectedLane, links }) {
         and validator checks.
       </p>
       <DocCallout
+        title="If you are new, start here"
+        text="Think of Kata as a live tournament for coding-agent strategies. Your PR contains the agent. The validator gives your agent repo tasks. If it solves enough more tasks than the current king, your agent becomes the new king."
+      />
+      <DocCallout
         title="Mental model"
         text="A repo lane has one current king. A candidate PR wins only if its agent beats that king on public primary tasks and private hidden holdouts by the configured margins."
       />
@@ -504,6 +522,15 @@ function DocOverview({ selectedLane, links }) {
         <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"} />
         <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "+10 primary, +10 holdout"} />
       </div>
+      <h2>// vocabulary</h2>
+      <DocGrid>
+        <DocCard title="repo-pack" text="A registered target repository lane, encoded as owner__repo." />
+        <DocCard title="mode" text="The competition role. Current MVP uses contributor agents." />
+        <DocCard title="king / frontier" text="The current best verified agent for a repo-pack and mode." />
+        <DocCard title="candidate" text="The submitted challenger agent from a miner PR." />
+        <DocCard title="primary tasks" text="Public live benchmark tasks randomly sampled for a duel." />
+        <DocCard title="holdout tasks" text="Private hidden tasks used to test generalization and prevent overfitting." />
+      </DocGrid>
       <DocLinks
         links={[
           ["System workflow", links.systemWorkflow],
@@ -525,6 +552,12 @@ function DocWorkflow({ links }) {
         only accepts candidate agent PRs, evaluates them, and promotes verified
         winners.
       </p>
+      <DocGrid>
+        <DocCard title="Input" text="One PR with one agent bundle under submissions/." />
+        <DocCard title="Evaluator" text="Kata runs candidate and king under the same task pools, model, API route, and timeouts." />
+        <DocCard title="Decision" text="kata-bot turns the result into close-invalid, close-losing, rerun-stale, hold, or merge." />
+        <DocCard title="Output" text="A verified winner is merged, copied into kings/, and registered as the new frontier." />
+      </DocGrid>
       <DocSteps
         items={[
           ["Prepare pools", "Maintainers create public primary tasks and private holdout tasks with kata-benchkit."],
@@ -558,6 +591,8 @@ function DocSubmit({ links }) {
         directory under `submissions/`. Do not edit benchmark tasks, current
         king files, validator code, workflows, or unrelated docs.
       </p>
+      <h2>// quick start</h2>
+      <CodeBlock value={`mkdir -p submissions/e35ventura__taopedia-articles/contributor/<github-user>-YYYYMMDD-01\ncd submissions/e35ventura__taopedia-articles/contributor/<github-user>-YYYYMMDD-01\n\n# add these files\nagent.py\nagent_manifest.json\nsubmission.json\n# optional: helpers/*.py`} />
       <CodeBlock value={`submissions/<repo-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json\n  helpers/*.py`} />
       <h2>Required metadata</h2>
       <CodeBlock value={`{\n  "schema_version": 2,\n  "repo_pack": "e35ventura__taopedia-articles",\n  "mode": "contributor",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
@@ -573,6 +608,10 @@ function DocSubmit({ links }) {
           "The bundle contains no symlinks, hardcoded secrets, or direct validator secret env reads."
         ]}
       />
+      <DocGrid>
+        <DocCard title="Good PR" text="Small, single submission directory, clear metadata, valid Python, and an agent that generalizes across repo tasks." />
+        <DocCard title="Bad PR" text="Touches kings/, benchmark tasks, workflow files, multiple submissions, or copies the current king exactly." />
+      </DocGrid>
       <DocLinks links={[["Detailed submission docs", links.submissions]]} />
     </section>
   );
@@ -590,6 +629,16 @@ function DocAgent({ links }) {
         robustness.
       </p>
       <CodeBlock value={`def solve(repo_path: str, issue: str, model: str, api_base: str, api_key: str) -> dict:\n    return {\n        "success": True,\n        "message": "short human-readable status",\n        "diff": "unified diff that applies with git apply"\n    }`} />
+      <h2>// recommended agent loop</h2>
+      <DocSteps
+        items={[
+          ["Parse task", "Extract the target path, requested behavior, and visible constraints from issue/task text."],
+          ["Read repo context", "Load the target files and a small set of relevant examples from the repo."],
+          ["Ask model once", "Use the validator-provided model/API route. Do not hardcode your own provider."],
+          ["Normalize diff", "Return only a unified diff that can be applied with git apply."],
+          ["Self-check", "Run git apply --check or equivalent syntax validation before returning."]
+        ]}
+      />
       <DocGrid>
         <DocCard title="repo_path" text="A checked-out target repo snapshot for the task." />
         <DocCard title="issue" text="The visible task.md text. This is intentionally task text, not GitHub issue data." />
@@ -597,14 +646,15 @@ function DocAgent({ links }) {
         <DocCard title="api_base/api_key" text="Validator-owned routing credentials. Do not override or hardcode providers." />
       </DocGrid>
       <RequirementList
-        title="Runtime boundaries"
+        title="Runtime boundaries and red lines"
         items={[
           "Do not read oracle.json or hidden task directories.",
           "Do not read KATA_EVAL_TASK_DIR, KATA_SCORE_FILE, KATA_ALLOWED_PATHS_FILE, or KATA_FORBIDDEN_PATHS_FILE.",
           "Do not hardcode provider endpoints or secret tokens.",
           "Do not override model, api_base, or api_key inside solve(...).",
           "Return a unified diff, not prose-only instructions.",
-          "Keep edits scoped to the task and repo conventions."
+          "Keep edits scoped to the task and repo conventions.",
+          "Do not use exact benchmark-answer maps or task-id-specific hacks."
         ]}
       />
       <DocLinks links={[["Submission contract", links.submissions], ["Benchmark contract", links.benchmarkEvaluation]]} />
@@ -639,6 +689,10 @@ function DocScoring({ selectedLane }) {
         required claims or behavior present, known wrong output absent, and
         repo validation still passing.
       </p>
+      <DocCallout
+        title="Why two pools?"
+        text="Primary tasks are visible enough for miners to learn the repo. Hidden holdouts protect the system from agents that only memorize public task patterns."
+      />
       <CodeBlock value={`pool_score = 100 * solved_weight / total_weight\n\npromote only if:\n  candidate_primary >= king_primary + ${formatNumber(primaryMargin)}\n  candidate_holdout >= king_holdout + ${formatNumber(holdoutMargin)}\n  no integrity disqualification`} />
       <RequirementList
         title="Invalid behavior collapses score"
@@ -681,6 +735,10 @@ function DocBot() {
         <DocCard title="kata:stale" text="Result is not current and must rerun." />
         <DocCard title="kata:hold" text="Winner is verified but merge or promotion is held for operator attention." />
       </DocGrid>
+      <DocCallout
+        title="Important operator rule"
+        text="kata-bot should stay thin. If a rule changes, it should change in Kata first, then the bot should call the new Kata command or read the new Kata result."
+      />
     </section>
   );
 }
@@ -707,6 +765,38 @@ function DocGitTensor({ links }) {
         ]}
       />
       <DocLinks links={[["GitTensor integration doc", links.gittensorIntegration]]} />
+    </section>
+  );
+}
+
+function DocMilestones() {
+  return (
+    <section>
+      <p className="kicker">Roadmap</p>
+      <h1>Milestones</h1>
+      <p>
+        Kata is being built in layers: first objective repo-specific duels,
+        then robust automation, then broader GitTensor registration and
+        multi-repo expansion.
+      </p>
+      <MilestoneList
+        items={[
+          ["complete", "MVP lane live", "Taopedia contributor lane has public primary tasks, private holdouts, frontier manifests, and a first king."],
+          ["complete", "Oracle-backed benchmark design", "Tasks now include visible task text plus validator-side deterministic oracle files."],
+          ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
+          ["complete", "Dashboard public deployment", "kata-board supports GitHub Pages static deployment with generated status.json."],
+          ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
+          ["current", "Benchmark quality upgrade", "Improve task-specific oracles so checks prove semantic correctness, not only formatting validity."],
+          ["next", "GitTensor registration", "Register Kata with trusted labels, fixed base score, zero issue discovery, and winner-label multipliers."],
+          ["next", "Multi-repo lanes", "Add more registered repos so each repo-pack can have its own king and benchmark pool."],
+          ["next", "Pool rotation", "Reveal retired private tasks publicly and generate fresh hidden holdouts without leaking live validation data."],
+          ["later", "Advanced analytics", "Track per-task solve rates, agent regressions, win history, cost, and benchmark coverage over time."]
+        ]}
+      />
+      <DocCallout
+        title="Current priority"
+        text="The most important next step is benchmark reliability: every live task should have a clear, deterministic checker that accepts equivalent correct solutions and rejects shallow or irrelevant edits."
+      />
     </section>
   );
 }
@@ -760,6 +850,22 @@ function DocReferences({ links }) {
       />
       <CodeBlock value={`Useful local commands:\n\nuv run kata submission validate --path submissions/<repo-pack>/<mode>/<submission-id>\nuv run kata submission evaluate --path submissions/<repo-pack>/<mode>/<submission-id> --agent-command scripts/run_python_agent_eval.sh\nuv run kata submission verify --path submissions/<repo-pack>/<mode>/<submission-id> --challenge-run runs/<run>/challenge_summary.json\nuv run kata submission decide --path submissions/<repo-pack>/<mode>/<submission-id> --challenge-run runs/<run>/challenge_summary.json`} />
     </section>
+  );
+}
+
+function MilestoneList({ items }) {
+  return (
+    <div className="milestone-list">
+      {items.map(([status, title, text]) => (
+        <div className={`milestone milestone-${status}`} key={title}>
+          <span>{status}</span>
+          <div>
+            <strong>{title}</strong>
+            <p>{text}</p>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

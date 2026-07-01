@@ -101,6 +101,7 @@ Important variables:
 - `KATA_BENCHMARKS_ROOT`
 - `KATA_PRIVATE_BENCHMARKS_ROOT`
 - `KATA_BOT_ROOT`
+- `KATA_WORK_ROOT`
 - `KATA_QUEUE_STATE_PATH`
 - `KATA_VALIDATOR_HEALTH_URL`
 - `KATA_REPO_SLUG`
@@ -112,6 +113,10 @@ If the repo roots are omitted, `kata-board` assumes the repos live beside it:
 - `../kata`
 - `../kata-benchmarks`
 - `../kata-bot`
+
+If you want the Arena to show active evaluation progress while a duel is still
+running, also point `KATA_WORK_ROOT` at the same validator work directory used
+by `kata-bot`.
 
 ## Leaderboard Modes
 

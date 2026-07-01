@@ -77,6 +77,9 @@ function resolveRoots(env) {
       path.join(boardRoot, "kata-benchmarks-private")
     ),
     kataBotRoot,
+    workRoot: path.resolve(
+      env.KATA_WORK_ROOT || path.join(kataBotRoot, "work")
+    ),
     queueStatePath: path.resolve(
       env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
     )
@@ -493,17 +496,25 @@ async function loadLeaderboard(env) {
 }
 
 async function loadValidatorStatus(env, roots) {
-  const queue = loadQueueStatus(roots.queueStatePath);
   const health = await loadValidatorHealth(env.KATA_VALIDATOR_HEALTH_URL);
+  const queue = loadQueueStatus(roots.queueStatePath, health.payload?.queue || null);
+  const activeEvaluation = loadActiveEvaluationProgress(
+    roots.workRoot,
+    queue.activeJob
+  );
   return {
     mode: "resident",
     queue,
-    health
+    health,
+    activeEvaluation
   };
 }
 
-function loadQueueStatus(queueStatePath) {
-  const queuePayload = readJson(queueStatePath);
+function loadQueueStatus(queueStatePath, healthQueuePayload = null) {
+  const queuePayload = readJsonSafe(queueStatePath);
+  if (!queuePayload) {
+    return queueStatusFromHealth(healthQueuePayload);
+  }
   const jobs = Array.isArray(queuePayload?.jobs) ? queuePayload.jobs : [];
   const counts = {
     total: jobs.length,
@@ -538,8 +549,311 @@ function loadQueueStatus(queueStatePath) {
     available: Boolean(queuePayload),
     counts,
     activeJob: activeJob ? summarizeQueueJob(activeJob) : null,
-    latestJob: latestJob ? summarizeQueueJob(latestJob) : null
+    latestJob: latestJob ? summarizeQueueJob(latestJob) : null,
+    recentJobs: jobsByRecency.slice(0, 8).map(summarizeQueueJob)
   };
+}
+
+function queueStatusFromHealth(payload) {
+  const counts = {
+    total: Number(payload?.total_jobs || 0),
+    pending: Number(payload?.pending_jobs || 0),
+    running: Number(payload?.running_jobs || 0),
+    completed: Number(payload?.completed_jobs || 0),
+    failed: Number(payload?.failed_jobs || 0),
+    other: 0
+  };
+  return {
+    available: Boolean(payload),
+    counts,
+    activeJob: null,
+    latestJob: null,
+    recentJobs: []
+  };
+}
+
+function loadActiveEvaluationProgress(workRoot, activeJob) {
+  const base = {
+    available: Boolean(activeJob),
+    state: activeJob ? "queued" : "idle",
+    phase: activeJob ? "queued" : "idle",
+    workspacePath: null,
+    updatedAt: null,
+    repoPack: null,
+    mode: null,
+    candidateSubmissionId: null,
+    candidateAuthor: null,
+    pullNumber: activeJob?.pullNumber || null,
+    startedAt: activeJob?.startedAt || null,
+    enqueuedAt: activeJob?.enqueuedAt || null,
+    attempts: activeJob?.attempts || 0,
+    primary: null,
+    holdout: null
+  };
+  if (!activeJob) {
+    return base;
+  }
+
+  const workspaceRoot = findLatestActiveWorkspace(workRoot);
+  if (!workspaceRoot) {
+    return base;
+  }
+
+  const lane = inferLaneFromWorkspace(workspaceRoot);
+  const phaseProgress =
+    inspectChallengePhase(path.join(workspaceRoot, "runs-confirm"), "confirm") ||
+    inspectChallengePhase(path.join(workspaceRoot, "runs-initial"), "initial");
+  return {
+    ...base,
+    state: phaseProgress?.state || "running",
+    phase: phaseProgress?.phase || "staging",
+    workspacePath: workspaceRoot,
+    updatedAt:
+      phaseProgress?.updatedAt ||
+      statMtimeIso(workspaceRoot) ||
+      activeJob.startedAt ||
+      activeJob.enqueuedAt,
+    repoPack: lane?.repoPack || null,
+    mode: lane?.mode || null,
+    candidateSubmissionId: lane?.submissionId || null,
+    candidateAuthor: lane?.submissionId
+      ? inferSubmissionAuthorFromId(lane.submissionId)
+      : null,
+    primary: phaseProgress?.primary || null,
+    holdout: phaseProgress?.holdout || null
+  };
+}
+
+function findLatestActiveWorkspace(workRoot) {
+  if (!fs.existsSync(workRoot)) {
+    return null;
+  }
+  let candidates = [];
+  try {
+    candidates = fs
+      .readdirSync(workRoot, { withFileTypes: true })
+      .filter(
+        (entry) => entry.isDirectory() && entry.name.startsWith("kata-bot-job-")
+      )
+      .map((entry) => path.join(workRoot, entry.name));
+  } catch {
+    return null;
+  }
+  if (!candidates.length) {
+    return null;
+  }
+  candidates.sort(
+    (left, right) =>
+      new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
+  );
+  return candidates[0];
+}
+
+function inferLaneFromWorkspace(workspaceRoot) {
+  const changedPaths = readText(path.join(workspaceRoot, "changed-paths.txt"))
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const changedPath of changedPaths) {
+    const match = changedPath.match(
+      /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//
+    );
+    if (!match) {
+      continue;
+    }
+    return {
+      repoPack: match[1],
+      mode: match[2],
+      submissionId: match[3]
+    };
+  }
+  return null;
+}
+
+function inspectChallengePhase(phaseRoot, phase) {
+  if (!fs.existsSync(phaseRoot)) {
+    return null;
+  }
+  const challengeRoots = listDirectories(phaseRoot)
+    .map((name) => path.join(phaseRoot, name))
+    .sort(
+      (left, right) =>
+        new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
+    );
+  if (!challengeRoots.length) {
+    return {
+      state: "running",
+      phase,
+      updatedAt: statMtimeIso(phaseRoot),
+      primary: null,
+      holdout: null
+    };
+  }
+  const challengeRoot = challengeRoots[0];
+  const summaryPath = path.join(challengeRoot, "challenge_summary.json");
+  const summary = readJsonSafe(summaryPath);
+  return {
+    state: summary ? "verifying" : "running",
+    phase,
+    runId: path.basename(challengeRoot),
+    updatedAt:
+      summary?.created_at ||
+      statMtimeIso(summaryPath) ||
+      statMtimeIso(challengeRoot),
+    primary: inspectPoolProgress(path.join(challengeRoot, "primary"), true),
+    holdout: inspectPoolProgress(path.join(challengeRoot, "holdout"), false)
+  };
+}
+
+function inspectPoolProgress(poolRoot, revealTaskIds) {
+  if (!fs.existsSync(poolRoot)) {
+    return null;
+  }
+  const runRoots = listDirectories(poolRoot)
+    .map((name) => path.join(poolRoot, name))
+    .sort(
+      (left, right) =>
+        new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
+    );
+  if (!runRoots.length) {
+    return null;
+  }
+  const runRoot = runRoots[0];
+  const runSummaryPath = path.join(runRoot, "run_summary.json");
+  const runSummary = readJsonSafe(runSummaryPath);
+  if (runSummary) {
+    return summarizeCompletedPool(runSummary, revealTaskIds);
+  }
+  return summarizeRunningPool(runRoot, revealTaskIds);
+}
+
+function summarizeCompletedPool(runSummary, revealTaskIds) {
+  const tasks = Array.isArray(runSummary?.tasks) ? runSummary.tasks : [];
+  const taskStatuses = tasks.map((task) => {
+    const candidate = summarizeTaskVariant(task, "candidate");
+    const frontier = summarizeTaskVariant(task, "frontier");
+    return {
+      taskId: revealTaskIds ? task.task_id : null,
+      status: exactTaskStatusLabel(candidate, frontier),
+      completed: true,
+      candidate,
+      frontier
+    };
+  });
+  return {
+    live: false,
+    totalTasks: tasks.length,
+    completedTasks: tasks.length,
+    taskStatuses: revealTaskIds ? taskStatuses : [],
+    counts: summarizeTaskStatusCounts(taskStatuses),
+    updatedAt: runSummary.created_at || null
+  };
+}
+
+function summarizeRunningPool(runRoot, revealTaskIds) {
+  const tasksRoot = path.join(runRoot, "tasks");
+  const taskRoots = listDirectories(tasksRoot)
+    .map((name) => path.join(tasksRoot, name))
+    .sort();
+  const taskStatuses = taskRoots.map((taskRoot) =>
+    summarizeRunningTask(taskRoot, revealTaskIds)
+  );
+  return {
+    live: true,
+    totalTasks: taskStatuses.length,
+    completedTasks: taskStatuses.filter((task) => task.completed).length,
+    taskStatuses: revealTaskIds ? taskStatuses : [],
+    counts: summarizeTaskStatusCounts(taskStatuses),
+    updatedAt: statMtimeIso(runRoot)
+  };
+}
+
+function summarizeRunningTask(taskRoot, revealTaskIds) {
+  const candidate = summarizeRunningVariant(path.join(taskRoot, "candidate"));
+  const frontier = summarizeRunningVariant(path.join(taskRoot, "frontier"));
+  const taskId = path.basename(taskRoot);
+  return {
+    taskId: revealTaskIds ? taskId : null,
+    status: runningTaskStatusLabel(candidate, frontier),
+    completed: candidate.finished && frontier.finished,
+    candidate,
+    frontier
+  };
+}
+
+function summarizeRunningVariant(variantRoot) {
+  const files = {
+    agentStdout: fs.existsSync(path.join(variantRoot, "agent.stdout.txt")),
+    agentStderr: fs.existsSync(path.join(variantRoot, "agent.stderr.txt")),
+    checksStdout: fs.existsSync(path.join(variantRoot, "checks.stdout.txt")),
+    checksStderr: fs.existsSync(path.join(variantRoot, "checks.stderr.txt")),
+    score: fs.existsSync(path.join(variantRoot, "score.txt"))
+  };
+  const started = Object.values(files).some(Boolean) || fs.existsSync(variantRoot);
+  const finished =
+    files.score ||
+    ((files.agentStdout || files.agentStderr) &&
+      (files.checksStdout || files.checksStderr));
+  return {
+    started,
+    finished
+  };
+}
+
+function summarizeTaskVariant(task, variantName) {
+  const variants = Array.isArray(task?.variants) ? task.variants : [];
+  const variant = variants.find((item) => item.name === variantName) || {};
+  return {
+    solved: Boolean(variant.task_solved),
+    valid: Boolean(variant.validity_passed),
+    success: Boolean(variant.success),
+    verifierScore: numberOrNull(variant.verifier_score),
+    weightedTaskScore: numberOrNull(variant.weighted_task_score)
+  };
+}
+
+function exactTaskStatusLabel(candidate, frontier) {
+  if (!candidate.valid) {
+    return "candidate invalid";
+  }
+  if (candidate.solved && !frontier.solved) {
+    return "candidate ahead";
+  }
+  if (candidate.solved && frontier.solved) {
+    return "both solved";
+  }
+  if (!candidate.solved && frontier.solved) {
+    return "frontier ahead";
+  }
+  return "both failed";
+}
+
+function runningTaskStatusLabel(candidate, frontier) {
+  if (candidate.finished && frontier.finished) {
+    return "finished";
+  }
+  if (candidate.started || frontier.started) {
+    return "running";
+  }
+  return "queued";
+}
+
+function summarizeTaskStatusCounts(taskStatuses) {
+  const counts = {};
+  for (const task of taskStatuses) {
+    counts[task.status] = (counts[task.status] || 0) + 1;
+  }
+  return counts;
+}
+
+function statMtimeIso(targetPath) {
+  const stat = fs.statSync(targetPath, { throwIfNoEntry: false });
+  return stat?.mtime?.toISOString?.() || null;
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 async function loadValidatorHealth(healthUrl) {
@@ -586,9 +900,13 @@ function summarizeQueueJob(job) {
   return {
     jobId: job.job_id,
     status: job.status,
+    kataRepo: job.kata_repo || null,
+    benchmarksRepo: job.benchmarks_repo || null,
     pullNumber: job.pull_number,
+    headSha: job.head_sha || null,
     attempts: job.attempts,
     finalAction: job.final_action || null,
+    enqueuedAt: job.enqueued_at || null,
     startedAt: job.started_at || null,
     finishedAt: job.finished_at || null,
     error: job.last_error || null
@@ -760,6 +1078,14 @@ function readJson(filePath) {
     return null;
   }
   return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+}
+
+function readJsonSafe(filePath) {
+  try {
+    return readJson(filePath);
+  } catch {
+    return null;
+  }
 }
 
 function readText(filePath) {

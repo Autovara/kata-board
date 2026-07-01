@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-const STATUS_SOURCE = import.meta.env.VITE_STATUS_SOURCE || "api";
-const IS_STATIC_STATUS = STATUS_SOURCE === "static";
-const BASE_PATH = normalizeBasePath(import.meta.env.BASE_URL || "/");
-const STATUS_URL =
-  import.meta.env.VITE_STATUS_URL ||
-  (IS_STATIC_STATUS ? `${BASE_PATH}status.json` : "/api/status");
-const POLL_INTERVAL_MS = IS_STATIC_STATUS ? 60000 : 5000;
+const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
+const POLL_INTERVAL_MS = 5000;
 const PAGES = [
   { path: "/", label: "Dashboard" },
   { path: "/arena", label: "Arena" },
@@ -912,7 +907,7 @@ function DocMilestones() {
           ["complete", "MVP lane live", "Taopedia contributor lane has public primary tasks, private holdouts, frontier manifests, and a first king."],
           ["complete", "Oracle-backed benchmark design", "Tasks now include visible task text plus validator-side deterministic oracle files."],
           ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
-          ["complete", "Dashboard public deployment", "kata-board supports GitHub Pages static deployment with generated status.json."],
+          ["complete", "Live dashboard deployment", "kata-board runs as a Node service behind ngrok and reads the live validator API."],
           ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
           ["current", "Benchmark quality upgrade", "Improve task-specific oracles so checks prove semantic correctness, not only formatting validity."],
           ["next", "Multi-repo lanes", "Add more registered repos so each repo-pack can have its own king and benchmark pool."],
@@ -1272,44 +1267,15 @@ function Empty({ text }) {
 }
 
 function statusUrl() {
-  if (!IS_STATIC_STATUS) {
-    return STATUS_URL;
-  }
-  const separator = STATUS_URL.includes("?") ? "&" : "?";
-  return `${STATUS_URL}${separator}t=${Date.now()}`;
+  return STATUS_URL;
 }
 
 function readCurrentRoute() {
-  if (IS_STATIC_STATUS && window.location.hash.startsWith("#/")) {
-    return normalizeRoute(window.location.hash.slice(1));
-  }
-  return normalizeRoute(stripBasePath(window.location.pathname));
+  return normalizeRoute(window.location.pathname);
 }
 
 function routeUrl(routePath) {
-  const normalized = normalizeRoute(routePath);
-  if (!IS_STATIC_STATUS) {
-    return normalized;
-  }
-  if (normalized === "/") {
-    return BASE_PATH;
-  }
-  return `${BASE_PATH}#${normalized}`;
-}
-
-function normalizeBasePath(value) {
-  if (!value || value === ".") {
-    return "/";
-  }
-  const withLeading = value.startsWith("/") ? value : `/${value}`;
-  return withLeading.endsWith("/") ? withLeading : `${withLeading}/`;
-}
-
-function stripBasePath(pathname) {
-  if (BASE_PATH === "/" || !pathname.startsWith(BASE_PATH)) {
-    return pathname;
-  }
-  return pathname.slice(BASE_PATH.length - 1) || "/";
+  return normalizeRoute(routePath);
 }
 
 function normalizeRoute(value) {

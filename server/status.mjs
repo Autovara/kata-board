@@ -3,12 +3,13 @@ import path from "node:path";
 
 import { loadGithubLeaderboard } from "./github.mjs";
 
-const CACHE_TTL_MS = 15_000;
+const DEFAULT_CACHE_TTL_MS = 3_000;
 let cachedStatus = null;
 let cachedAt = 0;
 
 export async function loadBoardStatus(env) {
-  if (cachedStatus && Date.now() - cachedAt < CACHE_TTL_MS) {
+  const cacheTtlMs = readCacheTtlMs(env);
+  if (cachedStatus && Date.now() - cachedAt < cacheTtlMs) {
     return cachedStatus;
   }
 
@@ -59,6 +60,14 @@ export async function loadBoardStatus(env) {
   return cachedStatus;
 }
 
+function readCacheTtlMs(env) {
+  const value = Number.parseInt(env.KATA_STATUS_CACHE_TTL_MS || "", 10);
+  if (Number.isFinite(value) && value >= 0) {
+    return value;
+  }
+  return DEFAULT_CACHE_TTL_MS;
+}
+
 function resolveRoots(env) {
   const boardRoot = env.KATA_BOARD_ROOT || path.resolve(process.cwd(), "..");
   const kataBotRoot = resolveExistingRoot(
@@ -82,6 +91,15 @@ function resolveRoots(env) {
     ),
     queueStatePath: path.resolve(
       env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
+    ),
+    liveStatusPath: path.resolve(
+      env.KATA_LIVE_STATUS_PATH ||
+        path.join(
+          path.dirname(
+            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
+          ),
+          "live-status.json"
+        )
     )
   };
 }
@@ -499,6 +517,7 @@ async function loadValidatorStatus(env, roots) {
   const health = await loadValidatorHealth(env.KATA_VALIDATOR_HEALTH_URL);
   const queue = loadQueueStatus(roots.queueStatePath, health.payload?.queue || null);
   const activeEvaluation = loadActiveEvaluationProgress(
+    roots.liveStatusPath,
     roots.workRoot,
     queue.activeJob
   );
@@ -572,7 +591,7 @@ function queueStatusFromHealth(payload) {
   };
 }
 
-function loadActiveEvaluationProgress(workRoot, activeJob) {
+function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
   const base = {
     available: Boolean(activeJob),
     state: activeJob ? "queued" : "idle",
@@ -592,6 +611,14 @@ function loadActiveEvaluationProgress(workRoot, activeJob) {
   };
   if (!activeJob) {
     return base;
+  }
+
+  const liveStatus = loadLiveEvaluationProgress(liveStatusPath, activeJob);
+  if (liveStatus) {
+    return {
+      ...base,
+      ...liveStatus
+    };
   }
 
   const workspaceRoot = findLatestActiveWorkspace(workRoot);
@@ -621,6 +648,71 @@ function loadActiveEvaluationProgress(workRoot, activeJob) {
       : null,
     primary: phaseProgress?.primary || null,
     holdout: phaseProgress?.holdout || null
+  };
+}
+
+function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
+  const payload = readJsonSafe(liveStatusPath);
+  if (!payload?.job || payload.job.job_id !== activeJob.jobId) {
+    return null;
+  }
+  const primary = normalizeLivePool(payload.pools?.primary, true);
+  const holdout = normalizeLivePool(payload.pools?.holdout, false);
+  return {
+    available: true,
+    state: payload.state || "running",
+    phase: payload.phase || "running",
+    workspacePath: null,
+    updatedAt: payload.updated_at || null,
+    repoPack: payload.repo_pack || null,
+    mode: payload.mode || null,
+    candidateSubmissionId: payload.candidate_submission_id || null,
+    candidateAuthor:
+      payload.candidate_author ||
+      inferSubmissionAuthorFromId(payload.candidate_submission_id),
+    pullNumber: payload.job.pull_number || activeJob.pullNumber || null,
+    startedAt: payload.job.started_at || activeJob.startedAt || null,
+    enqueuedAt: payload.job.enqueued_at || activeJob.enqueuedAt || null,
+    attempts: payload.job.attempts ?? activeJob.attempts ?? 0,
+    primary,
+    holdout
+  };
+}
+
+function normalizeLivePool(pool, revealTaskIds) {
+  if (!pool) {
+    return null;
+  }
+  const rawTasks = Array.isArray(pool.task_statuses) ? pool.task_statuses : [];
+  const taskStatuses = rawTasks.map((task) => ({
+    taskId: revealTaskIds ? task.task_id || null : null,
+    status: task.status || "queued",
+    completed: Boolean(task.completed),
+    candidate: normalizeLiveVariant(task.candidate),
+    frontier: normalizeLiveVariant(task.frontier)
+  }));
+  return {
+    live: pool.state !== "completed",
+    totalTasks: Number(pool.total_tasks ?? taskStatuses.length ?? 0),
+    completedTasks: Number(
+      pool.completed_tasks ??
+        taskStatuses.filter((task) => task.completed).length
+    ),
+    taskStatuses: revealTaskIds ? taskStatuses : [],
+    counts: summarizeTaskStatusCounts(taskStatuses),
+    updatedAt: pool.updated_at || null
+  };
+}
+
+function normalizeLiveVariant(variant) {
+  return {
+    started: Boolean(variant?.started),
+    finished: Boolean(variant?.finished),
+    solved: Boolean(variant?.solved),
+    valid: Boolean(variant?.valid),
+    success: Boolean(variant?.success),
+    verifierScore: numberOrNull(variant?.verifier_score),
+    weightedTaskScore: numberOrNull(variant?.weighted_task_score)
   };
 }
 

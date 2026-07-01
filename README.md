@@ -103,9 +103,11 @@ Important variables:
 - `KATA_BOT_ROOT`
 - `KATA_WORK_ROOT`
 - `KATA_QUEUE_STATE_PATH`
+- `KATA_LIVE_STATUS_PATH`
 - `KATA_VALIDATOR_HEALTH_URL`
 - `KATA_REPO_SLUG`
 - `KATA_GITHUB_TOKEN`
+- `KATA_STATUS_CACHE_TTL_MS`
 - `KATA_BOARD_EVENT_LOG`
 
 If the repo roots are omitted, `kata-board` assumes the repos live beside it:
@@ -114,9 +116,13 @@ If the repo roots are omitted, `kata-board` assumes the repos live beside it:
 - `../kata-benchmarks`
 - `../kata-bot`
 
-If you want the Arena to show active evaluation progress while a duel is still
-running, also point `KATA_WORK_ROOT` at the same validator work directory used
-by `kata-bot`.
+For active duel progress, point `KATA_LIVE_STATUS_PATH` at the same durable
+status file used by `kata-bot`, usually:
+
+- `/srv/kata-bot/state/live-status.json`
+
+`KATA_STATUS_CACHE_TTL_MS` controls API caching. Use a low value such as `3000`
+for live dashboards.
 
 ## Leaderboard Modes
 
@@ -164,56 +170,36 @@ Current server endpoints:
 - leaderboard rows
 - data-source flags
 
-## GitHub Pages Deployment
+## Live Deployment
 
-`kata-board` can deploy like the SparkInfer dashboard:
+`kata-board` is designed to run as a live Node service beside `kata-bot`.
+The browser always reads `/api/status`, so the page reflects queue state,
+current king data, active duel progress, benchmark counts, and GitHub PR
+history dynamically.
 
-```text
-https://autovara.github.io/kata-board/
-```
+Recommended ngrok split:
 
-The Pages build is static. It does not run the Express API. Instead, GitHub
-Actions exports the current board payload to `status.json`, builds the Vite app,
-and deploys `dist/` to GitHub Pages.
+- `kingpawnusa.ngrok.app` forwards to `kata-bot` on `localhost:8080`
+- `dashboardking.ngrok.app` forwards to `kata-board` on `localhost:8787`
 
-Enable Pages:
-
-1. Open GitHub repo settings for `Autovara/kata-board`.
-2. Go to `Settings -> Pages`.
-3. Set source to `GitHub Actions`.
-4. Run `Deploy GitHub Pages` from the Actions tab, or push to `main`.
-
-Recommended repository variables:
-
-- `KATA_REPO_SLUG=Autovara/kata`
-- `KATA_BENCHMARKS_REPO_SLUG=Autovara/kata-benchmarks`
-- `KATA_PRIVATE_BENCHMARKS_REPO_SLUG=Autovara/kata-benchmarks-private`
-- `KATA_REPO_SLUG_FOR_LINKS=Autovara/kata`
-
-If the private benchmark repo is private, add this repository secret:
-
-- `KATA_PRIVATE_REPO_TOKEN`
-
-The token only needs read access to `kata-benchmarks-private`. If it is missing,
-the public board still deploys, but hidden holdout counts may be incomplete.
-
-The workflow runs:
+Run the board:
 
 ```bash
-npm run export:status
-VITE_STATUS_SOURCE=static VITE_BASE_PATH=/kata-board/ npm run build
+npm install
+npm run build
+npm start
 ```
 
-Static mode reads:
+Then open:
 
 ```text
-/kata-board/status.json
+https://dashboardking.ngrok.app
 ```
 
-Local development still uses the live API:
+The live API is:
 
 ```text
-/api/status
+https://dashboardking.ngrok.app/api/status
 ```
 
 ## Current Kata Workflow

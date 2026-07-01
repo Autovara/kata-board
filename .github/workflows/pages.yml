@@ -22,7 +22,7 @@ jobs:
     env:
       KATA_REPO_SLUG: ${{ vars.KATA_REPO_SLUG || 'Autovara/kata' }}
       KATA_BENCHMARKS_REPO_SLUG: ${{ vars.KATA_BENCHMARKS_REPO_SLUG || 'Autovara/kata-benchmarks' }}
-      KATA_PRIVATE_BENCHMARKS_REPO_SLUG: ${{ vars.KATA_PRIVATE_BENCHMARKS_REPO_SLUG }}
+      KATA_PRIVATE_BENCHMARKS_REPO_SLUG: ${{ vars.KATA_PRIVATE_BENCHMARKS_REPO_SLUG || 'Autovara/kata-benchmarks-private' }}
       KATA_REPO_SLUG_FOR_LINKS: ${{ vars.KATA_REPO_SLUG_FOR_LINKS || 'Autovara/kata' }}
     steps:
       - name: Checkout kata-board

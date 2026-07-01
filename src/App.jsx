@@ -454,14 +454,14 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Miner ranking."
-        text={`Source: ${leaderboardSource(leaderboard?.source)}. Promotions are verified merged wins; submissions is total candidate PRs seen.`}
+        text={`Source: ${leaderboardSource(leaderboard?.source)}. Kings are verified merged wins; submissions is total candidate PRs seen.`}
       />
 
       <section className="table-section">
         <div className="table-head">
           <span>rank</span>
           <span>miner</span>
-          <span>promotions</span>
+          <span>kings</span>
           <span>submissions</span>
           <span>open</span>
           <span>score</span>

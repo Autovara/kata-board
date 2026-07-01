@@ -193,8 +193,18 @@ function loadRepoPackLane({
         privateModeConfig?.holdout_task_count ||
         modeConfig.holdout_task_count ||
         privateTaskStats.liveTasks,
-      liveTasks: privateTaskStats.liveTasks,
-      totalTasks: privateTaskStats.totalTasks,
+      liveTasks: Math.max(
+        privateTaskStats.liveTasks,
+        privateModeConfig?.holdout_task_count || 0,
+        modeConfig.holdout_task_count || 0,
+        inferConfiguredHoldoutCount(privateModeConfig || modeConfig)
+      ),
+      totalTasks: Math.max(
+        privateTaskStats.totalTasks,
+        privateModeConfig?.holdout_task_count || 0,
+        modeConfig.holdout_task_count || 0,
+        inferConfiguredHoldoutCount(privateModeConfig || modeConfig)
+      ),
       retiredWaitingTasks: privateTaskStats.retiredWaitingTasks,
       retiredTasks: privateTaskStats.retiredTasks,
       fingerprint:
@@ -296,19 +306,25 @@ function summarizePublicTasks(tasks, benchkitPack) {
 }
 
 function summarizePrivateTasks(packRoot) {
+  const poolManifest = readJson(path.join(packRoot, "benchkit-pool.private.json")) || {};
+  const manifestLiveTasks = Array.isArray(poolManifest.private_live_tasks)
+    ? poolManifest.private_live_tasks.length
+    : 0;
   const summary = {
-    totalTasks: 0,
-    liveTasks: 0,
+    totalTasks: manifestLiveTasks,
+    liveTasks: manifestLiveTasks,
     retiredWaitingTasks: 0,
     retiredTasks: 0
   };
 
+  let scannedTasks = 0;
+  let scannedLiveTasks = 0;
   for (const taskId of listTaskDirectories(packRoot)) {
     const metadata = readJson(path.join(packRoot, taskId, "benchkit.json")) || {};
-    summary.totalTasks += 1;
+    scannedTasks += 1;
     const status = metadata.status || "unknown";
     if (status === "live") {
-      summary.liveTasks += 1;
+      scannedLiveTasks += 1;
     } else if (status === "retired-waiting") {
       summary.retiredWaitingTasks += 1;
     } else if (status === "retired") {
@@ -316,6 +332,8 @@ function summarizePrivateTasks(packRoot) {
     }
   }
 
+  summary.totalTasks = Math.max(summary.totalTasks, scannedTasks);
+  summary.liveTasks = Math.max(summary.liveTasks, scannedLiveTasks);
   return summary;
 }
 

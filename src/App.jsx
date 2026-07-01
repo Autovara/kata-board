@@ -370,6 +370,18 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   const kingHoldout = agentPoolScore(activeEvaluation?.holdout, "frontier", latest?.holdout?.frontierScore);
   const candidateTotal = agentSolvedTotal(activeEvaluation, latest, "candidate");
   const kingTotal = agentSolvedTotal(activeEvaluation, latest, "frontier");
+  const arenaPhase = activeEvaluation
+    ? activeEvaluationStatus(activeEvaluation)
+    : latest
+      ? duelStatus(latest, selectedLane)
+      : "idle";
+  const arenaTone = activeEvaluation
+    ? activeEvaluationTone(activeEvaluation)
+    : latest?.promotionReady
+      ? "ok"
+      : "neutral";
+  const pullLabel = activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-";
+  const updatedLabel = formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt);
 
   return (
     <div className="stack">
@@ -393,22 +405,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           />
           <div className="battle-mid">
             <div className="vs">VS</div>
-            <Status
-              label={
-                activeEvaluation
-                  ? activeEvaluationStatus(activeEvaluation)
-                  : latest
-                    ? duelStatus(latest, selectedLane)
-                    : "idle"
-              }
-              tone={
-                activeEvaluation
-                  ? activeEvaluationTone(activeEvaluation)
-                  : latest?.promotionReady
-                    ? "ok"
-                    : "neutral"
-              }
-            />
+            <Status label={arenaPhase} tone={arenaTone} />
             <div className="score-mini">
               <span>primary</span>
               <strong>{primaryProgress.label}</strong>
@@ -438,10 +435,27 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
       ) : null}
 
       <section className="arena-meta-grid">
-        <KeyValue label="phase" value={activeEvaluation ? activeEvaluationStatus(activeEvaluation) : latest ? duelStatus(latest, selectedLane) : "idle"} />
-        <KeyValue label="candidate" value={candidateName} />
-        <KeyValue label="pull" value={activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-"} />
-        <KeyValue label="updated" value={formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt)} />
+        <ArenaMetaCard
+          label="phase"
+          value={arenaPhase}
+          sub={activeEvaluation?.phase || "validator state"}
+          tone={arenaTone}
+        />
+        <ArenaMetaCard
+          label="candidate"
+          value={candidateName}
+          sub={activeEvaluation?.candidateSubmissionId || latest?.candidateSubmissionId || "waiting for challenger"}
+        />
+        <ArenaMetaCard
+          label="pull request"
+          value={pullLabel}
+          sub={activeEvaluation?.candidateGithubLogin ? `GitHub @${activeEvaluation.candidateGithubLogin}` : "no active PR"}
+        />
+        <ArenaMetaCard
+          label="updated"
+          value={updatedLabel}
+          sub={latest?.runId ? shortRunId(latest.runId) : "live validator feed"}
+        />
       </section>
 
       <section className="arena-visual-grid">
@@ -484,9 +498,21 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
                     className={`task-select ${selectedTask?.taskId === task.taskId ? "active" : ""}`}
                     onClick={() => setSelectedTaskId(task.taskId)}
                   >
-                    <strong>{task.title}</strong>
-                    <span>{task.taskId}</span>
-                    <Status label={taskRuntimeLabel(task.runtime)} tone={taskRuntimeTone(task.runtime)} />
+                    <div className="task-select-head">
+                      <strong>{task.title}</strong>
+                      <Status label={taskRuntimeLabel(task.runtime)} tone={taskRuntimeTone(task.runtime)} />
+                    </div>
+                    <span className="task-select-id">{task.taskId}</span>
+                    <div className="task-select-results">
+                      <span>
+                        candidate
+                        <strong>{variantRuntimeLabel(task.runtime?.candidate)}</strong>
+                      </span>
+                      <span>
+                        king
+                        <strong>{variantRuntimeLabel(task.runtime?.frontier)}</strong>
+                      </span>
+                    </div>
                   </button>
                 ))
               ) : (
@@ -498,15 +524,19 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
             <SectionTitle title="Task detail" />
             {selectedTask ? (
               <div className="task-detail">
-                <p className="kicker">visible benchmark</p>
+                <div className="task-detail-head">
+                  <p className="kicker">visible benchmark</p>
+                  <Status label={taskRuntimeLabel(selectedTask.runtime)} tone={taskRuntimeTone(selectedTask.runtime)} />
+                </div>
                 <h2>{selectedTask.title}</h2>
                 <p>{selectedTask.description || "No public task description available."}</p>
-                <KeyValue label="task id" value={selectedTask.taskId} />
-                <KeyValue label="status" value={selectedTask.status} />
-                <KeyValue label="live duel" value={taskRuntimeLabel(selectedTask.runtime)} />
-                <KeyValue label="candidate" value={variantRuntimeLabel(selectedTask.runtime?.candidate)} />
-                <KeyValue label="frontier" value={variantRuntimeLabel(selectedTask.runtime?.frontier)} />
-                <KeyValue label="tags" value={(selectedTask.tags || []).slice(0, 5).join(", ")} />
+                <div className="task-detail-grid">
+                  <KeyValue label="task id" value={selectedTask.taskId} />
+                  <KeyValue label="pool status" value={selectedTask.status} />
+                  <KeyValue label="candidate run" value={variantRuntimeLabel(selectedTask.runtime?.candidate)} />
+                  <KeyValue label="king run" value={variantRuntimeLabel(selectedTask.runtime?.frontier)} />
+                  <KeyValue label="tags" value={(selectedTask.tags || []).slice(0, 5).join(", ") || "-"} />
+                </div>
               </div>
             ) : (
               <Empty text="Select a task." />
@@ -1101,6 +1131,16 @@ function BattleSide({ label, name, avatarName, avatarUrl, sub, primaryScore, hol
         <span>holdout {holdoutScore}</span>
       </div>
     </div>
+  );
+}
+
+function ArenaMetaCard({ label, value, sub, tone = "neutral" }) {
+  return (
+    <article className={`arena-meta-card arena-meta-card-${tone}`}>
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      <small>{sub}</small>
+    </article>
   );
 }
 

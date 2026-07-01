@@ -216,9 +216,14 @@ function DiscordIcon() {
 
 function Dashboard({ payload, selectedLane, validator, onNavigate }) {
   const overview = payload.overview || {};
-  const queue = validator?.queue || {};
   const activeEvaluation = validator?.activeEvaluation || null;
-  const recentJobs = queue.recentJobs || [];
+  const recentActivity = payload.activity || [];
+  const latestChallenge = recentActivity[0] || null;
+  const topMiner = payload.leaderboard?.rows?.[0] || null;
+  const totalKings = payload.leaderboard?.rows?.reduce(
+    (total, row) => total + Number(row.wins || 0),
+    0
+  );
 
   return (
     <div className="stack">
@@ -247,26 +252,39 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
             <span />
           </div>
           <TerminalLine label="subnet" value="SN74 Gittensor" />
-          <TerminalLine label="repo" value={selectedLane?.repoName || "none"} />
-          <TerminalLine label="king" value={selectedLane?.currentHolder || "none"} />
-          <TerminalLine
-            label="candidate"
-            value={activeEvaluation?.candidateAuthor || activeEvaluation?.candidateSubmissionId || "waiting"}
-          />
+          <TerminalLine label="profile" value="repo-specific coding agents" />
+          <TerminalLine label="repos" value={`${overview.activeRepoPacks || 0} active packs`} />
+          <TerminalLine label="kings" value={`${totalKings || 0} verified promotions`} />
           <TerminalLine label="duel" value={selectedLane ? duelFormat(selectedLane) : "not configured"} />
-          <TerminalLine
-            label="validator"
-            value={activeEvaluationStatus(activeEvaluation)}
-          />
+          <TerminalLine label="live lane" value={selectedLane?.repoName || "waiting"} />
         </div>
       </section>
 
       <section className="stat-row">
         <Stat label="repo packs" value={overview.activeRepoPacks} />
         <Stat label="active lanes" value={overview.activeLanes} />
-        <Stat label="primary tasks" value={selectedLane?.publicPool?.liveTasks ?? overview.publicLiveTasks ?? 0} />
-        <Stat label="hidden tasks" value={selectedLane?.privatePool?.liveTasks ?? overview.privateLiveTasks ?? 0} />
-        <Stat label="queued PRs" value={overview.validatorPendingJobs || 0} />
+        <Stat label="public tasks" value={overview.publicLiveTasks ?? 0} />
+        <Stat label="hidden tasks" value={overview.privateLiveTasks ?? 0} />
+        <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
+      </section>
+
+      <section className="split">
+        <div className="section-block">
+          <SectionTitle title="Competition profile" />
+          <KeyValue label="system" value="GitTensor-aligned agent arena" />
+          <KeyValue label="submission" value="PR-only agent bundle" />
+          <KeyValue label="reward idea" value="current king per repo lane" />
+          <KeyValue label="evaluation" value="public primary + private holdout" />
+          <KeyValue label="current state" value={activeEvaluationStatus(activeEvaluation)} />
+        </div>
+        <div className="section-block">
+          <SectionTitle title="Current lane" />
+          <KeyValue label="repo" value={selectedLane?.repoName || "not configured"} />
+          <KeyValue label="mode" value={selectedLane?.mode || "-"} />
+          <KeyValue label="king" value={selectedLane?.currentHolder || "-"} />
+          <KeyValue label="tasks" value={selectedLane ? duelFormat(selectedLane) : "-"} />
+          <KeyValue label="gate" value={selectedLane ? promotionGate(selectedLane) : "-"} />
+        </div>
       </section>
 
       <section className="split">
@@ -279,35 +297,12 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           </div>
         </div>
         <div className="section-block">
-          <SectionTitle title="Validator live" />
-          <KeyValue label="state" value={activeEvaluationStatus(activeEvaluation)} />
-          <KeyValue label="pull" value={activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : queue.activeJob?.pullNumber ? `#${queue.activeJob.pullNumber}` : "none"} />
-          <KeyValue label="lane" value={activeEvaluation?.repoPack ? `${activeEvaluation.repoPack} / ${activeEvaluation.mode}` : "waiting"} />
-          <KeyValue label="candidate" value={activeEvaluation?.candidateAuthor || activeEvaluation?.candidateSubmissionId || "waiting"} />
-          <KeyValue label="primary progress" value={poolProgressLabel(activeEvaluation?.primary, selectedLane?.duelRules?.publicTaskCount)} />
-          <KeyValue label="holdout progress" value={poolProgressLabel(activeEvaluation?.holdout, selectedLane?.duelRules?.privateTaskCount)} />
-        </div>
-      </section>
-
-      <section className="split">
-        <div className="section-block">
-          <SectionTitle title="Queue state" />
-          <KeyValue label="pending" value={queue.counts?.pending ?? 0} />
-          <KeyValue label="running" value={queue.counts?.running ?? 0} />
-          <KeyValue label="completed" value={queue.counts?.completed ?? 0} />
-          <KeyValue label="failed" value={queue.counts?.failed ?? 0} />
-        </div>
-        <div className="section-block">
-          <SectionTitle title="Recent queue jobs" />
-          {recentJobs.length ? (
-            <div className="compact-list">
-              {recentJobs.map((job) => (
-                <QueueJobRow key={job.jobId} job={job} />
-              ))}
-            </div>
-          ) : (
-            <Empty text="No queue activity yet." />
-          )}
+          <SectionTitle title="Network summary" />
+          <KeyValue label="top miner" value={topMiner?.author || "not ranked yet"} />
+          <KeyValue label="leaderboard miners" value={overview.leaderboardEntries ?? 0} />
+          <KeyValue label="latest challenger" value={latestChallenge?.candidateAuthor || latestChallenge?.candidateSubmissionId || "none"} />
+          <KeyValue label="latest result" value={latestChallenge ? duelStatus(latestChallenge, selectedLane) : "no duel yet"} />
+          <KeyValue label="updated" value={formatDateTime(payload.generatedAt)} />
         </div>
       </section>
     </div>
@@ -364,6 +359,14 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
     visibleTasks.find((task) => task.taskId === selectedTaskId) ||
     visibleTasks[0] ||
     null;
+  const primaryProgress = poolProgress(activeEvaluation?.primary, selectedLane?.duelRules?.publicTaskCount);
+  const holdoutProgress = poolProgress(activeEvaluation?.holdout, selectedLane?.duelRules?.privateTaskCount);
+  const candidatePrimary = agentPoolScore(activeEvaluation?.primary, "candidate", latest?.primary?.candidateScore);
+  const kingPrimary = agentPoolScore(activeEvaluation?.primary, "frontier", latest?.primary?.frontierScore);
+  const candidateHoldout = agentPoolScore(activeEvaluation?.holdout, "candidate", latest?.holdout?.candidateScore);
+  const kingHoldout = agentPoolScore(activeEvaluation?.holdout, "frontier", latest?.holdout?.frontierScore);
+  const candidateTotal = agentSolvedTotal(activeEvaluation, latest, "candidate");
+  const kingTotal = agentSolvedTotal(activeEvaluation, latest, "frontier");
 
   return (
     <div className="stack">
@@ -381,6 +384,9 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
             label="king"
             name={selectedLane.currentHolder}
             sub={selectedLane.king?.submissionId}
+            primaryScore={kingPrimary}
+            holdoutScore={kingHoldout}
+            totalScore={kingTotal}
           />
           <div className="battle-mid">
             <div className="vs">VS</div>
@@ -402,23 +408,13 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
             />
             <div className="score-mini">
               <span>primary</span>
-              <strong>
-                {activeEvaluation
-                  ? poolProgressLabel(activeEvaluation.primary, selectedLane.duelRules.publicTaskCount)
-                  : latest
-                    ? `${formatNumber(latest.primary?.candidateScore)}:${formatNumber(latest.primary?.frontierScore)}`
-                    : "no run"}
-              </strong>
+              <strong>{primaryProgress.label}</strong>
+              <ProgressBar value={primaryProgress.percent} />
             </div>
             <div className="score-mini">
               <span>holdout</span>
-              <strong>
-                {activeEvaluation
-                  ? poolProgressLabel(activeEvaluation.holdout, selectedLane.duelRules.privateTaskCount)
-                  : latest?.holdout
-                    ? `${formatNumber(latest.holdout?.candidateScore)}:${formatNumber(latest.holdout?.frontierScore)}`
-                    : "hidden"}
-              </strong>
+              <strong>{holdoutProgress.label}</strong>
+              <ProgressBar value={holdoutProgress.percent} />
             </div>
           </div>
           <BattleSide
@@ -429,61 +425,48 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
               latest?.candidateSubmissionId ||
               "no active duel"
             }
+            primaryScore={candidatePrimary}
+            holdoutScore={candidateHoldout}
+            totalScore={candidateTotal}
           />
         </section>
       ) : null}
 
-      <section className="split">
-        <div className="section-block">
-          <SectionTitle title="Duel gate" />
-          {selectedLane ? (
-            <>
-              <KeyValue label="primary draw" value={`${selectedLane.duelRules.publicTaskCount} random live public tasks`} />
-              <KeyValue label="primary margin" value={marginLabel(selectedLane, "primary")} />
-              <KeyValue label="hidden holdout" value={`${selectedLane.duelRules.privateTaskCount} private tasks`} />
-              <KeyValue label="holdout margin" value={marginLabel(selectedLane, "holdout")} />
-            </>
-          ) : (
-            <Empty text="No lane selected." />
-          )}
-        </div>
-        <div className="section-block">
-          <SectionTitle title="Current evaluation" />
-          {activeEvaluation ? (
-            <>
-              <KeyValue label="phase" value={activeEvaluationStatus(activeEvaluation)} />
-              <KeyValue label="pull" value={activeEvaluation.pullNumber ? `#${activeEvaluation.pullNumber}` : "-"} />
-              <KeyValue label="started" value={formatDateTime(activeEvaluation.startedAt || activeEvaluation.enqueuedAt)} />
-              <KeyValue label="updated" value={formatDateTime(activeEvaluation.updatedAt)} />
-              <KeyValue label="primary pool" value={poolProgressLabel(activeEvaluation.primary, selectedLane?.duelRules?.publicTaskCount)} />
-              <KeyValue label="holdout pool" value={poolProgressLabel(activeEvaluation.holdout, selectedLane?.duelRules?.privateTaskCount)} />
-            </>
-          ) : latest ? (
-            <>
-              <KeyValue label="latest run" value={shortRunId(latest.runId)} />
-              <KeyValue label="candidate" value={latest.candidateAuthor || latest.candidateSubmissionId || "unknown"} />
-              <KeyValue label="primary delta" value={formatSigned(latest.primary?.candidateDelta)} />
-              <KeyValue label="holdout delta" value={formatSigned(latest.holdout?.candidateDelta)} />
-              <KeyValue label="result" value={duelStatus(latest, selectedLane)} />
-            </>
-          ) : (
-            <Empty text="No duel history yet." />
-          )}
-        </div>
+      <section className="arena-visual-grid">
+        <ArenaProgressCard
+          title="Primary progress"
+          label={primaryProgress.label}
+          percent={primaryProgress.percent}
+          sub={selectedLane ? marginLabel(selectedLane, "primary") : "not configured"}
+        />
+        <ArenaProgressCard
+          title="Holdout progress"
+          label={holdoutProgress.label}
+          percent={holdoutProgress.percent}
+          sub={selectedLane ? marginLabel(selectedLane, "holdout") : "not configured"}
+        />
+        <ScoreCompareCard
+          title="Primary score"
+          king={kingPrimary}
+          candidate={candidatePrimary}
+          delta={latest?.primary?.candidateDelta}
+        />
+        <ScoreCompareCard
+          title="Holdout score"
+          king={kingHoldout}
+          candidate={candidateHoldout}
+          delta={latest?.holdout?.candidateDelta}
+        />
       </section>
 
       <section className="split">
         <div className="section-block">
-          <SectionTitle title="Recent duels" />
-          {laneActivity.length ? (
-            <div className="compact-list">
-              {laneActivity.slice(0, 6).map((duel) => (
-                <DuelRow key={duel.runId} duel={duel} lane={selectedLane} />
-              ))}
-            </div>
-          ) : (
-            <Empty text="No duel history yet." />
-          )}
+          <SectionTitle title="Duel snapshot" />
+          <KeyValue label="phase" value={activeEvaluation ? activeEvaluationStatus(activeEvaluation) : latest ? duelStatus(latest, selectedLane) : "idle"} />
+          <KeyValue label="candidate" value={candidateName} />
+          <KeyValue label="pull" value={activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-"} />
+          <KeyValue label="latest run" value={latest ? shortRunId(latest.runId) : "-"} />
+          <KeyValue label="updated" value={formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt)} />
         </div>
         <div className="section-block">
           <SectionTitle title="Live task status" />
@@ -563,9 +546,14 @@ function Winners({ lanes, kataRepoSlug }) {
                 <span>{lane.mode}</span>
                 <Status label={lane.king?.seeded ? "seed" : "promoted"} tone={lane.king?.seeded ? "neutral" : "ok"} />
               </div>
+              <MinerIdentity
+                name={lane.currentHolder}
+                sub={lane.king?.submissionId || "current king"}
+                size="large"
+              />
               <h2>{lane.repoName}</h2>
               <p>{lane.repoPack}</p>
-              <KeyValue label="current king" value={lane.currentHolder} />
+              <KeyValue label="miner" value={lane.currentHolder} />
               <KeyValue
                 label="agent"
                 value={kingAgentLink(lane, kataRepoSlug)}
@@ -606,7 +594,7 @@ function Leaderboard({ leaderboard }) {
           rows.slice(0, 20).map((row, index) => (
             <div className="table-row" key={row.author}>
               <span>{index + 1}</span>
-              <strong>{row.author}</strong>
+              <MinerIdentity name={row.author} sub={row.currentFrontiers?.length ? `${row.currentFrontiers.length} active lanes` : "miner"} />
               <span>{row.wins}</span>
               <span>{row.totalSubmissions}</span>
               <span>{row.openSubmissions}</span>
@@ -1108,13 +1096,72 @@ function ProcessItem({ step, title, text }) {
   );
 }
 
-function BattleSide({ label, name, sub }) {
+function BattleSide({ label, name, sub, primaryScore, holdoutScore, totalScore }) {
   return (
     <div className="battle-side">
       <Avatar name={name} />
       <span>{label}</span>
       <h2>{name}</h2>
       <p>{sub}</p>
+      <div className="agent-score-strip">
+        <strong>{totalScore}</strong>
+        <small>solved</small>
+      </div>
+      <div className="agent-score-pair">
+        <span>primary {primaryScore}</span>
+        <span>holdout {holdoutScore}</span>
+      </div>
+    </div>
+  );
+}
+
+function ArenaProgressCard({ title, label, percent, sub }) {
+  return (
+    <div className="arena-visual-card">
+      <div className="progress-ring" style={{ "--progress": `${percent}%` }}>
+        <strong>{Math.round(percent)}%</strong>
+      </div>
+      <div>
+        <span>{title}</span>
+        <h3>{label}</h3>
+        <p>{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+function ScoreCompareCard({ title, king, candidate, delta }) {
+  return (
+    <div className="arena-visual-card score-card">
+      <span>{title}</span>
+      <div className="score-bars">
+        <ScoreBar label="king" value={king} />
+        <ScoreBar label="candidate" value={candidate} />
+      </div>
+      <strong className={Number(delta || 0) >= 0 ? "score-delta positive" : "score-delta negative"}>
+        delta {formatSigned(delta)}
+      </strong>
+    </div>
+  );
+}
+
+function ScoreBar({ label, value }) {
+  const numeric = scorePercent(value);
+  return (
+    <div className="score-bar-row">
+      <span>{label}</span>
+      <div className="score-bar-track">
+        <i style={{ width: `${numeric}%` }} />
+      </div>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ProgressBar({ value }) {
+  return (
+    <div className="mini-progress" aria-hidden="true">
+      <i style={{ width: `${value}%` }} />
     </div>
   );
 }
@@ -1125,6 +1172,18 @@ function Avatar({ name }) {
     return <img className="avatar" src={src} alt="" />;
   }
   return <div className="avatar avatar-fallback">{initials(name || "?")}</div>;
+}
+
+function MinerIdentity({ name, sub, size = "compact" }) {
+  return (
+    <div className={`miner-identity miner-identity-${size}`}>
+      <Avatar name={name} />
+      <div>
+        <strong>{name || "unknown"}</strong>
+        <span>{sub}</span>
+      </div>
+    </div>
+  );
 }
 
 function DuelRow({ duel, lane }) {
@@ -1433,6 +1492,81 @@ function poolProgressLabel(pool, fallbackTotal) {
     return `${pool.completedTasks || 0}/${total} tasks`;
   }
   return `${pool.completedTasks || total}/${total} complete`;
+}
+
+function poolProgress(pool, fallbackTotal) {
+  if (!pool) {
+    const total = Number(fallbackTotal || 0);
+    return {
+      completed: 0,
+      total,
+      percent: 0,
+      label: total ? `0/${total}` : "waiting"
+    };
+  }
+  const total = Number(pool.totalTasks || fallbackTotal || 0);
+  const completed = Number(pool.completedTasks || (pool.live ? 0 : total));
+  return {
+    completed,
+    total,
+    percent: total > 0 ? clampPercent((completed / total) * 100) : 0,
+    label: total > 0 ? `${completed}/${total}` : "waiting"
+  };
+}
+
+function agentPoolScore(pool, variantName, fallbackScore) {
+  const tasks = pool?.taskStatuses || [];
+  if (tasks.length) {
+    const solved = tasks.filter((task) => task?.[variantName]?.solved).length;
+    return `${solved}/${tasks.length}`;
+  }
+  if (fallbackScore !== null && fallbackScore !== undefined) {
+    return `${formatNumber(fallbackScore)} pts`;
+  }
+  if (pool?.totalTasks) {
+    return `0/${pool.totalTasks}`;
+  }
+  return "-";
+}
+
+function agentSolvedTotal(activeEvaluation, latest, variantName) {
+  const pools = [activeEvaluation?.primary, activeEvaluation?.holdout].filter(Boolean);
+  let solved = 0;
+  let total = 0;
+  for (const pool of pools) {
+    const tasks = pool.taskStatuses || [];
+    if (!tasks.length) {
+      continue;
+    }
+    solved += tasks.filter((task) => task?.[variantName]?.solved).length;
+    total += tasks.length;
+  }
+  if (total > 0) {
+    return `${solved}/${total}`;
+  }
+  const score =
+    variantName === "candidate"
+      ? latest?.primary?.candidateScore
+      : latest?.primary?.frontierScore;
+  return score !== null && score !== undefined ? `${formatNumber(score)} pts` : "-";
+}
+
+function scorePercent(value) {
+  if (typeof value === "string" && value.includes("/")) {
+    const [left, right] = value.split("/").map(Number);
+    if (Number.isFinite(left) && Number.isFinite(right) && right > 0) {
+      return clampPercent((left / right) * 100);
+    }
+  }
+  const numeric = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return clampPercent(numeric);
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, Number(value) || 0));
 }
 
 function queueJobTone(status) {

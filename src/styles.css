@@ -610,6 +610,43 @@ button {
   overflow-wrap: anywhere;
 }
 
+.agent-score-strip {
+  width: fit-content;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(185, 255, 93, 0.24);
+  border-radius: 999px;
+  background: rgba(185, 255, 93, 0.07);
+}
+
+.agent-score-strip strong {
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 15px;
+}
+
+.agent-score-strip small {
+  margin-left: 6px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+
+.agent-score-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-score-pair span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 8px;
+  color: var(--soft);
+  background: rgba(7, 9, 7, 0.32);
+  font-size: 11px;
+}
+
 .battle-mid {
   display: grid;
   place-items: center;
@@ -642,6 +679,132 @@ button {
   display: block;
   margin-top: 6px;
   font-size: 20px;
+}
+
+.mini-progress {
+  height: 5px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(244, 247, 239, 0.08);
+}
+
+.mini-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+  transition: width 260ms ease;
+}
+
+.arena-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.arena-visual-card {
+  min-height: 178px;
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 22% 10%, rgba(185, 255, 93, 0.12), transparent 34%),
+    rgba(16, 19, 16, 0.84);
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.arena-visual-card:hover {
+  border-color: rgba(185, 255, 93, 0.28);
+  transform: translateY(-2px);
+}
+
+.arena-visual-card > span,
+.score-bar-row span,
+.miner-identity span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+.arena-visual-card h3 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.arena-visual-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.progress-ring {
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--panel) 58%, transparent 60%),
+    conic-gradient(var(--green) var(--progress), rgba(244, 247, 239, 0.08) 0);
+}
+
+.progress-ring strong {
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 16px;
+}
+
+.score-card {
+  align-content: stretch;
+}
+
+.score-bars {
+  display: grid;
+  gap: 12px;
+}
+
+.score-bar-row {
+  display: grid;
+  grid-template-columns: 74px 1fr 64px;
+  gap: 10px;
+  align-items: center;
+}
+
+.score-bar-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(244, 247, 239, 0.08);
+}
+
+.score-bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+  transition: width 260ms ease;
+}
+
+.score-bar-row strong,
+.score-delta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+
+.score-delta.positive {
+  color: var(--green);
+}
+
+.score-delta.negative {
+  color: var(--red);
 }
 
 .duel-row {
@@ -699,6 +862,48 @@ button {
 .winner-card p {
   margin: 8px 0 22px;
   color: var(--muted);
+}
+
+.winner-card .miner-identity-large {
+  margin-bottom: 22px;
+}
+
+.miner-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.miner-identity .avatar {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+}
+
+.miner-identity strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.miner-identity span {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.miner-identity-large {
+  gap: 14px;
+}
+
+.miner-identity-large .avatar {
+  width: 68px;
+  height: 68px;
+}
+
+.miner-identity-large strong {
+  font-size: 22px;
 }
 
 .table-section {
@@ -1150,7 +1355,8 @@ button {
   }
 
   .stat-row,
-  .winner-grid {
+  .winner-grid,
+  .arena-visual-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1179,7 +1385,8 @@ button {
   }
 
   .stat-row,
-  .winner-grid {
+  .winner-grid,
+  .arena-visual-grid {
     grid-template-columns: 1fr;
   }
 

@@ -229,8 +229,22 @@ function loadRepoPackLane({
         publicTaskCount: publicPool.configuredTaskCount,
         privateTaskCount: privatePool.configuredTaskCount,
         promotionMarginPoints: modeConfig.promotion_margin_points ?? 0,
+        holdoutPromotionMarginPoints:
+          privateModeConfig?.holdout_promotion_margin_points ??
+          modeConfig.holdout_promotion_margin_points ??
+          0,
+        promotionMarginTasks: marginAsTaskCount(
+          modeConfig.promotion_margin_points ?? 0,
+          publicPool.configuredTaskCount
+        ),
+        holdoutPromotionMarginTasks: marginAsTaskCount(
+          privateModeConfig?.holdout_promotion_margin_points ??
+            modeConfig.holdout_promotion_margin_points ??
+            0,
+          privatePool.configuredTaskCount
+        ),
         holdoutRule: privatePool.configured
-          ? "candidate must score at least the king on hidden holdouts"
+          ? "candidate must beat the king by the holdout margin"
           : "no holdout pool configured"
       },
       publicPool,
@@ -335,6 +349,15 @@ function inferConfiguredHoldoutCount(modeConfig) {
   return Array.isArray(modeConfig?.holdout_tasks) ? modeConfig.holdout_tasks.length : 0;
 }
 
+function marginAsTaskCount(marginPoints, taskCount) {
+  const points = Number(marginPoints);
+  const count = Number(taskCount);
+  if (!Number.isFinite(points) || !Number.isFinite(count) || points <= 0 || count <= 0) {
+    return null;
+  }
+  return points / (100 / count);
+}
+
 function inferSubmissionAuthorFromId(submissionId) {
   if (!submissionId) {
     return null;
@@ -384,6 +407,8 @@ function loadRecentActivity(kataRoot, env, activeRepoPacks) {
         repoPack: inferRepoPackFromManifest(summary.manifest_path),
         promotionReady: Boolean(summary.promotion_ready),
         promotionReason: summary.promotion_reason || null,
+        promotionMarginPoints: summary.promotion_margin_points ?? 0,
+        holdoutPromotionMarginPoints: summary.holdout_promotion_margin_points ?? 0,
         candidateArtifactHash: summary.candidate_artifact_hash || null,
         candidateSubmissionId: inferSubmissionId(summary.candidate_artifact),
         candidateAuthor: inferSubmissionAuthor(summary.candidate_artifact),

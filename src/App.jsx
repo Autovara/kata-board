@@ -185,14 +185,14 @@ function Dashboard({ payload, selectedLane, onNavigate }) {
           <TerminalLine label="repo" value={selectedLane?.repoName || "none"} />
           <TerminalLine label="king" value={selectedLane?.currentHolder || "none"} />
           <TerminalLine label="duel" value={selectedLane ? duelFormat(selectedLane) : "not configured"} />
-          <TerminalLine label="gate" value={selectedLane ? `public +${selectedLane.duelRules.promotionMarginPoints}, holdout >= king` : "none"} />
+          <TerminalLine label="gate" value={selectedLane ? promotionGate(selectedLane) : "none"} />
         </div>
       </section>
 
       <section className="stat-row">
         <Stat label="repo packs" value={overview.activeRepoPacks} />
         <Stat label="active lanes" value={overview.activeLanes} />
-        <Stat label="public tasks" value={`${overview.publicLiveTasks || 0}/${overview.publicTargetTasks || 0}`} />
+        <Stat label="primary tasks" value={`${overview.publicLiveTasks || 0}/${overview.publicTargetTasks || 0}`} />
         <Stat label="hidden tasks" value={`${overview.privateLiveTasks || 0}/${overview.privateTargetTasks || 0}`} />
         <Stat label="queued PRs" value={overview.validatorPendingJobs || 0} />
       </section>
@@ -245,9 +245,9 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
           />
           <div className="battle-mid">
             <div className="vs">VS</div>
-            <Status label={latest ? duelStatus(latest) : "idle"} tone={latest?.promotionReady ? "ok" : "neutral"} />
+            <Status label={latest ? duelStatus(latest, selectedLane) : "idle"} tone={latest?.promotionReady ? "ok" : "neutral"} />
             <div className="score-mini">
-              <span>public</span>
+              <span>primary</span>
               <strong>
                 {latest
                   ? `${formatNumber(latest.primary?.candidateScore)}:${formatNumber(latest.primary?.frontierScore)}`
@@ -276,10 +276,10 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
           <SectionTitle title="Duel gate" />
           {selectedLane ? (
             <>
-              <KeyValue label="public draw" value={`${selectedLane.duelRules.publicTaskCount} random live tasks`} />
+              <KeyValue label="primary draw" value={`${selectedLane.duelRules.publicTaskCount} random live public tasks`} />
+              <KeyValue label="primary margin" value={marginLabel(selectedLane, "primary")} />
               <KeyValue label="hidden holdout" value={`${selectedLane.duelRules.privateTaskCount} private tasks`} />
-              <KeyValue label="promotion margin" value={`king + ${selectedLane.duelRules.promotionMarginPoints}`} />
-              <KeyValue label="holdout rule" value="candidate must not regress" />
+              <KeyValue label="holdout margin" value={marginLabel(selectedLane, "holdout")} />
             </>
           ) : (
             <Empty text="No lane selected." />
@@ -290,7 +290,7 @@ function Arena({ lanes, selectedLane, laneActivity, setSelectedLaneId }) {
           {laneActivity.length ? (
             <div className="compact-list">
               {laneActivity.slice(0, 6).map((duel) => (
-                <DuelRow key={duel.runId} duel={duel} />
+                <DuelRow key={duel.runId} duel={duel} lane={selectedLane} />
               ))}
             </div>
           ) : (
@@ -366,7 +366,7 @@ function Winners({ lanes, kataRepoSlug }) {
                 label="agent"
                 value={kingAgentLink(lane, kataRepoSlug)}
               />
-              <KeyValue label="duel gate" value={duelFormat(lane)} />
+              <KeyValue label="duel gate" value={promotionGate(lane)} />
               <KeyValue label="updated" value={formatDateTime(lane.king?.updatedAt)} />
             </article>
           ))
@@ -466,7 +466,7 @@ function DocOverview({ selectedLane }) {
         king under the validator's live task pools.
       </p>
       <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
-      <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "10 public / 10 hidden"} />
+      <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"} />
     </section>
   );
 }
@@ -485,8 +485,9 @@ function DocAgent() {
   return (
     <section>
       <h1>Agent contract</h1>
-      <p>Your `agent.py` must define `solve(...)`. The validator provides the model, API base, API key, repo path, issue text, timeouts, and benchmark tasks.</p>
-      <CodeBlock value={`def solve(repo_path: str, issue: str, model: str, api_base: str, api_key: str) -> dict:\n    return {\"patch\": \"...\"}`} />
+      <p>Your `agent.py` must define `solve(...)`. The validator provides the model, API base, API key, repo path, task text, and timeouts.</p>
+      <p>The agent must not read oracle files, hidden task paths, score files, or validator secret environment variables.</p>
+      <CodeBlock value={`def solve(repo_path: str, issue: str, model: str, api_base: str, api_key: str) -> dict:\n    return {\"success\": True, \"message\": \"ready\", \"diff\": \"...\"}`} />
     </section>
   );
 }
@@ -496,13 +497,14 @@ function DocScoring({ selectedLane }) {
     <section>
       <h1>Duel scoring</h1>
       <p>
-        Current lane: {selectedLane ? duelFormat(selectedLane) : "10 public / 10 hidden"}.
+        Current lane: {selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"}.
         Public tasks are randomly drawn from live public tasks. Hidden holdouts
         are private.
       </p>
       <ul>
-        <li>Public pool: candidate must beat king by at least 2.</li>
-        <li>Hidden holdout: candidate must score at least the king.</li>
+        <li>Primary pool: candidate must beat the king by the configured primary margin.</li>
+        <li>Hidden holdout: candidate must beat the king by the configured holdout margin.</li>
+        <li>Current default is +10 primary points and +10 holdout points.</li>
         <li>Invalid task runs block promotion.</li>
       </ul>
     </section>
@@ -602,14 +604,14 @@ function Avatar({ name }) {
   return <div className="avatar avatar-fallback">{initials(name || "?")}</div>;
 }
 
-function DuelRow({ duel }) {
+function DuelRow({ duel, lane }) {
   return (
     <div className="duel-row">
       <div>
         <strong>{duel.candidateAuthor || duel.candidateSubmissionId || "unknown"}</strong>
         <span>{shortRunId(duel.runId)}</span>
       </div>
-      <Status label={duelStatus(duel)} tone={duel.promotionReady ? "ok" : "neutral"} />
+      <Status label={duelStatus(duel, lane)} tone={duel.promotionReady ? "ok" : "neutral"} />
     </div>
   );
 }
@@ -664,20 +666,55 @@ function duelFormat(lane) {
   if (!lane) {
     return "not configured";
   }
-  return `${lane.duelRules.publicTaskCount} public / ${lane.duelRules.privateTaskCount} hidden`;
+  return `${lane.duelRules.publicTaskCount} primary / ${lane.duelRules.privateTaskCount} hidden`;
 }
 
-function duelStatus(duel) {
+function duelStatus(duel, lane) {
   if (duel.promotionReady) {
     return "winner";
   }
-  if ((duel.primary?.candidateDelta ?? 0) <= 0) {
-    return "king held";
+  const primaryMargin = Number(
+    duel.promotionMarginPoints ?? lane?.duelRules?.promotionMarginPoints ?? 0
+  );
+  const holdoutMargin = Number(
+    duel.holdoutPromotionMarginPoints ??
+      lane?.duelRules?.holdoutPromotionMarginPoints ??
+      0
+  );
+  if ((duel.primary?.candidateDelta ?? Number.NEGATIVE_INFINITY) < primaryMargin) {
+    return "primary short";
   }
-  if ((duel.holdout?.candidateDelta ?? 0) < 0) {
-    return "holdout failed";
+  if (!duel.holdout && (lane?.duelRules?.privateTaskCount ?? 0) > 0) {
+    return "holdout pending";
+  }
+  if ((duel.holdout?.candidateDelta ?? Number.NEGATIVE_INFINITY) < holdoutMargin) {
+    return "holdout short";
   }
   return "blocked";
+}
+
+function promotionGate(lane) {
+  if (!lane) {
+    return "not configured";
+  }
+  return `primary +${formatNumber(lane.duelRules.promotionMarginPoints)} pts, holdout +${formatNumber(lane.duelRules.holdoutPromotionMarginPoints)} pts`;
+}
+
+function marginLabel(lane, pool) {
+  const rules = lane?.duelRules || {};
+  if (pool === "holdout") {
+    return marginWithTasks(
+      rules.holdoutPromotionMarginPoints,
+      rules.holdoutPromotionMarginTasks
+    );
+  }
+  return marginWithTasks(rules.promotionMarginPoints, rules.promotionMarginTasks);
+}
+
+function marginWithTasks(points, tasks) {
+  const taskText =
+    tasks === null || tasks === undefined ? "" : `, about ${formatNumber(tasks)} tasks`;
+  return `king + ${formatNumber(points)} points${taskText}`;
 }
 
 function selectionLabel(value) {

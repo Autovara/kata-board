@@ -14,6 +14,7 @@ This repo reads the current Kata system and shows:
 - active repo lanes
 - frontier status
 - benchmark pack health
+- primary and hidden holdout promotion gates
 - recent challenge activity
 - optional miner leaderboard
 
@@ -27,6 +28,7 @@ It supports two leaderboard sources:
 Even without those, the board already shows real live status from:
 
 - `kata-benchmarks`
+- `kata-benchmarks-private`, when configured
 - `kata/runs`
 
 ## Current Data Boundary
@@ -153,8 +155,22 @@ Current server endpoints:
 - overview metrics
 - lane status
 - recent challenge activity
+- primary and holdout margins
 - leaderboard rows
 - data-source flags
+
+## Current Kata Workflow
+
+The board mirrors the current PR-only Kata workflow:
+
+- miners submit one PR under `submissions/<repo-pack>/<mode>/<submission-id>/`
+- each registered repo-pack/mode has its own current king under `kata/kings`
+- primary duels draw 20 random live public tasks
+- hidden holdout duels use 10 private tasks
+- promotion requires both `candidate >= king + 10` primary points and
+  `candidate >= king + 10` hidden holdout points
+- agents receive task text and repo contents, not oracle files or hidden task
+  metadata
 
 ## Production Shape
 

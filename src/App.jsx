@@ -458,6 +458,10 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
         />
       </section>
 
+      {selectedLane?.evaluatorState?.current ? (
+        <Sn60LanePanel state={selectedLane.evaluatorState.current} />
+      ) : null}
+
       <section className="arena-visual-grid">
         <ArenaProgressCard
           title="Primary progress"
@@ -544,6 +548,86 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           </div>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function Sn60LanePanel({ state }) {
+  const candidateScore = percentScore(state.scores?.candidate);
+  const kingScore = percentScore(state.scores?.king);
+  return (
+    <section className="sn60-panel">
+      <div className="sn60-panel-head">
+        <div>
+          <p className="kicker">SN60 Bitsec lane</p>
+          <h2>{state.candidateSubmissionId || "waiting for challenger"}</h2>
+        </div>
+        <Status label={state.screeningStatus || "no screening"} tone={screeningTone(state.screeningStatus)} />
+      </div>
+
+      <div className="sn60-grid">
+        <Sn60Metric label="candidate miner" value={state.candidateAuthor || state.candidateSubmissionId || "-"} sub={state.candidateSubmissionId || "no active candidate"} />
+        <Sn60Metric label="king miner" value={state.kingAuthor || state.kingSubmissionId || "-"} sub={state.kingSubmissionId || "seed king"} />
+        <Sn60Metric label="candidate score" value={candidateScore} sub={`king ${kingScore}`} />
+        <Sn60Metric label="final winner" value={state.finalWinner || "-"} sub={state.rewardLabelApplied || "reward label pending"} />
+        <Sn60Metric label="codebases passed" value={sn60Pair(state.codebasesPassed)} sub={`${state.projectKeys?.length || 0} selected projects`} />
+        <Sn60Metric label="true positives" value={sn60Pair(state.truePositives)} sub="candidate vs king" />
+        <Sn60Metric label="invalid runs" value={sn60Pair(state.invalidRuns)} sub="candidate vs king" />
+        <Sn60Metric label="replica spread" value={formatNumber(state.stability?.candidate?.spread)} sub={`king ${formatNumber(state.stability?.king?.spread)}`} />
+      </div>
+
+      <div className="sn60-detail-grid">
+        <div className="sn60-detail-block">
+          <span>local validator replica scores</span>
+          <ReplicaStrip label="candidate" values={state.localReplicaScores?.candidate} />
+          <ReplicaStrip label="king" values={state.localReplicaScores?.frontier || state.localReplicaScores?.king} />
+        </div>
+        <div className="sn60-detail-block">
+          <span>benchmark snapshot provenance</span>
+          <KeyValue label="freshness" value={shortHash(state.provenance?.freshnessFingerprint)} />
+          <KeyValue label="sandbox" value={shortHash(state.provenance?.sandboxCommit)} />
+          <KeyValue label="benchmark" value={shortHash(state.provenance?.benchmarkSha256)} />
+          <KeyValue label="scorer" value={state.provenance?.scorerVersion || "-"} />
+        </div>
+      </div>
+
+      {state.screeningReasons?.length ? (
+        <div className="sn60-screening-notes">
+          {state.screeningReasons.slice(0, 3).map((reason) => (
+            <span key={reason}>{reason}</span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function Sn60Metric({ label, value, sub }) {
+  return (
+    <div className="sn60-metric">
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      <small>{sub}</small>
+    </div>
+  );
+}
+
+function ReplicaStrip({ label, values }) {
+  const normalized = Array.isArray(values) ? values : [];
+  return (
+    <div className="replica-strip">
+      <span>{label}</span>
+      <div>
+        {normalized.length ? (
+          normalized.map((value, index) => (
+            <i key={`${label}-${index}`} style={{ "--replica-score": `${clampPercent(Number(value) * 100)}%` }}>
+              {formatNumber(Number(value) * 100)}
+            </i>
+          ))
+        ) : (
+          <em>no replica scores</em>
+        )}
+      </div>
     </div>
   );
 }
@@ -1323,6 +1407,10 @@ function duelFormat(lane) {
   if (!lane) {
     return "not configured";
   }
+  if (lane.evaluatorState?.lane?.evaluator_id === "sn60_bitsec" || lane.mode === "miner") {
+    const count = lane.duelRules.publicTaskCount || lane.evaluatorState?.current?.projectKeys?.length || 0;
+    return `${count} SN60 project${count === 1 ? "" : "s"}`;
+  }
   return `${lane.duelRules.publicTaskCount} primary / ${lane.duelRules.privateTaskCount} hidden`;
 }
 
@@ -1368,6 +1456,9 @@ function duelStatus(duel, lane) {
 function promotionGate(lane) {
   if (!lane) {
     return "not configured";
+  }
+  if (lane.evaluatorState?.lane?.evaluator_id === "sn60_bitsec" || lane.mode === "miner") {
+    return "screening pass, no invalid runs, candidate outranks king";
   }
   return `primary +${formatNumber(lane.duelRules.promotionMarginPoints)} pts, holdout +${formatNumber(lane.duelRules.holdoutPromotionMarginPoints)} pts`;
 }
@@ -1473,6 +1564,29 @@ function shortRunId(value) {
     return "unknown";
   }
   return value.replace(/^challenge-/, "").slice(0, 28);
+}
+
+function percentScore(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return `${formatNumber(Number(value) * 100)} pts`;
+}
+
+function sn60Pair(value) {
+  const candidate = value?.candidate ?? "-";
+  const king = value?.frontier ?? value?.king ?? "-";
+  return `${candidate} / ${king}`;
+}
+
+function screeningTone(status) {
+  if (status === "passed" || status === "pass" || status === true) {
+    return "ok";
+  }
+  if (status === "failed" || status === "fail" || status === false) {
+    return "bad";
+  }
+  return "neutral";
 }
 
 function activeEvaluationStatus(activeEvaluation) {

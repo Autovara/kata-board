@@ -130,8 +130,7 @@ function loadLanes({
   const repoPacks = publicRegistry.activeRepoPacks.length
     ? publicRegistry.activeRepoPacks
     : listDirectories(publicRegistry.benchmarksDir);
-
-  return repoPacks.flatMap((repoPack) =>
+  const frontierLanes = repoPacks.flatMap((repoPack) =>
     loadRepoPackLane({
       kataRoot,
       repoPack,
@@ -140,6 +139,14 @@ function loadLanes({
       latestLaneWinners
     })
   );
+  const frontierLaneIds = new Set(frontierLanes.map((lane) => lane.id));
+  const evaluatorLanes = loadEvaluatorLanes({
+    kataRoot,
+    existingLaneIds: frontierLaneIds,
+    latestLaneWinners
+  });
+
+  return [...frontierLanes, ...evaluatorLanes];
 }
 
 function loadRepoPackLane({
@@ -242,6 +249,7 @@ function loadRepoPackLane({
 
     const currentHolder =
       latestWinner?.author || king.author || humanizeFrontierSource(modeConfig.frontier_source);
+    const evaluatorState = loadEvaluatorLaneState(kataRoot, repoPack);
 
     return {
       id: `${repoPack}:${mode}`,
@@ -279,9 +287,183 @@ function loadRepoPackLane({
           : "no holdout pool configured"
       },
       publicPool,
-      privatePool
+      privatePool,
+      evaluatorState
     };
   });
+}
+
+function loadEvaluatorLanes({ kataRoot, existingLaneIds, latestLaneWinners }) {
+  const lanesRoot = path.join(kataRoot, "lanes");
+  return listDirectories(lanesRoot)
+    .map((laneId) => loadEvaluatorLane(kataRoot, laneId, latestLaneWinners))
+    .filter(Boolean)
+    .filter((lane) => !existingLaneIds.has(lane.id));
+}
+
+function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
+  const state = loadEvaluatorLaneState(kataRoot, laneId);
+  const lane = state?.lane || null;
+  if (!lane?.active) {
+    return null;
+  }
+  const repoPack = lane.repo_pack || laneId;
+  const mode = lane.mode || "miner";
+  const latestWinner = latestLaneWinners?.[`${repoPack}::${mode}`] || null;
+  const king = {
+    submissionId: state.king?.current_king_submission_id || null,
+    author: inferSubmissionAuthorFromId(state.king?.current_king_submission_id),
+    challengeRunId: null,
+    artifactHash: state.king?.current_king_artifact_hash || null,
+    source: state.king?.promotion_source_pr || "evaluator lane",
+    updatedAt: state.king?.promotion_timestamp || state.king?.updated_at || null,
+    seeded: !state.king?.current_king_submission_id
+  };
+  const currentHolder =
+    latestWinner?.author || king.author || humanizeFrontierSource(king.source);
+  const selectedProjects = state.challengeState?.selected_project_keys || [];
+  return {
+    id: `${repoPack}:${mode}`,
+    repoPack,
+    repoName: displayRepoPack(repoPack),
+    repoRef: null,
+    mode,
+    updatedAt: lane.updated_at || state.king?.updated_at || null,
+    frontierUpdatedAt: state.king?.updated_at || lane.updated_at || null,
+    currentHolder,
+    currentHolderMergedAt: latestWinner?.mergedAt || null,
+    currentHolderPullNumber: latestWinner?.pullNumber || null,
+    king,
+    duelRules: {
+      publicSelection: "sn60_project_set",
+      publicTaskCount: selectedProjects.length || state.benchmarkSnapshot?.project_keys?.length || 0,
+      privateTaskCount: 0,
+      promotionMarginPoints: 0,
+      holdoutPromotionMarginPoints: 0,
+      promotionMarginTasks: null,
+      holdoutPromotionMarginTasks: null,
+      holdoutRule: "SN60 miner lane uses Bitsec sandbox replicas"
+    },
+    publicPool: {
+      selection: "sn60_project_set",
+      configuredTaskCount: selectedProjects.length || state.benchmarkSnapshot?.project_keys?.length || 0,
+      targetTaskCount: state.benchmarkSnapshot?.project_keys?.length || selectedProjects.length || 0,
+      liveTasks: state.benchmarkSnapshot?.project_keys?.length || selectedProjects.length || 0,
+      totalTasks: state.benchmarkSnapshot?.project_keys?.length || selectedProjects.length || 0,
+      fingerprint: state.challengeState?.freshness_fingerprint || null,
+      tasks: selectedProjects.map((projectKey) => ({
+        taskId: projectKey,
+        title: projectKey,
+        description: "SN60 Bitsec sandbox project selected for the current duel.",
+        visibility: "sandbox",
+        status: "live",
+        qualityScore: null,
+        sourceRef: null,
+        tags: ["sn60", "bitsec"]
+      })),
+      categoryCounts: { sn60: selectedProjects.length },
+      categoryTargets: {},
+      similarityThreshold: null,
+      maxScopeConcentration: null,
+      notes: null
+    },
+    privatePool: {
+      configured: false,
+      hidden: false,
+      configuredTaskCount: 0,
+      targetTaskCount: 0,
+      liveTasks: 0,
+      totalTasks: 0,
+      retiredWaitingTasks: 0,
+      retiredTasks: 0,
+      fingerprint: null,
+      updatedAt: null,
+      evaluatorVersion: lane.evaluator_policy_version || null
+    },
+    evaluatorState: state
+  };
+}
+
+function loadEvaluatorLaneState(kataRoot, laneId) {
+  const laneRoot = path.join(kataRoot, "lanes", laneId);
+  const lane = readJsonSafe(path.join(laneRoot, "lane.json"));
+  if (!lane) {
+    return null;
+  }
+  const king = readJsonSafe(path.join(laneRoot, "king.json"));
+  const benchmarkSnapshot = readJsonSafe(path.join(laneRoot, "benchmark_snapshot.json"));
+  const challengeState = readJsonSafe(path.join(laneRoot, "challenge_state.json"));
+  const promotionRecord = readJsonSafe(path.join(laneRoot, "promotion_record.json"));
+  return {
+    laneId,
+    lane,
+    king,
+    benchmarkSnapshot,
+    challengeState,
+    promotionRecord,
+    current: buildEvaluatorCurrentState({
+      lane,
+      king,
+      benchmarkSnapshot,
+      challengeState,
+      promotionRecord
+    })
+  };
+}
+
+function buildEvaluatorCurrentState({
+  lane,
+  king,
+  benchmarkSnapshot,
+  challengeState,
+  promotionRecord
+}) {
+  if (!lane) {
+    return null;
+  }
+  const screening = challengeState?.screening_result || null;
+  const finalMetrics = promotionRecord?.final_metrics || {};
+  const projectKeys = challengeState?.selected_project_keys || benchmarkSnapshot?.project_keys || [];
+  return {
+    candidateSubmissionId: challengeState?.candidate_submission_id || null,
+    candidateAuthor: inferSubmissionAuthorFromId(challengeState?.candidate_submission_id),
+    kingSubmissionId: king?.current_king_submission_id || null,
+    kingAuthor: inferSubmissionAuthorFromId(king?.current_king_submission_id),
+    screeningStatus: screening?.status || null,
+    screeningStage: screening?.stage || null,
+    screeningReasons: Array.isArray(screening?.reasons) ? screening.reasons : [],
+    projectKeys,
+    codebasesPassed: promotionRecord?.pass_counts || {},
+    truePositives: promotionRecord?.true_positives || {},
+    invalidRuns: promotionRecord?.invalid_runs || {},
+    localReplicaScores: promotionRecord?.local_replica_scores || {},
+    finalWinner: promotionRecord?.final_winner || null,
+    rewardLabelApplied: promotionRecord?.reward_label_applied || null,
+    recordedAt: promotionRecord?.recorded_at || null,
+    finalMetrics,
+    scores: {
+      candidate: numberOrNull(finalMetrics.candidate_average_score),
+      king: numberOrNull(finalMetrics.frontier_average_score),
+      delta: numberOrNull(finalMetrics.candidate_score_delta)
+    },
+    stability: summarizeReplicaStability(promotionRecord?.local_replica_scores || {}),
+    provenance: {
+      freshnessFingerprint: challengeState?.freshness_fingerprint || null,
+      sandboxCommit:
+        finalMetrics.sandbox_commit || benchmarkSnapshot?.sandbox_commit_hash || null,
+      benchmarkSha256:
+        finalMetrics.benchmark_sha256 || benchmarkSnapshot?.benchmark_dataset_hash || null,
+      scorerVersion: finalMetrics.scorer_version || benchmarkSnapshot?.scorer_version || null,
+      projectListHash: benchmarkSnapshot?.project_list_hash || null,
+      containerImages: benchmarkSnapshot?.container_images || [],
+      updatedAt:
+        challengeState?.updated_at ||
+        promotionRecord?.recorded_at ||
+        benchmarkSnapshot?.updated_at ||
+        lane.updated_at ||
+        null
+    }
+  };
 }
 
 function loadTask(packRoot, taskId) {
@@ -438,12 +620,14 @@ function loadRecentActivity(kataRoot, env, activeRepoPacks) {
       const primaryFrontierScore = summary.primary?.variant_scores?.frontier ?? 0;
       const holdoutCandidateScore = summary.holdout?.variant_scores?.candidate ?? null;
       const holdoutFrontierScore = summary.holdout?.variant_scores?.frontier ?? null;
+      const repoPack = inferRepoPackFromSummary(summary);
+      const sn60Metrics = loadSn60ActivityMetrics(summary);
       return {
         runId: summary.run_id,
         createdAt: summary.created_at,
-        laneId: `${inferRepoPackFromManifest(summary.manifest_path)}:${summary.mode}`,
+        laneId: `${repoPack}:${summary.mode}`,
         mode: summary.mode,
-        repoPack: inferRepoPackFromManifest(summary.manifest_path),
+        repoPack,
         promotionReady: Boolean(summary.promotion_ready),
         promotionReason: summary.promotion_reason || null,
         promotionMarginPoints: summary.promotion_margin_points ?? 0,
@@ -469,7 +653,8 @@ function loadRecentActivity(kataRoot, env, activeRepoPacks) {
                 summary.holdout.candidate_score_delta ??
                 holdoutCandidateScore - holdoutFrontierScore
             }
-          : null
+          : null,
+        sn60: sn60Metrics
       };
     })
     .filter((item) => {
@@ -491,6 +676,45 @@ function inferSubmissionId(artifactPath) {
 
 function inferSubmissionAuthor(artifactPath) {
   return inferSubmissionAuthorFromId(inferSubmissionId(artifactPath));
+}
+
+function loadSn60ActivityMetrics(summary) {
+  if (summary.mode !== "miner" || !String(summary.promotion_reason || "").includes("SN60")) {
+    return null;
+  }
+  const manifestPath = summary.manifest_path || "";
+  const runRoot = manifestPath ? path.dirname(manifestPath) : null;
+  const screening = runRoot
+    ? readJsonSafe(path.join(runRoot, "screening_result.json"))
+    : null;
+  const duel = path.basename(manifestPath) === "duel_summary.json"
+    ? readJsonSafe(manifestPath)
+    : null;
+  return {
+    screeningStatus: screening?.status || (manifestPath.endsWith("screening_result.json") ? "failed" : null),
+    screeningStage: screening?.stage || null,
+    screeningReasons: Array.isArray(screening?.reasons) ? screening.reasons : [],
+    passCounts: summary.primary?.variant_successes || {},
+    invalidRuns: summary.primary?.variant_invalid_tasks || {},
+    truePositives: {
+      candidate: numberOrNull(duel?.candidate?.true_positives),
+      frontier: numberOrNull(duel?.frontier?.true_positives)
+    },
+    replicaScores: {
+      candidate: Array.isArray(duel?.candidate?.replica_results)
+        ? duel.candidate.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
+        : [],
+      frontier: Array.isArray(duel?.frontier?.replica_results)
+        ? duel.frontier.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
+        : []
+    },
+    provenance: {
+      sandboxCommit: duel?.sandbox_source?.sandbox_commit || null,
+      benchmarkSha256: duel?.sandbox_source?.benchmark_sha256 || null,
+      scorerVersion: duel?.sandbox_source?.scorer_version || null,
+      projectKeys: duel?.project_keys || summary.primary?.task_ids || []
+    }
+  };
 }
 
 async function loadLeaderboard(env) {
@@ -1152,6 +1376,54 @@ function buildOverview(lanes, activity, leaderboard, validator) {
   };
 }
 
+function summarizeReplicaStability(localReplicaScores) {
+  const candidate = Array.isArray(localReplicaScores?.candidate)
+    ? localReplicaScores.candidate
+    : [];
+  const frontier = Array.isArray(localReplicaScores?.frontier)
+    ? localReplicaScores.frontier
+    : Array.isArray(localReplicaScores?.king)
+      ? localReplicaScores.king
+      : [];
+  return {
+    candidate: summarizeScoreSeries(candidate),
+    king: summarizeScoreSeries(frontier),
+    delta: summarizeScoreSeriesDelta(candidate, frontier)
+  };
+}
+
+function summarizeScoreSeries(values) {
+  const numbers = values.map(Number).filter(Number.isFinite);
+  if (!numbers.length) {
+    return {
+      count: 0,
+      min: null,
+      max: null,
+      average: null,
+      spread: null
+    };
+  }
+  const min = Math.min(...numbers);
+  const max = Math.max(...numbers);
+  const average = numbers.reduce((total, value) => total + value, 0) / numbers.length;
+  return {
+    count: numbers.length,
+    min,
+    max,
+    average,
+    spread: max - min
+  };
+}
+
+function summarizeScoreSeriesDelta(candidate, frontier) {
+  const candidateSummary = summarizeScoreSeries(candidate);
+  const frontierSummary = summarizeScoreSeries(frontier);
+  if (candidateSummary.average === null || frontierSummary.average === null) {
+    return null;
+  }
+  return candidateSummary.average - frontierSummary.average;
+}
+
 function buildNotes({ leaderboard, validator, lanes, privateRegistry }) {
   const notes = [];
   if (!leaderboard.rows.length) {
@@ -1284,6 +1556,19 @@ function extractTaskDescription(taskText) {
 
 function inferRepoPackFromManifest(manifestPath) {
   return path.basename(path.dirname(manifestPath));
+}
+
+function inferRepoPackFromSummary(summary) {
+  const promotionReason = String(summary?.promotion_reason || "");
+  if (promotionReason.startsWith("sn60__bitsec:") || promotionReason.includes("SN60")) {
+    return "sn60__bitsec";
+  }
+  const candidateArtifact = String(summary?.candidate_artifact || "");
+  const submissionMatch = candidateArtifact.match(/\/submissions\/([^/]+)\//);
+  if (submissionMatch) {
+    return submissionMatch[1];
+  }
+  return inferRepoPackFromManifest(summary?.manifest_path || "");
 }
 
 function displayRepoPack(repoPack) {

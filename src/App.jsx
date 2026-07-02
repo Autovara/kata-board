@@ -225,12 +225,12 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
     <div className="stack">
       <section className="hero">
         <div className="hero-copy">
-          <p className="kicker">Subnet 74 / Gittensor</p>
-          <h1>Kata is the agent arena for Gittensor Subnet 74.</h1>
+          <p className="kicker">Bittensor subnet packs</p>
+          <h1>Kata is the agent arena for specialized subnet agents.</h1>
           <p>
-            Miners submit coding agents by pull request. The validator runs
-            live SN60 sandbox duels against a pinned benchmark. Only a verified
-            winner is merged and promoted.
+            Miners submit agents by pull request. The shared evaluator runs
+            king-vs-candidate duels for each active subnet pack while each pack
+            keeps its own tasks, scoring rules, and current king.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
@@ -247,9 +247,9 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
             <span />
             <span />
           </div>
-          <TerminalLine label="subnet" value="SN74 Gittensor" />
-          <TerminalLine label="profile" value="repo-specific coding agents" />
-          <TerminalLine label="repos" value={`${overview.activeRepoPacks || 0} active packs`} />
+          <TerminalLine label="engine" value="shared king-vs-candidate loop" />
+          <TerminalLine label="profile" value="subnet-specialized agents" />
+          <TerminalLine label="subnets" value={`${overview.activeSubnetPacks ?? overview.activeRepoPacks ?? 0} active packs`} />
           <TerminalLine label="kings" value={`${totalKings || 0} verified promotions`} />
           <TerminalLine label="duel" value={selectedLane ? duelFormat(selectedLane) : "not configured"} />
           <TerminalLine label="live lane" value={selectedLane?.repoName || "waiting"} />
@@ -257,9 +257,9 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
       </section>
 
       <section className="stat-row">
-        <Stat label="repo packs" value={overview.activeRepoPacks} />
+        <Stat label="subnet packs" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
         <Stat label="active lanes" value={overview.activeLanes} />
-        <Stat label="benchmark projects" value={overview.benchmarkProjects ?? 0} />
+        <Stat label="benchmark tasks" value={overview.benchmarkProjects ?? 0} />
         <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
       </section>
 
@@ -268,13 +268,13 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <SectionTitle title="Competition profile" />
           <KeyValue label="system" value="GitTensor-aligned agent arena" />
           <KeyValue label="submission" value="PR-only agent bundle" />
-          <KeyValue label="reward idea" value="current king per repo lane" />
+          <KeyValue label="reward idea" value="current king per subnet pack" />
           <KeyValue label="evaluation" value="SN60 Bitsec sandbox" />
           <KeyValue label="current state" value={activeEvaluationStatus(activeEvaluation)} />
         </div>
         <div className="section-block">
           <SectionTitle title="Current lane" />
-          <KeyValue label="repo" value={selectedLane?.repoName || "not configured"} />
+          <KeyValue label="pack" value={selectedLane?.repoName || "not configured"} />
           <KeyValue label="mode" value={selectedLane?.mode || "-"} />
           <KeyValue label="king" value={selectedLane?.currentHolder || "-"} />
           <KeyValue label="tasks" value={selectedLane ? duelFormat(selectedLane) : "-"} />
@@ -457,8 +457,8 @@ function Winners({ lanes, kataRepoSlug }) {
     <div className="stack">
       <PageIntro
         eyebrow="Winners"
-        title="Kings by repository."
-        text="As more repos are added, each lane keeps its own current king."
+        title="Kings by subnet pack."
+        text="As more packs are added, each lane keeps its own current king."
       />
 
       <section className="winner-grid">
@@ -475,7 +475,7 @@ function Winners({ lanes, kataRepoSlug }) {
                 size="large"
               />
               <h2>{lane.repoName}</h2>
-              <p>{lane.repoPack}</p>
+              <p>{lane.subnetPack || lane.repoPack}</p>
               <KeyValue label="miner" value={lane.currentHolder} />
               <KeyValue
                 label="agent"
@@ -604,7 +604,7 @@ function DocOverview({ selectedLane, links }) {
       </DocGrid>
       <div className="doc-metrics">
         <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
-        <KeyValue label="repo-pack" value={selectedLane?.repoPack || "-"} />
+        <KeyValue label="subnet pack" value={selectedLane?.subnetPack || selectedLane?.repoPack || "-"} />
         <KeyValue label="mode" value={selectedLane?.mode || "-"} />
         <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "SN60 sandbox replicas"} />
         <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "score, passes, true positives"} />
@@ -671,9 +671,9 @@ function DocSubmit({ links }) {
       </p>
       <h2>// quick start</h2>
       <CodeBlock value={`mkdir -p submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01\ncd submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01\n\n# add these files (SN60 miner bundle is self-contained)\nagent.py\nagent_manifest.json\nsubmission.json`} />
-      <CodeBlock value={`submissions/<repo-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json`} />
+      <CodeBlock value={`submissions/<subnet-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json`} />
       <h2>Required metadata</h2>
-      <CodeBlock value={`{\n  "schema_version": 2,\n  "repo_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
+      <CodeBlock value={`{\n  "schema_version": 2,\n  "subnet_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
       <RequirementList
         title="Validation rules"
         items={[
@@ -811,8 +811,8 @@ function DocMilestones() {
       <p className="kicker">Roadmap</p>
       <h1>Milestones</h1>
       <p>
-        Kata is being built in layers: first objective repo-specific duels,
-        then robust automation, benchmark hardening, and multi-repo expansion.
+        Kata is being built in layers: first objective subnet-pack duels,
+        then robust automation, benchmark hardening, and multi-pack expansion.
       </p>
       <MilestoneList
         items={[
@@ -821,7 +821,7 @@ function DocMilestones() {
           ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
           ["complete", "Live dashboard deployment", "kata-board runs as a Node service behind ngrok and reads the live validator API."],
           ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
-          ["next", "Multi-pack lanes", "Add more registered subnet packs so each repo-pack can have its own king and benchmark snapshot."],
+          ["next", "Multi-pack lanes", "Add more registered subnet packs so each subnet pack can have its own king and benchmark snapshot."],
           ["next", "Snapshot refresh", "Resync the pinned Bitsec sandbox snapshot as the subnet benchmark evolves."],
           ["later", "Advanced analytics", "Track per-codebase pass rates, agent regressions, win history, cost, and benchmark coverage over time."]
         ]}
@@ -1111,9 +1111,9 @@ function laneActiveEvaluation(activeEvaluation, lane) {
     return null;
   }
   if (
-    activeEvaluation.repoPack &&
+    (activeEvaluation.subnetPack || activeEvaluation.repoPack) &&
     activeEvaluation.mode &&
-    activeEvaluation.repoPack === lane.repoPack &&
+    (activeEvaluation.subnetPack || activeEvaluation.repoPack) === (lane.subnetPack || lane.repoPack) &&
     activeEvaluation.mode === lane.mode
   ) {
     return activeEvaluation;
@@ -1133,7 +1133,7 @@ function promotionGate(lane) {
 }
 
 function kingAgentLink(lane, repoSlug) {
-  const path = `kings/${lane.repoPack}/${lane.mode}/agent.py`;
+  const path = `kings/${lane.subnetPack || lane.repoPack}/${lane.mode}/agent.py`;
   if (!repoSlug) {
     return path;
   }

@@ -122,9 +122,10 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
   if (!lane?.active) {
     return null;
   }
-  const repoPack = lane.repo_pack || laneId;
+  const subnetPack = lane.subnet_pack || lane.repo_pack || laneId;
+  const repoPack = subnetPack;
   const mode = lane.mode || "miner";
-  const latestWinner = latestLaneWinners?.[`${repoPack}::${mode}`] || null;
+  const latestWinner = latestLaneWinners?.[`${subnetPack}::${mode}`] || null;
   const king = {
     submissionId: state.king?.current_king_submission_id || null,
     author: inferSubmissionAuthorFromId(state.king?.current_king_submission_id),
@@ -144,9 +145,10 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
     (!king.author || latestWinner.author === king.author);
   const selectedProjects = state.challengeState?.selected_project_keys || [];
   return {
-    id: `${repoPack}:${mode}`,
+    id: `${subnetPack}:${mode}`,
+    subnetPack,
     repoPack,
-    repoName: displayRepoPack(repoPack),
+    repoName: displaySubnetPack(subnetPack),
     repoRef: null,
     mode,
     updatedAt: lane.updated_at || state.king?.updated_at || null,
@@ -275,14 +277,15 @@ function loadRecentActivity(kataRoot, env) {
     .map((summary) => {
       const primaryCandidateScore = summary.primary?.variant_scores?.candidate ?? 0;
       const primaryKingScore = summary.primary?.variant_scores?.king ?? 0;
-      const repoPack = inferRepoPackFromSummary(summary);
+      const subnetPack = inferRepoPackFromSummary(summary);
       const sn60Metrics = loadSn60ActivityMetrics(summary);
       return {
         runId: summary.run_id,
         createdAt: summary.created_at,
-        laneId: `${repoPack}:${summary.mode}`,
+        laneId: `${subnetPack}:${summary.mode}`,
         mode: summary.mode,
-        repoPack,
+        subnetPack,
+        repoPack: subnetPack,
         promotionReady: Boolean(summary.promotion_ready),
         promotionReason: summary.promotion_reason || null,
         candidateArtifactHash: summary.candidate_artifact_hash || null,
@@ -534,6 +537,7 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
     phase: activeJob ? "queued" : "idle",
     workspacePath: null,
     updatedAt: null,
+    subnetPack: null,
     repoPack: null,
     mode: null,
     candidateSubmissionId: null,
@@ -575,7 +579,8 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
       statMtimeIso(workspaceRoot) ||
       activeJob.startedAt ||
       activeJob.enqueuedAt,
-    repoPack: lane?.repoPack || null,
+    subnetPack: lane?.subnetPack || lane?.repoPack || null,
+    repoPack: lane?.subnetPack || lane?.repoPack || null,
     mode: lane?.mode || null,
     candidateSubmissionId: lane?.submissionId || null,
     candidateAuthor: lane?.submissionId
@@ -597,7 +602,8 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     phase: payload.phase || "running",
     workspacePath: null,
     updatedAt: payload.updated_at || null,
-    repoPack: payload.repo_pack || null,
+    subnetPack: payload.subnet_pack || payload.repo_pack || null,
+    repoPack: payload.subnet_pack || payload.repo_pack || null,
     mode: payload.mode || null,
     candidateSubmissionId: payload.candidate_submission_id || null,
     candidateGithubLogin: payload.candidate_github_login || null,
@@ -690,6 +696,7 @@ function inferLaneFromWorkspace(workspaceRoot) {
       continue;
     }
     return {
+      subnetPack: match[1],
       repoPack: match[1],
       mode: match[2],
       submissionId: match[3]
@@ -968,7 +975,7 @@ function loadEventLeaderboard(eventLogPath) {
       continue;
     }
     const author = item.author || "unknown";
-    const laneKey = `${item.repo_pack || "unknown"}::${item.mode || "unknown"}`;
+    const laneKey = `${item.subnet_pack || item.repo_pack || "unknown"}::${item.mode || "unknown"}`;
     const entry = byAuthor.get(author) || createAuthorRow(author);
     entry.totalSubmissions += 1;
     if (item.final_action === "merge") {
@@ -1011,7 +1018,8 @@ function buildOverview(lanes, activity, leaderboard, validator) {
   );
 
   return {
-    activeRepoPacks: new Set(lanes.map((lane) => lane.repoPack)).size,
+    activeSubnetPacks: new Set(lanes.map((lane) => lane.subnetPack || lane.repoPack)).size,
+    activeRepoPacks: new Set(lanes.map((lane) => lane.subnetPack || lane.repoPack)).size,
     activeLanes: lanes.length,
     benchmarkProjects: projectCount,
     recentChallenges: activity.length,
@@ -1182,8 +1190,8 @@ function inferRepoPackFromSummary(summary) {
   return inferRepoPackFromManifest(summary?.manifest_path || "");
 }
 
-function displayRepoPack(repoPack) {
-  const raw = repoPack?.split("__").at(-1) || repoPack || "repo";
+function displaySubnetPack(subnetPack) {
+  const raw = subnetPack?.split("__").at(-1) || subnetPack || "subnet";
   return raw
     .split(/[-_]/)
     .filter(Boolean)

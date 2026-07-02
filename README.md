@@ -11,7 +11,7 @@ Kata stays the evaluation engine, `kata-bot` stays the PR automation layer, and
 
 This repo reads the current Kata system and shows:
 
-- active repo lanes
+- active subnet-pack lanes
 - current king status per lane
 - benchmark pack health
 - SN60 duel state (screening, scores, replica stability, provenance)
@@ -137,7 +137,7 @@ Set:
 Then `kata-board` reads PR history and builds a miner leaderboard from
 submission PRs under:
 
-- `submissions/<repo-pack>/<mode>/<submission-id>/...`
+- `submissions/<subnet-pack>/<mode>/<submission-id>/...`
 
 Merged submission PRs count as verified wins.
 
@@ -150,7 +150,7 @@ Set:
 Expected JSONL shape:
 
 ```json
-{"created_at":"2026-06-30T04:00:00Z","author":"carlos4s","repo_pack":"e35ventura__taopedia-articles","mode":"contributor","final_action":"merge","pull_number":12}
+{"created_at":"2026-06-30T04:00:00Z","author":"carlos4s","subnet_pack":"e35ventura__taopedia-articles","mode":"contributor","final_action":"merge","pull_number":12}
 ```
 
 This mode is useful once `kata-bot` starts persisting results directly.
@@ -206,8 +206,8 @@ https://dashboardking.ngrok.app/api/status
 
 The board mirrors the current PR-only Kata workflow:
 
-- miners submit one PR under `submissions/<repo-pack>/<mode>/<submission-id>/`
-- each registered repo-pack/mode has its own current king under `kata/kings`
+- miners submit one PR under `submissions/<subnet-pack>/<mode>/<submission-id>/`
+- each registered subnet-pack/mode has its own current king under `kata/kings`
 - candidate and king run repeated replicas per benchmark codebase in the
   pinned Bitsec sandbox; a codebase passes when at least 2 of 3 runs pass
 - the promotion comparator is aggregated score first, codebases passed
@@ -222,7 +222,7 @@ Recommended deployment model:
 
 1. `kata` runs evaluation
 2. `kata-bot` handles PR automation
-3. `kata-board` reads the benchmark repo, recent run artifacts, and optional PR
+3. `kata-board` reads the subnet-pack registry, recent run artifacts, and optional PR
    history/event feed
 4. the frontend polls `/api/status` every few seconds
 

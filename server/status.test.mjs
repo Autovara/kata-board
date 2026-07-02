@@ -151,6 +151,7 @@ test("discovers the active SN60 lane from the central pack registry", async () =
     ["sn60__bitsec:miner"]
   );
   const lane = status.lanes[0];
+  assert.equal(lane.subnetPack, "sn60__bitsec");
   assert.equal(lane.repoPack, "sn60__bitsec");
   assert.equal(lane.mode, "miner");
   assert.equal(lane.king.submissionId, "alice-20260701-01");
@@ -322,4 +323,29 @@ test("lane state wins over PR history for the current holder", async () => {
   // attributed to the current king.
   assert.equal(lane.currentHolderPullNumber, null);
   assert.equal(lane.currentHolderMergedAt, null);
+});
+
+test("accepts subnet_pack in event log leaderboard entries", async () => {
+  const root = makeKataRoot();
+  const eventLogPath = path.join(root, "events.jsonl");
+  fs.writeFileSync(
+    eventLogPath,
+    JSON.stringify({
+      created_at: "2026-07-02T00:00:00Z",
+      author: "alice",
+      subnet_pack: "sn60__bitsec",
+      mode: "miner",
+      final_action: "merge",
+      pull_number: 7
+    }) + "\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOARD_EVENT_LOG: eventLogPath,
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.leaderboard.rows[0].author, "alice");
+  assert.equal(status.leaderboard.rows[0].wins, 1);
 });

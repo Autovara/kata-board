@@ -449,9 +449,15 @@ function buildEvaluatorCurrentState({
     recordedAt: promotionRecord?.recorded_at || null,
     finalMetrics,
     scores: {
-      candidate: numberOrNull(finalMetrics.candidate_average_score),
-      king: numberOrNull(finalMetrics.frontier_average_score),
-      delta: numberOrNull(finalMetrics.candidate_score_delta)
+      candidate: numberOrNull(
+        finalMetrics.candidate_aggregated_score ?? finalMetrics.candidate_average_score
+      ),
+      king: numberOrNull(
+        finalMetrics.frontier_aggregated_score ?? finalMetrics.frontier_average_score
+      ),
+      delta: numberOrNull(
+        finalMetrics.candidate_aggregated_score_delta ?? finalMetrics.candidate_score_delta
+      )
     },
     stability: summarizeReplicaStability(promotionRecord?.local_replica_scores || {}),
     provenance: {

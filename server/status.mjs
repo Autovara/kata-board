@@ -126,7 +126,7 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
     seeded: !state.king?.current_king_submission_id
   };
   const currentHolder =
-    latestWinner?.author || king.author || humanizeFrontierSource(king.source);
+    latestWinner?.author || king.author || humanizeKingSource(king.source);
   const selectedProjects = state.challengeState?.selected_project_keys || [];
   return {
     id: `${repoPack}:${mode}`,
@@ -278,7 +278,7 @@ function buildEvaluatorCurrentState({
   };
 }
 
-function humanizeFrontierSource(value) {
+function humanizeKingSource(value) {
   if (!value) {
     return "unknown";
   }

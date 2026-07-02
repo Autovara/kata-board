@@ -295,7 +295,14 @@ function loadRepoPackLane({
 
 function loadEvaluatorLanes({ kataRoot, existingLaneIds, latestLaneWinners }) {
   const lanesRoot = path.join(kataRoot, "lanes");
-  return listDirectories(lanesRoot)
+  const registry = readJsonSafe(path.join(lanesRoot, "registry.json"));
+  const laneIds = Array.isArray(registry?.packs)
+    ? registry.packs
+        .filter((pack) => pack?.active === true)
+        .map((pack) => pack?.lane_id)
+        .filter(Boolean)
+    : listDirectories(lanesRoot);
+  return laneIds
     .map((laneId) => loadEvaluatorLane(kataRoot, laneId, latestLaneWinners))
     .filter(Boolean)
     .filter((lane) => !existingLaneIds.has(lane.id));

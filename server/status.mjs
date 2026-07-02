@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { loadGithubLeaderboard } from "./github.mjs";
+import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 
 const DEFAULT_CACHE_TTL_MS = 3_000;
 let cachedStatus = null;
@@ -275,17 +276,6 @@ function buildEvaluatorCurrentState({
         null
     }
   };
-}
-
-function inferSubmissionAuthorFromId(submissionId) {
-  if (!submissionId) {
-    return null;
-  }
-  if (submissionId.startsWith("kata-init")) {
-    return "Kata Seed";
-  }
-  const match = submissionId.match(/^([a-zA-Z0-9-]+)-\d{8}-\d+$/);
-  return match ? match[1] : submissionId;
 }
 
 function humanizeFrontierSource(value) {

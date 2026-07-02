@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 
 const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
 const POLL_INTERVAL_MS = 5000;
@@ -1454,24 +1455,6 @@ function avatarUrl(name) {
     return null;
   }
   return `https://github.com/${name}.png?size=160`;
-}
-
-function inferSubmissionAuthorFromId(submissionId) {
-  if (!submissionId) {
-    return null;
-  }
-  if (submissionId.startsWith("kata-init")) {
-    return "Kata Seed";
-  }
-  const parts = submissionId.split("-");
-  if (parts.length >= 3) {
-    const sequence = parts[parts.length - 1];
-    const date = parts[parts.length - 2];
-    if (/^\d+$/.test(sequence) && /^\d+$/.test(date)) {
-      return parts.slice(0, -2).join("-");
-    }
-  }
-  return submissionId;
 }
 
 function initials(value) {

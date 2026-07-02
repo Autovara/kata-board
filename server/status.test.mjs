@@ -84,23 +84,19 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
       promotion_ready: true,
       promotion_reason: "candidate beat the current SN60 king",
       candidate_aggregated_score: 0.75,
-      frontier_aggregated_score: 0.5,
+      king_aggregated_score: 0.5,
       candidate_aggregated_score_delta: 0.25,
-      // legacy keys deliberately different to prove the aggregated keys win
-      candidate_average_score: 0.9,
-      frontier_average_score: 0.1,
-      candidate_score_delta: 0.8,
       sandbox_commit: "b462a1e8e10b0000000000000000000000000000",
       benchmark_sha256: "benchmark-sha",
       scorer_version: "ScaBenchScorerV2"
     },
     local_replica_scores: {
-      frontier: [0.5, 0.5, 0.5],
+      king: [0.5, 0.5, 0.5],
       candidate: [0.7, 0.75, 0.8]
     },
-    pass_counts: { frontier: 1, candidate: 2 },
-    true_positives: { frontier: 6, candidate: 12 },
-    invalid_runs: { frontier: 0, candidate: 0 },
+    pass_counts: { king: 1, candidate: 2 },
+    true_positives: { king: 6, candidate: 12 },
+    invalid_runs: { king: 0, candidate: 0 },
     final_winner: "candidate",
     reward_label_applied: null,
     recorded_at: "2026-07-02T01:00:00+00:00"
@@ -108,32 +104,28 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
 
   const runRoot = path.join(root, "runs", "sn60-duel-1");
   writeJson(runRoot, "challenge_summary.json", {
-    schema_version: 4,
+    schema_version: 5,
     run_id: "sn60-duel-1",
     manifest_path: path.join(runRoot, "duel_summary.json"),
     mode: "miner",
     evaluator_version: "ScaBenchScorerV2@b462a1e8e10b",
     validator_model: "sn60-bitsec-sandbox",
-    frontier_artifact: "/kings/sn60__bitsec/miner",
+    king_artifact: "/kings/sn60__bitsec/miner",
     candidate_artifact: "/submissions/sn60__bitsec/miner/bob-20260702-01",
-    frontier_artifact_hash: "king-hash",
+    king_artifact_hash: "king-hash",
     candidate_artifact_hash: "candidate-hash",
     primary_pool_fingerprint: "fingerprint-1",
-    holdout_pool_fingerprint: null,
-    promotion_margin_points: 0,
-    holdout_promotion_margin_points: 0,
     created_at: "2026-07-02T01:00:00+00:00",
     primary: {
-      task_ids: ["project-alpha", "project-beta"],
-      eval_run_summary: "duel_summary.json",
+      project_keys: ["project-alpha", "project-beta"],
+      run_summary_path: "duel_summary.json",
       total_task_weight: 2,
-      variant_successes: { frontier: 1, candidate: 2 },
-      variant_invalid_tasks: { frontier: 0, candidate: 0 },
-      variant_scores: { frontier: 50, candidate: 100 },
-      candidate_beats_frontier: true,
+      variant_successes: { king: 1, candidate: 2 },
+      variant_invalid_runs: { king: 0, candidate: 0 },
+      variant_scores: { king: 50, candidate: 100 },
+      candidate_beats_king: true,
       candidate_score_delta: 50
     },
-    holdout: null,
     promotion_ready: true,
     promotion_reason: "sn60__bitsec: candidate beat the current SN60 king"
   });
@@ -173,9 +165,9 @@ test("renders the SN60 duel state from lane state files", async () => {
   assert.equal(current.kingSubmissionId, "alice-20260701-01");
   assert.equal(current.screeningStatus, "passed");
   assert.equal(current.screeningStage, "execution");
-  assert.deepEqual(current.codebasesPassed, { frontier: 1, candidate: 2 });
-  assert.deepEqual(current.truePositives, { frontier: 6, candidate: 12 });
-  assert.deepEqual(current.invalidRuns, { frontier: 0, candidate: 0 });
+  assert.deepEqual(current.codebasesPassed, { king: 1, candidate: 2 });
+  assert.deepEqual(current.truePositives, { king: 6, candidate: 12 });
+  assert.deepEqual(current.invalidRuns, { king: 0, candidate: 0 });
   assert.equal(current.finalWinner, "candidate");
 
   // stability comes from per-replica scores
@@ -193,7 +185,7 @@ test("renders the SN60 duel state from lane state files", async () => {
   assert.equal(current.provenance.freshnessFingerprint, "fingerprint-1");
 });
 
-test("prefers aggregated score metrics over legacy average keys", async () => {
+test("reads aggregated score metrics from the promotion record", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));
   const scores = status.lanes[0].evaluatorState.current.scores;

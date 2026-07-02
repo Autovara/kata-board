@@ -248,15 +248,9 @@ function buildEvaluatorCurrentState({
     recordedAt: promotionRecord?.recorded_at || null,
     finalMetrics,
     scores: {
-      candidate: numberOrNull(
-        finalMetrics.candidate_aggregated_score ?? finalMetrics.candidate_average_score
-      ),
-      king: numberOrNull(
-        finalMetrics.frontier_aggregated_score ?? finalMetrics.frontier_average_score
-      ),
-      delta: numberOrNull(
-        finalMetrics.candidate_aggregated_score_delta ?? finalMetrics.candidate_score_delta
-      )
+      candidate: numberOrNull(finalMetrics.candidate_aggregated_score),
+      king: numberOrNull(finalMetrics.king_aggregated_score),
+      delta: numberOrNull(finalMetrics.candidate_aggregated_score_delta)
     },
     stability: summarizeReplicaStability(promotionRecord?.local_replica_scores || {}),
     provenance: {
@@ -298,9 +292,7 @@ function loadRecentActivity(kataRoot, env) {
     .filter(Boolean)
     .map((summary) => {
       const primaryCandidateScore = summary.primary?.variant_scores?.candidate ?? 0;
-      const primaryFrontierScore = summary.primary?.variant_scores?.frontier ?? 0;
-      const holdoutCandidateScore = summary.holdout?.variant_scores?.candidate ?? null;
-      const holdoutFrontierScore = summary.holdout?.variant_scores?.frontier ?? null;
+      const primaryKingScore = summary.primary?.variant_scores?.king ?? 0;
       const repoPack = inferRepoPackFromSummary(summary);
       const sn60Metrics = loadSn60ActivityMetrics(summary);
       return {
@@ -311,30 +303,19 @@ function loadRecentActivity(kataRoot, env) {
         repoPack,
         promotionReady: Boolean(summary.promotion_ready),
         promotionReason: summary.promotion_reason || null,
-        promotionMarginPoints: summary.promotion_margin_points ?? 0,
-        holdoutPromotionMarginPoints: summary.holdout_promotion_margin_points ?? 0,
         candidateArtifactHash: summary.candidate_artifact_hash || null,
         candidateSubmissionId: inferSubmissionId(summary.candidate_artifact),
         candidateAuthor: inferSubmissionAuthor(summary.candidate_artifact),
-        frontierArtifactHash: summary.frontier_artifact_hash || null,
+        kingArtifactHash: summary.king_artifact_hash || null,
         primary: {
-          taskIds: summary.primary?.task_ids || [],
+          taskIds: summary.primary?.project_keys || [],
           candidateScore: primaryCandidateScore,
-          frontierScore: primaryFrontierScore,
+          kingScore: primaryKingScore,
           candidateDelta:
             summary.primary?.candidate_score_delta ??
             primaryCandidateScore - primaryFrontierScore
         },
-        holdout: summary.holdout
-          ? {
-              taskIds: summary.holdout.task_ids || [],
-              candidateScore: holdoutCandidateScore,
-              frontierScore: holdoutFrontierScore,
-              candidateDelta:
-                summary.holdout.candidate_score_delta ??
-                holdoutCandidateScore - holdoutFrontierScore
-            }
-          : null,
+        holdout: null,
         sn60: sn60Metrics
       };
     })
@@ -370,24 +351,24 @@ function loadSn60ActivityMetrics(summary) {
     screeningStage: screening?.stage || null,
     screeningReasons: Array.isArray(screening?.reasons) ? screening.reasons : [],
     passCounts: summary.primary?.variant_successes || {},
-    invalidRuns: summary.primary?.variant_invalid_tasks || {},
+    invalidRuns: summary.primary?.variant_invalid_runs || {},
     truePositives: {
       candidate: numberOrNull(duel?.candidate?.true_positives),
-      frontier: numberOrNull(duel?.frontier?.true_positives)
+      king: numberOrNull(duel?.king?.true_positives)
     },
     replicaScores: {
       candidate: Array.isArray(duel?.candidate?.replica_results)
         ? duel.candidate.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
         : [],
-      frontier: Array.isArray(duel?.frontier?.replica_results)
-        ? duel.frontier.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
+      king: Array.isArray(duel?.king?.replica_results)
+        ? duel.king.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
         : []
     },
     provenance: {
       sandboxCommit: duel?.sandbox_source?.sandbox_commit || null,
       benchmarkSha256: duel?.sandbox_source?.benchmark_sha256 || null,
       scorerVersion: duel?.sandbox_source?.scorer_version || null,
-      projectKeys: duel?.project_keys || summary.primary?.task_ids || []
+      projectKeys: duel?.project_keys || summary.primary?.project_keys || []
     }
   };
 }
@@ -1055,15 +1036,11 @@ function summarizeReplicaStability(localReplicaScores) {
   const candidate = Array.isArray(localReplicaScores?.candidate)
     ? localReplicaScores.candidate
     : [];
-  const frontier = Array.isArray(localReplicaScores?.frontier)
-    ? localReplicaScores.frontier
-    : Array.isArray(localReplicaScores?.king)
-      ? localReplicaScores.king
-      : [];
+  const king = Array.isArray(localReplicaScores?.king) ? localReplicaScores.king : [];
   return {
     candidate: summarizeScoreSeries(candidate),
-    king: summarizeScoreSeries(frontier),
-    delta: summarizeScoreSeriesDelta(candidate, frontier)
+    king: summarizeScoreSeries(king),
+    delta: summarizeScoreSeriesDelta(candidate, king)
   };
 }
 
@@ -1090,13 +1067,13 @@ function summarizeScoreSeries(values) {
   };
 }
 
-function summarizeScoreSeriesDelta(candidate, frontier) {
+function summarizeScoreSeriesDelta(candidate, king) {
   const candidateSummary = summarizeScoreSeries(candidate);
-  const frontierSummary = summarizeScoreSeries(frontier);
-  if (candidateSummary.average === null || frontierSummary.average === null) {
+  const kingSummary = summarizeScoreSeries(king);
+  if (candidateSummary.average === null || kingSummary.average === null) {
     return null;
   }
-  return candidateSummary.average - frontierSummary.average;
+  return candidateSummary.average - kingSummary.average;
 }
 
 function buildNotes({ leaderboard, validator, lanes }) {

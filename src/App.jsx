@@ -366,11 +366,11 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   const primaryProgress = poolProgress(activeEvaluation?.primary, selectedLane?.duelRules?.publicTaskCount);
   const holdoutProgress = poolProgress(activeEvaluation?.holdout, selectedLane?.duelRules?.privateTaskCount);
   const candidatePrimary = agentPoolScore(activeEvaluation?.primary, "candidate", latest?.primary?.candidateScore);
-  const kingPrimary = agentPoolScore(activeEvaluation?.primary, "frontier", latest?.primary?.frontierScore);
+  const kingPrimary = agentPoolScore(activeEvaluation?.primary, "king", latest?.primary?.kingScore);
   const candidateHoldout = agentPoolScore(activeEvaluation?.holdout, "candidate", latest?.holdout?.candidateScore);
-  const kingHoldout = agentPoolScore(activeEvaluation?.holdout, "frontier", latest?.holdout?.frontierScore);
+  const kingHoldout = agentPoolScore(activeEvaluation?.holdout, "king", latest?.holdout?.kingScore);
   const candidateTotal = agentSolvedTotal(activeEvaluation, latest, "candidate");
-  const kingTotal = agentSolvedTotal(activeEvaluation, latest, "frontier");
+  const kingTotal = agentSolvedTotal(activeEvaluation, latest, "king");
   const arenaPhase = activeEvaluation
     ? activeEvaluationStatus(activeEvaluation)
     : latest
@@ -515,7 +515,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
                       </span>
                       <span>
                         king
-                        <strong>{variantRuntimeLabel(task.runtime?.frontier)}</strong>
+                        <strong>{variantRuntimeLabel(task.runtime?.king)}</strong>
                       </span>
                     </div>
                   </button>
@@ -539,7 +539,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
                   <KeyValue label="task id" value={selectedTask.taskId} />
                   <KeyValue label="pool status" value={selectedTask.status} />
                   <KeyValue label="candidate run" value={variantRuntimeLabel(selectedTask.runtime?.candidate)} />
-                  <KeyValue label="king run" value={variantRuntimeLabel(selectedTask.runtime?.frontier)} />
+                  <KeyValue label="king run" value={variantRuntimeLabel(selectedTask.runtime?.king)} />
                   <KeyValue label="tags" value={(selectedTask.tags || []).slice(0, 5).join(", ") || "-"} />
                 </div>
               </div>
@@ -581,7 +581,7 @@ function Sn60LanePanel({ state }) {
         <div className="sn60-detail-block">
           <span>local validator replica scores</span>
           <ReplicaStrip label="candidate" values={state.localReplicaScores?.candidate} />
-          <ReplicaStrip label="king" values={state.localReplicaScores?.frontier || state.localReplicaScores?.king} />
+          <ReplicaStrip label="king" values={state.localReplicaScores?.king} />
         </div>
         <div className="sn60-detail-block">
           <span>benchmark snapshot provenance</span>

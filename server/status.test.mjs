@@ -292,3 +292,34 @@ test("projects only derived evaluator state to clients", async () => {
   assert.equal(evaluatorState.promotionRecord, undefined);
   assert.equal(evaluatorState.challengeState, undefined);
 });
+
+test("lane state wins over PR history for the current holder", async () => {
+  const root = makeKataRoot();
+  const eventLogPath = path.join(root, "events.jsonl");
+  // PR history claims mallory merged last on this lane, but lane state says
+  // the king is alice's submission.
+  fs.writeFileSync(
+    eventLogPath,
+    JSON.stringify({
+      created_at: "2026-07-02T00:00:00Z",
+      author: "mallory",
+      repo_pack: "sn60__bitsec",
+      mode: "miner",
+      final_action: "merge",
+      pull_number: 9
+    }) + "\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOARD_EVENT_LOG: eventLogPath,
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  const lane = status.lanes[0];
+  assert.equal(lane.currentHolder, "alice");
+  // Merged-PR metadata belongs to a different author, so it must not be
+  // attributed to the current king.
+  assert.equal(lane.currentHolderPullNumber, null);
+  assert.equal(lane.currentHolderMergedAt, null);
+});

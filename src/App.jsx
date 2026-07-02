@@ -583,14 +583,14 @@ function DocOverview({ selectedLane, links }) {
       <p className="kicker">Newcomer Guide</p>
       <h1>How Kata competition works</h1>
       <p>
-        Kata is a GitTensor-aligned coding-agent competition system. Miners do
-        not submit ordinary code fixes. They submit repo-specific agents that
-        duel the current king under the same model, task pools, repo snapshot,
-        and validator checks.
+        Kata is a GitTensor-aligned security-agent competition system. Miners do
+        not submit ordinary code fixes. They submit vulnerability-hunting agents
+        that duel the current king in the same pinned Bitsec sandbox, on the
+        same benchmark codebases, under the same validator checks.
       </p>
       <DocCallout
         title="If you are new, start here"
-        text="Think of Kata as a live tournament for coding-agent strategies. Your PR contains the agent. The validator gives your agent repo tasks. If it solves enough more tasks than the current king, your agent becomes the new king."
+        text="Think of Kata as a live tournament for security-agent strategies. Your PR contains the agent. The validator runs it against benchmark smart-contract projects. If it finds vulnerabilities better than the current king, your agent becomes the new king."
       />
       <DocCallout
         title="Mental model"
@@ -700,38 +700,37 @@ function DocAgent({ links }) {
       <p className="kicker">Agent Contract</p>
       <h1>What your agent receives</h1>
       <p>
-        Your `agent.py` must expose one function. The validator owns the model,
-        API base, API key, task selection, timeouts, and scoring. Miners compete
-        on agent behavior, prompting, context selection, patch generation, and
-        robustness.
+        Your `agent.py` must expose one synchronous function. The validator owns
+        the sandbox, the pinned benchmark snapshot, replica counts, timeouts,
+        and scoring. Miners compete on vulnerability-hunting behavior,
+        prompting, context selection, and robustness.
       </p>
-      <CodeBlock value={`def solve(repo_path: str, issue: str, model: str, api_base: str, api_key: str) -> dict:\n    return {\n        "success": True,\n        "message": "short human-readable status",\n        "diff": "unified diff that applies with git apply"\n    }`} />
+      <CodeBlock value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # Bitsec-compatible findings for the target project\n        ]\n    }`} />
       <h2>// recommended agent loop</h2>
       <DocSteps
         items={[
-          ["Parse task", "Extract the target path, requested behavior, and visible constraints from issue/task text."],
-          ["Read repo context", "Load the target files and a small set of relevant examples from the repo."],
-          ["Ask model once", "Use the validator-provided model/API route. Do not hardcode your own provider."],
-          ["Normalize diff", "Return only a unified diff that can be applied with git apply."],
-          ["Self-check", "Run git apply --check or equivalent syntax validation before returning."]
+          ["Read the project", "Walk the smart-contract project mounted in the sandbox and pick the high-risk contracts."],
+          ["Ask the model", "Use the sandbox inference API with the injected INFERENCE_API_KEY. Do not hardcode your own provider."],
+          ["Hunt critical/high issues", "Focus on critical and high severity vulnerabilities; noisy findings hurt your detection rate."],
+          ["Normalize the report", "Return a JSON dict with a top-level `vulnerabilities` list in the Bitsec report schema."],
+          ["Self-check", "Make sure agent_main() works with no arguments and returns JSON-serializable data before opening the PR."]
         ]}
       />
       <DocGrid>
-        <DocCard title="repo_path" text="A checked-out target repo snapshot for the task." />
-        <DocCard title="issue" text="The visible task.md text. This is intentionally task text, not GitHub issue data." />
-        <DocCard title="model" text="Validator-owned base model, currently Qwen3-32B." />
-        <DocCard title="api_base/api_key" text="Validator-owned routing credentials. Do not override or hardcode providers." />
+        <DocCard title="project_dir" text="The target smart-contract project checkout inside the sandbox container." />
+        <DocCard title="inference_api" text="The sandbox inference endpoint. Authenticate with the INFERENCE_API_KEY env var injected for your run." />
+        <DocCard title="Sync only" text="agent_main must be a synchronous function callable with no arguments; the sandbox runner does not await coroutines." />
+        <DocCard title="Self-contained" text="V1 miner bundles must stay self-contained in agent.py. Helper modules are rejected." />
       </DocGrid>
       <RequirementList
         title="Runtime boundaries and red lines"
         items={[
-          "Do not read oracle.json or hidden task directories.",
-          "Do not read KATA_EVAL_TASK_DIR, KATA_SCORE_FILE, KATA_ALLOWED_PATHS_FILE, or KATA_FORBIDDEN_PATHS_FILE.",
+          "Do not reference validator scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
           "Do not hardcode provider endpoints or secret tokens.",
-          "Do not override model, api_base, or api_key inside solve(...).",
-          "Return a unified diff, not prose-only instructions.",
-          "Keep edits scoped to the task and repo conventions.",
-          "Do not use exact benchmark-answer maps or task-id-specific hacks."
+          "Do not set model sampling parameters (temperature, top_p, seed, ...).",
+          "Do not embed benchmark-answer maps or dataset leakage tokens.",
+          "Return a top-level `vulnerabilities` list, not prose-only output.",
+          "Do not copy the current king bundle; exact copies are rejected."
         ]}
       />
       <DocLinks links={[["Submission contract", links.submissions], ["Benchmark contract", links.benchmarkEvaluation]]} />
@@ -818,19 +817,18 @@ function DocMilestones() {
       <MilestoneList
         items={[
           ["complete", "SN60 lane live", "The sn60__bitsec/miner lane has a pinned benchmark snapshot and a seeded king."],
-          ["complete", "Oracle-backed benchmark design", "Tasks now include visible task text plus validator-side deterministic oracle files."],
+          ["complete", "Pinned benchmark scoring", "Duels score against the pinned Bitsec benchmark snapshot with deterministic replica rules."],
           ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
           ["complete", "Live dashboard deployment", "kata-board runs as a Node service behind ngrok and reads the live validator API."],
           ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
-          ["current", "Benchmark quality upgrade", "Improve task-specific oracles so checks prove semantic correctness, not only formatting validity."],
-          ["next", "Multi-repo lanes", "Add more registered repos so each repo-pack can have its own king and benchmark pool."],
+          ["next", "Multi-pack lanes", "Add more registered subnet packs so each repo-pack can have its own king and benchmark snapshot."],
           ["next", "Snapshot refresh", "Resync the pinned Bitsec sandbox snapshot as the subnet benchmark evolves."],
-          ["later", "Advanced analytics", "Track per-task solve rates, agent regressions, win history, cost, and benchmark coverage over time."]
+          ["later", "Advanced analytics", "Track per-codebase pass rates, agent regressions, win history, cost, and benchmark coverage over time."]
         ]}
       />
       <DocCallout
         title="Current priority"
-        text="The most important next step is benchmark reliability: every live task should have a clear, deterministic checker that accepts equivalent correct solutions and rejects shallow or irrelevant edits."
+        text="The most important next step is operational reliability: every winning PR should merge, promote, and publish its king deterministically, with stale results detected and rerun automatically."
       />
     </section>
   );
@@ -849,12 +847,12 @@ function DocPrivacy() {
       <DocGrid>
         <DocCard title="Lane state" text="Central pack registry, per-lane king, benchmark snapshot, challenge state, and promotion record." />
         <DocCard title="Validator" text="Pinned Bitsec sandbox mirror, scorer, and the validator scoring key — kept separate from miner execution keys." />
-        <DocCard title="Dashboard" text="Shows hidden counts and fingerprints, not hidden task content." />
-        <DocCard title="Retirement" text="Hidden tasks should be revealed only after they leave all live pool versions." />
+        <DocCard title="Dashboard" text="Shows duel metrics, provenance hashes, and fingerprints, not scoring keys or raw benchmark answers." />
+        <DocCard title="Benchmark answers" text="Expected findings live validator-side in the pinned snapshot; agents that embed answer maps are rejected at screening." />
       </DocGrid>
       <DocCallout
         title="Important"
-        text="Agents receive the visible task text only. Checks receive oracle and path-policy metadata after the agent has produced a patch."
+        text="Agents receive the project contents and an inference endpoint only. Scoring runs validator-side against the pinned benchmark with the validator-owned key."
       />
     </section>
   );

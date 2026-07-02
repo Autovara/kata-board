@@ -134,8 +134,14 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
     updatedAt: state.king?.promotion_timestamp || state.king?.updated_at || null,
     seeded: !state.king?.current_king_submission_id
   };
+  // Lane state is authoritative for who holds the king; PR history is only a
+  // fallback (it can be incomplete, pending promotion recovery, or stale
+  // after a manual lane repair).
   const currentHolder =
-    latestWinner?.author || king.author || humanizeKingSource(king.source);
+    king.author || latestWinner?.author || humanizeKingSource(king.source);
+  const latestWinnerMatchesKing =
+    Boolean(latestWinner?.author) &&
+    (!king.author || latestWinner.author === king.author);
   const selectedProjects = state.challengeState?.selected_project_keys || [];
   return {
     id: `${repoPack}:${mode}`,
@@ -146,8 +152,8 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
     updatedAt: lane.updated_at || state.king?.updated_at || null,
     kingUpdatedAt: state.king?.updated_at || lane.updated_at || null,
     currentHolder,
-    currentHolderMergedAt: latestWinner?.mergedAt || null,
-    currentHolderPullNumber: latestWinner?.pullNumber || null,
+    currentHolderMergedAt: latestWinnerMatchesKing ? latestWinner.mergedAt : null,
+    currentHolderPullNumber: latestWinnerMatchesKing ? latestWinner.pullNumber : null,
     king,
     projects: selectedProjects.map((projectKey) => ({
       taskId: projectKey,

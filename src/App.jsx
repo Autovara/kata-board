@@ -370,6 +370,18 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   const kingHoldout = agentPoolScore(activeEvaluation?.holdout, "frontier", latest?.holdout?.frontierScore);
   const candidateTotal = agentSolvedTotal(activeEvaluation, latest, "candidate");
   const kingTotal = agentSolvedTotal(activeEvaluation, latest, "frontier");
+  const arenaPhase = activeEvaluation
+    ? activeEvaluationStatus(activeEvaluation)
+    : latest
+      ? duelStatus(latest, selectedLane)
+      : "idle";
+  const arenaTone = activeEvaluation
+    ? activeEvaluationTone(activeEvaluation)
+    : latest?.promotionReady
+      ? "ok"
+      : "neutral";
+  const pullLabel = activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-";
+  const updatedLabel = formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt);
 
   return (
     <div className="stack">
@@ -393,22 +405,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           />
           <div className="battle-mid">
             <div className="vs">VS</div>
-            <Status
-              label={
-                activeEvaluation
-                  ? activeEvaluationStatus(activeEvaluation)
-                  : latest
-                    ? duelStatus(latest, selectedLane)
-                    : "idle"
-              }
-              tone={
-                activeEvaluation
-                  ? activeEvaluationTone(activeEvaluation)
-                  : latest?.promotionReady
-                    ? "ok"
-                    : "neutral"
-              }
-            />
+            <Status label={arenaPhase} tone={arenaTone} />
             <div className="score-mini">
               <span>primary</span>
               <strong>{primaryProgress.label}</strong>
@@ -438,11 +435,32 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
       ) : null}
 
       <section className="arena-meta-grid">
-        <KeyValue label="phase" value={activeEvaluation ? activeEvaluationStatus(activeEvaluation) : latest ? duelStatus(latest, selectedLane) : "idle"} />
-        <KeyValue label="candidate" value={candidateName} />
-        <KeyValue label="pull" value={activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-"} />
-        <KeyValue label="updated" value={formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt)} />
+        <ArenaMetaCard
+          label="phase"
+          value={arenaPhase}
+          sub={activeEvaluation?.phase || "validator state"}
+          tone={arenaTone}
+        />
+        <ArenaMetaCard
+          label="candidate"
+          value={candidateName}
+          sub={activeEvaluation?.candidateSubmissionId || latest?.candidateSubmissionId || "waiting for challenger"}
+        />
+        <ArenaMetaCard
+          label="pull request"
+          value={pullLabel}
+          sub={activeEvaluation?.candidateGithubLogin ? `GitHub @${activeEvaluation.candidateGithubLogin}` : "no active PR"}
+        />
+        <ArenaMetaCard
+          label="updated"
+          value={updatedLabel}
+          sub={latest?.runId ? shortRunId(latest.runId) : "live validator feed"}
+        />
       </section>
+
+      {selectedLane?.evaluatorState?.current ? (
+        <Sn60LanePanel state={selectedLane.evaluatorState.current} />
+      ) : null}
 
       <section className="arena-visual-grid">
         <ArenaProgressCard
@@ -484,9 +502,21 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
                     className={`task-select ${selectedTask?.taskId === task.taskId ? "active" : ""}`}
                     onClick={() => setSelectedTaskId(task.taskId)}
                   >
-                    <strong>{task.title}</strong>
-                    <span>{task.taskId}</span>
-                    <Status label={taskRuntimeLabel(task.runtime)} tone={taskRuntimeTone(task.runtime)} />
+                    <div className="task-select-head">
+                      <strong>{task.title}</strong>
+                      <Status label={taskRuntimeLabel(task.runtime)} tone={taskRuntimeTone(task.runtime)} />
+                    </div>
+                    <span className="task-select-id">{task.taskId}</span>
+                    <div className="task-select-results">
+                      <span>
+                        candidate
+                        <strong>{variantRuntimeLabel(task.runtime?.candidate)}</strong>
+                      </span>
+                      <span>
+                        king
+                        <strong>{variantRuntimeLabel(task.runtime?.frontier)}</strong>
+                      </span>
+                    </div>
                   </button>
                 ))
               ) : (
@@ -498,15 +528,19 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
             <SectionTitle title="Task detail" />
             {selectedTask ? (
               <div className="task-detail">
-                <p className="kicker">visible benchmark</p>
+                <div className="task-detail-head">
+                  <p className="kicker">visible benchmark</p>
+                  <Status label={taskRuntimeLabel(selectedTask.runtime)} tone={taskRuntimeTone(selectedTask.runtime)} />
+                </div>
                 <h2>{selectedTask.title}</h2>
                 <p>{selectedTask.description || "No public task description available."}</p>
-                <KeyValue label="task id" value={selectedTask.taskId} />
-                <KeyValue label="status" value={selectedTask.status} />
-                <KeyValue label="live duel" value={taskRuntimeLabel(selectedTask.runtime)} />
-                <KeyValue label="candidate" value={variantRuntimeLabel(selectedTask.runtime?.candidate)} />
-                <KeyValue label="frontier" value={variantRuntimeLabel(selectedTask.runtime?.frontier)} />
-                <KeyValue label="tags" value={(selectedTask.tags || []).slice(0, 5).join(", ")} />
+                <div className="task-detail-grid">
+                  <KeyValue label="task id" value={selectedTask.taskId} />
+                  <KeyValue label="pool status" value={selectedTask.status} />
+                  <KeyValue label="candidate run" value={variantRuntimeLabel(selectedTask.runtime?.candidate)} />
+                  <KeyValue label="king run" value={variantRuntimeLabel(selectedTask.runtime?.frontier)} />
+                  <KeyValue label="tags" value={(selectedTask.tags || []).slice(0, 5).join(", ") || "-"} />
+                </div>
               </div>
             ) : (
               <Empty text="Select a task." />
@@ -514,6 +548,86 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           </div>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function Sn60LanePanel({ state }) {
+  const candidateScore = percentScore(state.scores?.candidate);
+  const kingScore = percentScore(state.scores?.king);
+  return (
+    <section className="sn60-panel">
+      <div className="sn60-panel-head">
+        <div>
+          <p className="kicker">SN60 Bitsec lane</p>
+          <h2>{state.candidateSubmissionId || "waiting for challenger"}</h2>
+        </div>
+        <Status label={state.screeningStatus || "no screening"} tone={screeningTone(state.screeningStatus)} />
+      </div>
+
+      <div className="sn60-grid">
+        <Sn60Metric label="candidate miner" value={state.candidateAuthor || state.candidateSubmissionId || "-"} sub={state.candidateSubmissionId || "no active candidate"} />
+        <Sn60Metric label="king miner" value={state.kingAuthor || state.kingSubmissionId || "-"} sub={state.kingSubmissionId || "seed king"} />
+        <Sn60Metric label="candidate score" value={candidateScore} sub={`king ${kingScore}`} />
+        <Sn60Metric label="final winner" value={state.finalWinner || "-"} sub={state.rewardLabelApplied || "reward label pending"} />
+        <Sn60Metric label="codebases passed" value={sn60Pair(state.codebasesPassed)} sub={`${state.projectKeys?.length || 0} selected projects`} />
+        <Sn60Metric label="true positives" value={sn60Pair(state.truePositives)} sub="candidate vs king" />
+        <Sn60Metric label="invalid runs" value={sn60Pair(state.invalidRuns)} sub="candidate vs king" />
+        <Sn60Metric label="replica spread" value={formatNumber(state.stability?.candidate?.spread)} sub={`king ${formatNumber(state.stability?.king?.spread)}`} />
+      </div>
+
+      <div className="sn60-detail-grid">
+        <div className="sn60-detail-block">
+          <span>local validator replica scores</span>
+          <ReplicaStrip label="candidate" values={state.localReplicaScores?.candidate} />
+          <ReplicaStrip label="king" values={state.localReplicaScores?.frontier || state.localReplicaScores?.king} />
+        </div>
+        <div className="sn60-detail-block">
+          <span>benchmark snapshot provenance</span>
+          <KeyValue label="freshness" value={shortHash(state.provenance?.freshnessFingerprint)} />
+          <KeyValue label="sandbox" value={shortHash(state.provenance?.sandboxCommit)} />
+          <KeyValue label="benchmark" value={shortHash(state.provenance?.benchmarkSha256)} />
+          <KeyValue label="scorer" value={state.provenance?.scorerVersion || "-"} />
+        </div>
+      </div>
+
+      {state.screeningReasons?.length ? (
+        <div className="sn60-screening-notes">
+          {state.screeningReasons.slice(0, 3).map((reason) => (
+            <span key={reason}>{reason}</span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function Sn60Metric({ label, value, sub }) {
+  return (
+    <div className="sn60-metric">
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      <small>{sub}</small>
+    </div>
+  );
+}
+
+function ReplicaStrip({ label, values }) {
+  const normalized = Array.isArray(values) ? values : [];
+  return (
+    <div className="replica-strip">
+      <span>{label}</span>
+      <div>
+        {normalized.length ? (
+          normalized.map((value, index) => (
+            <i key={`${label}-${index}`} style={{ "--replica-score": `${clampPercent(Number(value) * 100)}%` }}>
+              {formatNumber(Number(value) * 100)}
+            </i>
+          ))
+        ) : (
+          <em>no replica scores</em>
+        )}
+      </div>
     </div>
   );
 }
@@ -1104,6 +1218,16 @@ function BattleSide({ label, name, avatarName, avatarUrl, sub, primaryScore, hol
   );
 }
 
+function ArenaMetaCard({ label, value, sub, tone = "neutral" }) {
+  return (
+    <article className={`arena-meta-card arena-meta-card-${tone}`}>
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      <small>{sub}</small>
+    </article>
+  );
+}
+
 function ArenaProgressCard({ title, label, percent, sub }) {
   return (
     <div className="arena-visual-card">
@@ -1283,6 +1407,10 @@ function duelFormat(lane) {
   if (!lane) {
     return "not configured";
   }
+  if (lane.evaluatorState?.lane?.evaluator_id === "sn60_bitsec" || lane.mode === "miner") {
+    const count = lane.duelRules.publicTaskCount || lane.evaluatorState?.current?.projectKeys?.length || 0;
+    return `${count} SN60 project${count === 1 ? "" : "s"}`;
+  }
   return `${lane.duelRules.publicTaskCount} primary / ${lane.duelRules.privateTaskCount} hidden`;
 }
 
@@ -1328,6 +1456,9 @@ function duelStatus(duel, lane) {
 function promotionGate(lane) {
   if (!lane) {
     return "not configured";
+  }
+  if (lane.evaluatorState?.lane?.evaluator_id === "sn60_bitsec" || lane.mode === "miner") {
+    return "screening pass, no invalid runs, candidate outranks king";
   }
   return `primary +${formatNumber(lane.duelRules.promotionMarginPoints)} pts, holdout +${formatNumber(lane.duelRules.holdoutPromotionMarginPoints)} pts`;
 }
@@ -1433,6 +1564,29 @@ function shortRunId(value) {
     return "unknown";
   }
   return value.replace(/^challenge-/, "").slice(0, 28);
+}
+
+function percentScore(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return `${formatNumber(Number(value) * 100)} pts`;
+}
+
+function sn60Pair(value) {
+  const candidate = value?.candidate ?? "-";
+  const king = value?.frontier ?? value?.king ?? "-";
+  return `${candidate} / ${king}`;
+}
+
+function screeningTone(status) {
+  if (status === "passed" || status === "pass" || status === true) {
+    return "ok";
+  }
+  if (status === "failed" || status === "fail" || status === false) {
+    return "bad";
+  }
+  return "neutral";
 }
 
 function activeEvaluationStatus(activeEvaluation) {

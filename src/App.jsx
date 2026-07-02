@@ -1299,45 +1299,6 @@ function MinerIdentity({ name, sub, size = "compact" }) {
   );
 }
 
-function DuelRow({ duel, lane }) {
-  return (
-    <div className="duel-row">
-      <div>
-        <strong>{duel.candidateAuthor || duel.candidateSubmissionId || "unknown"}</strong>
-        <span>{shortRunId(duel.runId)}</span>
-      </div>
-      <Status label={duelStatus(duel, lane)} tone={duel.promotionReady ? "ok" : "neutral"} />
-    </div>
-  );
-}
-
-function QueueJobRow({ job }) {
-  return (
-    <div className="duel-row">
-      <div>
-        <strong>PR #{job.pullNumber}</strong>
-        <span>{job.finalAction || `attempt ${job.attempts}`}</span>
-      </div>
-      <Status label={job.status} tone={queueJobTone(job.status)} />
-    </div>
-  );
-}
-
-function TaskRuntimeRow({ task }) {
-  return (
-    <div className="duel-row">
-      <div>
-        <strong>{task.taskId || "hidden task"}</strong>
-        <span>
-          candidate {variantRuntimeLabel(task.candidate)} / frontier{" "}
-          {variantRuntimeLabel(task.frontier)}
-        </span>
-      </div>
-      <Status label={taskRuntimeLabel(task)} tone={taskRuntimeTone(task)} />
-    </div>
-  );
-}
-
 function Stat({ label, value }) {
   return (
     <div className="stat">
@@ -1480,13 +1441,6 @@ function marginWithTasks(points, tasks) {
   return `king + ${formatNumber(points)} points${taskText}`;
 }
 
-function selectionLabel(value) {
-  if (value === "random_live") {
-    return "random live draw";
-  }
-  return value || "unknown";
-}
-
 function kingAgentLink(lane, repoSlug) {
   const path = `kings/${lane.repoPack}/${lane.mode}/agent.py`;
   if (!repoSlug) {
@@ -1540,16 +1494,6 @@ function leaderboardSource(source) {
     return "not configured";
   }
   return source || "unknown";
-}
-
-function humanizeSource(value) {
-  if (!value) {
-    return "unknown";
-  }
-  if (String(value).startsWith("kata-init")) {
-    return "Kata seed";
-  }
-  return value;
 }
 
 function shortHash(value) {
@@ -1613,17 +1557,6 @@ function activeEvaluationTone(activeEvaluation) {
     return "ok";
   }
   return "neutral";
-}
-
-function poolProgressLabel(pool, fallbackTotal) {
-  if (!pool) {
-    return "waiting";
-  }
-  const total = pool.totalTasks || fallbackTotal || 0;
-  if (pool.live) {
-    return `${pool.completedTasks || 0}/${total} tasks`;
-  }
-  return `${pool.completedTasks || total}/${total} complete`;
 }
 
 function poolProgress(pool, fallbackTotal) {

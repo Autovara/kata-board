@@ -135,57 +135,16 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
     repoRef: null,
     mode,
     updatedAt: lane.updated_at || state.king?.updated_at || null,
-    frontierUpdatedAt: state.king?.updated_at || lane.updated_at || null,
+    kingUpdatedAt: state.king?.updated_at || lane.updated_at || null,
     currentHolder,
     currentHolderMergedAt: latestWinner?.mergedAt || null,
     currentHolderPullNumber: latestWinner?.pullNumber || null,
     king,
-    duelRules: {
-      publicSelection: "sn60_project_set",
-      publicTaskCount: selectedProjects.length || state.benchmarkSnapshot?.project_keys?.length || 0,
-      privateTaskCount: 0,
-      promotionMarginPoints: 0,
-      holdoutPromotionMarginPoints: 0,
-      promotionMarginTasks: null,
-      holdoutPromotionMarginTasks: null,
-      holdoutRule: "SN60 miner lane uses Bitsec sandbox replicas"
-    },
-    publicPool: {
-      selection: "sn60_project_set",
-      configuredTaskCount: selectedProjects.length || state.benchmarkSnapshot?.project_keys?.length || 0,
-      targetTaskCount: state.benchmarkSnapshot?.project_keys?.length || selectedProjects.length || 0,
-      liveTasks: state.benchmarkSnapshot?.project_keys?.length || selectedProjects.length || 0,
-      totalTasks: state.benchmarkSnapshot?.project_keys?.length || selectedProjects.length || 0,
-      fingerprint: state.challengeState?.freshness_fingerprint || null,
-      tasks: selectedProjects.map((projectKey) => ({
-        taskId: projectKey,
-        title: projectKey,
-        description: "SN60 Bitsec sandbox project selected for the current duel.",
-        visibility: "sandbox",
-        status: "live",
-        qualityScore: null,
-        sourceRef: null,
-        tags: ["sn60", "bitsec"]
-      })),
-      categoryCounts: { sn60: selectedProjects.length },
-      categoryTargets: {},
-      similarityThreshold: null,
-      maxScopeConcentration: null,
-      notes: null
-    },
-    privatePool: {
-      configured: false,
-      hidden: false,
-      configuredTaskCount: 0,
-      targetTaskCount: 0,
-      liveTasks: 0,
-      totalTasks: 0,
-      retiredWaitingTasks: 0,
-      retiredTasks: 0,
-      fingerprint: null,
-      updatedAt: null,
-      evaluatorVersion: lane.evaluator_policy_version || null
-    },
+    projects: selectedProjects.map((projectKey) => ({
+      taskId: projectKey,
+      title: projectKey,
+      tags: ["sn60", "bitsec"]
+    })),
     evaluatorState: state
   };
 }
@@ -313,9 +272,8 @@ function loadRecentActivity(kataRoot, env) {
           kingScore: primaryKingScore,
           candidateDelta:
             summary.primary?.candidate_score_delta ??
-            primaryCandidateScore - primaryFrontierScore
+            primaryCandidateScore - primaryKingScore
         },
-        holdout: null,
         sn60: sn60Metrics
       };
     })
@@ -538,8 +496,7 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
     startedAt: activeJob?.startedAt || null,
     enqueuedAt: activeJob?.enqueuedAt || null,
     attempts: activeJob?.attempts || 0,
-    primary: null,
-    holdout: null
+    primary: null
   };
   if (!activeJob) {
     return base;
@@ -578,8 +535,7 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
     candidateAuthor: lane?.submissionId
       ? inferSubmissionAuthorFromId(lane.submissionId)
       : null,
-    primary: phaseProgress?.primary || null,
-    holdout: phaseProgress?.holdout || null
+    primary: phaseProgress?.primary || null
   };
 }
 
@@ -589,7 +545,6 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     return null;
   }
   const primary = normalizeLivePool(payload.pools?.primary, true);
-  const holdout = normalizeLivePool(payload.pools?.holdout, false);
   return {
     available: true,
     state: payload.state || "running",
@@ -610,8 +565,7 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     startedAt: payload.job.started_at || activeJob.startedAt || null,
     enqueuedAt: payload.job.enqueued_at || activeJob.enqueuedAt || null,
     attempts: payload.job.attempts ?? activeJob.attempts ?? 0,
-    primary,
-    holdout
+    primary
   };
 }
 
@@ -625,7 +579,7 @@ function normalizeLivePool(pool, revealTaskIds) {
     status: task.status || "queued",
     completed: Boolean(task.completed),
     candidate: normalizeLiveVariant(task.candidate),
-    frontier: normalizeLiveVariant(task.frontier)
+    king: normalizeLiveVariant(task.king)
   }));
   return {
     live: pool.state !== "completed",
@@ -713,8 +667,7 @@ function inspectChallengePhase(phaseRoot, phase) {
       state: "running",
       phase,
       updatedAt: statMtimeIso(phaseRoot),
-      primary: null,
-      holdout: null
+      primary: null
     };
   }
   const challengeRoot = challengeRoots[0];
@@ -728,8 +681,7 @@ function inspectChallengePhase(phaseRoot, phase) {
       summary?.created_at ||
       statMtimeIso(summaryPath) ||
       statMtimeIso(challengeRoot),
-    primary: inspectPoolProgress(path.join(challengeRoot, "primary"), true),
-    holdout: inspectPoolProgress(path.join(challengeRoot, "holdout"), false)
+    primary: inspectPoolProgress(path.join(challengeRoot, "primary"), true)
   };
 }
 
@@ -759,13 +711,13 @@ function summarizeCompletedPool(runSummary, revealTaskIds) {
   const tasks = Array.isArray(runSummary?.tasks) ? runSummary.tasks : [];
   const taskStatuses = tasks.map((task) => {
     const candidate = summarizeTaskVariant(task, "candidate");
-    const frontier = summarizeTaskVariant(task, "frontier");
+    const king = summarizeTaskVariant(task, "king");
     return {
       taskId: revealTaskIds ? task.task_id : null,
-      status: exactTaskStatusLabel(candidate, frontier),
+      status: exactTaskStatusLabel(candidate, king),
       completed: true,
       candidate,
-      frontier
+      king
     };
   });
   return {
@@ -798,14 +750,14 @@ function summarizeRunningPool(runRoot, revealTaskIds) {
 
 function summarizeRunningTask(taskRoot, revealTaskIds) {
   const candidate = summarizeRunningVariant(path.join(taskRoot, "candidate"));
-  const frontier = summarizeRunningVariant(path.join(taskRoot, "frontier"));
+  const king = summarizeRunningVariant(path.join(taskRoot, "king"));
   const taskId = path.basename(taskRoot);
   return {
     taskId: revealTaskIds ? taskId : null,
-    status: runningTaskStatusLabel(candidate, frontier),
-    completed: candidate.finished && frontier.finished,
+    status: runningTaskStatusLabel(candidate, king),
+    completed: candidate.finished && king.finished,
     candidate,
-    frontier
+    king
   };
 }
 
@@ -840,27 +792,27 @@ function summarizeTaskVariant(task, variantName) {
   };
 }
 
-function exactTaskStatusLabel(candidate, frontier) {
+function exactTaskStatusLabel(candidate, king) {
   if (!candidate.valid) {
     return "candidate invalid";
   }
-  if (candidate.solved && !frontier.solved) {
+  if (candidate.solved && !king.solved) {
     return "candidate ahead";
   }
-  if (candidate.solved && frontier.solved) {
+  if (candidate.solved && king.solved) {
     return "both solved";
   }
-  if (!candidate.solved && frontier.solved) {
-    return "frontier ahead";
+  if (!candidate.solved && king.solved) {
+    return "king ahead";
   }
   return "both failed";
 }
 
-function runningTaskStatusLabel(candidate, frontier) {
-  if (candidate.finished && frontier.finished) {
+function runningTaskStatusLabel(candidate, king) {
+  if (candidate.finished && king.finished) {
     return "finished";
   }
-  if (candidate.started || frontier.started) {
+  if (candidate.started || king.started) {
     return "running";
   }
   return "queued";
@@ -1000,29 +952,15 @@ function loadEventLeaderboard(eventLogPath) {
 }
 
 function buildOverview(lanes, activity, leaderboard, validator) {
-  const totals = lanes.reduce(
-    (accumulator, lane) => {
-      accumulator.publicLiveTasks += lane.publicPool.liveTasks;
-      accumulator.privateLiveTasks += lane.privatePool.liveTasks;
-      accumulator.publicTargetTasks += lane.publicPool.liveTasks;
-      accumulator.privateTargetTasks += lane.privatePool.liveTasks;
-      return accumulator;
-    },
-    {
-      publicLiveTasks: 0,
-      privateLiveTasks: 0,
-      publicTargetTasks: 0,
-      privateTargetTasks: 0
-    }
+  const projectCount = lanes.reduce(
+    (accumulator, lane) => accumulator + (lane.projects?.length || 0),
+    0
   );
 
   return {
     activeRepoPacks: new Set(lanes.map((lane) => lane.repoPack)).size,
     activeLanes: lanes.length,
-    publicLiveTasks: totals.publicLiveTasks,
-    privateLiveTasks: totals.privateLiveTasks,
-    publicTargetTasks: totals.publicTargetTasks,
-    privateTargetTasks: totals.privateTargetTasks,
+    benchmarkProjects: projectCount,
     recentChallenges: activity.length,
     leaderboardEntries: leaderboard.rows.length,
     validatorPendingJobs: validator.queue.counts.pending,
@@ -1081,11 +1019,6 @@ function buildNotes({ leaderboard, validator, lanes }) {
   if (!leaderboard.rows.length) {
     notes.push(
       "Miner leaderboard is empty because no GitHub PR history or event log is configured yet."
-    );
-  }
-  if (lanes.some((lane) => lane.privatePool.configured)) {
-    notes.push(
-      "Private holdout task names are intentionally hidden on this board. Only counts and pool status are shown."
     );
   }
   if (!validator.queue.available) {

@@ -229,7 +229,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <h1>Kata is the agent arena for Gittensor Subnet 74.</h1>
           <p>
             Miners submit coding agents by pull request. The validator runs
-            live duels against public tasks and hidden holdouts. Only a verified
+            live SN60 sandbox duels against a pinned benchmark. Only a verified
             winner is merged and promoted.
           </p>
           <div className="actions">
@@ -259,8 +259,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
       <section className="stat-row">
         <Stat label="repo packs" value={overview.activeRepoPacks} />
         <Stat label="active lanes" value={overview.activeLanes} />
-        <Stat label="public tasks" value={overview.publicLiveTasks ?? 0} />
-        <Stat label="hidden tasks" value={overview.privateLiveTasks ?? 0} />
+        <Stat label="benchmark projects" value={overview.benchmarkProjects ?? 0} />
         <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
       </section>
 
@@ -270,7 +269,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <KeyValue label="system" value="GitTensor-aligned agent arena" />
           <KeyValue label="submission" value="PR-only agent bundle" />
           <KeyValue label="reward idea" value="current king per repo lane" />
-          <KeyValue label="evaluation" value="public primary + private holdout" />
+          <KeyValue label="evaluation" value="SN60 Bitsec sandbox" />
           <KeyValue label="current state" value={activeEvaluationStatus(activeEvaluation)} />
         </div>
         <div className="section-block">
@@ -297,7 +296,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <KeyValue label="top miner" value={topMiner?.author || "not ranked yet"} />
           <KeyValue label="leaderboard miners" value={overview.leaderboardEntries ?? 0} />
           <KeyValue label="latest challenger" value={latestChallenge?.candidateAuthor || latestChallenge?.candidateSubmissionId || "none"} />
-          <KeyValue label="latest result" value={latestChallenge ? duelStatus(latestChallenge, selectedLane) : "no duel yet"} />
+          <KeyValue label="latest result" value={latestChallenge ? duelStatus(latestChallenge) : "no duel yet"} />
           <KeyValue label="updated" value={formatDateTime(payload.generatedAt)} />
         </div>
       </section>
@@ -315,66 +314,12 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
     latest?.candidateAuthor ||
     latest?.candidateSubmissionId ||
     "waiting";
-  const candidateAvatarName =
-    activeEvaluation?.candidateGithubLogin ||
-    activeEvaluation?.candidateAuthor ||
-    latest?.candidateAuthor ||
-    inferSubmissionAuthorFromId(
-      activeEvaluation?.candidateSubmissionId || latest?.candidateSubmissionId
-    );
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
-  const publicTasks = selectedLane?.publicPool?.tasks || [];
-  const publicTaskById = new Map(publicTasks.map((task) => [task.taskId, task]));
-  const livePrimaryTasks = activeEvaluation?.primary?.taskStatuses || [];
-  const liveTaskById = new Map(
-    livePrimaryTasks
-      .filter((task) => task.taskId)
-      .map((task) => [task.taskId, task])
-  );
-  const liveTaskIds = livePrimaryTasks.map((task) => task.taskId).filter(Boolean);
-  const duelTaskIds = liveTaskIds.length ? liveTaskIds : latest?.primary?.taskIds || [];
-  const tasks = duelTaskIds.map(
-    (taskId) =>
-      ({
-        ...(publicTaskById.get(taskId) || {
-          taskId,
-          title: taskId,
-          description: "This task was part of the current duel draw.",
-          status: "duel",
-          tags: []
-        }),
-        runtime: liveTaskById.get(taskId) || null
-      })
-  );
-  const fallbackTasks = latest?.primary?.taskIds?.length
-    ? latest.primary.taskIds.map((taskId) => ({
-        ...(publicTaskById.get(taskId) || {
-          taskId,
-          title: taskId,
-          description: "This task was part of the current duel draw.",
-          status: "duel",
-          tags: []
-        }),
-        runtime: null
-      }))
-    : [];
-  const visibleTasks = tasks.length ? tasks : fallbackTasks;
-  const selectedTask =
-    visibleTasks.find((task) => task.taskId === selectedTaskId) ||
-    visibleTasks[0] ||
-    null;
-  const primaryProgress = poolProgress(activeEvaluation?.primary, selectedLane?.duelRules?.publicTaskCount);
-  const holdoutProgress = poolProgress(activeEvaluation?.holdout, selectedLane?.duelRules?.privateTaskCount);
-  const candidatePrimary = agentPoolScore(activeEvaluation?.primary, "candidate", latest?.primary?.candidateScore);
-  const kingPrimary = agentPoolScore(activeEvaluation?.primary, "king", latest?.primary?.kingScore);
-  const candidateHoldout = agentPoolScore(activeEvaluation?.holdout, "candidate", latest?.holdout?.candidateScore);
-  const kingHoldout = agentPoolScore(activeEvaluation?.holdout, "king", latest?.holdout?.kingScore);
-  const candidateTotal = agentSolvedTotal(activeEvaluation, latest, "candidate");
-  const kingTotal = agentSolvedTotal(activeEvaluation, latest, "king");
   const arenaPhase = activeEvaluation
     ? activeEvaluationStatus(activeEvaluation)
     : latest
-      ? duelStatus(latest, selectedLane)
+      ? latest.promotionReady
+        ? "winner"
+        : "completed"
       : "idle";
   const arenaTone = activeEvaluation
     ? activeEvaluationTone(activeEvaluation)
@@ -388,52 +333,11 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
     <div className="stack">
       <PageIntro
         eyebrow="Live Arena"
-        title="king versus Candidate"
-        text="Current duel state, score deltas, queue progress, and the public primary task draw."
+        title="King versus Candidate"
+        text="Current duel state and SN60 sandbox scoring for the selected lane."
       />
 
       <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
-
-      {selectedLane ? (
-        <section className="battle">
-          <BattleSide
-            label="king"
-            name={selectedLane.currentHolder}
-            sub={selectedLane.king?.submissionId}
-            primaryScore={kingPrimary}
-            holdoutScore={kingHoldout}
-            totalScore={kingTotal}
-          />
-          <div className="battle-mid">
-            <div className="vs">VS</div>
-            <Status label={arenaPhase} tone={arenaTone} />
-            <div className="score-mini">
-              <span>primary</span>
-              <strong>{primaryProgress.label}</strong>
-              <ProgressBar value={primaryProgress.percent} />
-            </div>
-            <div className="score-mini">
-              <span>holdout</span>
-              <strong>{holdoutProgress.label}</strong>
-              <ProgressBar value={holdoutProgress.percent} />
-            </div>
-          </div>
-          <BattleSide
-            label="candidate"
-            name={candidateName}
-            avatarName={candidateAvatarName}
-            avatarUrl={activeEvaluation?.candidateAvatarUrl}
-            sub={
-              activeEvaluation?.candidateSubmissionId ||
-              latest?.candidateSubmissionId ||
-              "no active duel"
-            }
-            primaryScore={candidatePrimary}
-            holdoutScore={candidateHoldout}
-            totalScore={candidateTotal}
-          />
-        </section>
-      ) : null}
 
       <section className="arena-meta-grid">
         <ArenaMetaCard
@@ -461,94 +365,9 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
 
       {selectedLane?.evaluatorState?.current ? (
         <Sn60LanePanel state={selectedLane.evaluatorState.current} />
-      ) : null}
-
-      <section className="arena-visual-grid">
-        <ArenaProgressCard
-          title="Primary progress"
-          label={primaryProgress.label}
-          percent={primaryProgress.percent}
-          sub={selectedLane ? marginLabel(selectedLane, "primary") : "not configured"}
-        />
-        <ArenaProgressCard
-          title="Holdout progress"
-          label={holdoutProgress.label}
-          percent={holdoutProgress.percent}
-          sub={selectedLane ? marginLabel(selectedLane, "holdout") : "not configured"}
-        />
-        <ScoreCompareCard
-          title="Primary score"
-          king={kingPrimary}
-          candidate={candidatePrimary}
-          delta={latest?.primary?.candidateDelta}
-        />
-        <ScoreCompareCard
-          title="Holdout score"
-          king={kingHoldout}
-          candidate={candidateHoldout}
-          delta={latest?.holdout?.candidateDelta}
-        />
-      </section>
-
-      {selectedLane ? (
-        <section className="split task-browser">
-          <div className="section-block">
-            <SectionTitle title="Duel primary tasks" />
-            <div className="task-select-list">
-              {visibleTasks.length ? (
-                visibleTasks.map((task) => (
-                  <button
-                    key={task.taskId}
-                    type="button"
-                    className={`task-select ${selectedTask?.taskId === task.taskId ? "active" : ""}`}
-                    onClick={() => setSelectedTaskId(task.taskId)}
-                  >
-                    <div className="task-select-head">
-                      <strong>{task.title}</strong>
-                      <Status label={taskRuntimeLabel(task.runtime)} tone={taskRuntimeTone(task.runtime)} />
-                    </div>
-                    <span className="task-select-id">{task.taskId}</span>
-                    <div className="task-select-results">
-                      <span>
-                        candidate
-                        <strong>{variantRuntimeLabel(task.runtime?.candidate)}</strong>
-                      </span>
-                      <span>
-                        king
-                        <strong>{variantRuntimeLabel(task.runtime?.king)}</strong>
-                      </span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <Empty text="No current duel task draw." />
-              )}
-            </div>
-          </div>
-          <div className="section-block">
-            <SectionTitle title="Task detail" />
-            {selectedTask ? (
-              <div className="task-detail">
-                <div className="task-detail-head">
-                  <p className="kicker">visible benchmark</p>
-                  <Status label={taskRuntimeLabel(selectedTask.runtime)} tone={taskRuntimeTone(selectedTask.runtime)} />
-                </div>
-                <h2>{selectedTask.title}</h2>
-                <p>{selectedTask.description || "No public task description available."}</p>
-                <div className="task-detail-grid">
-                  <KeyValue label="task id" value={selectedTask.taskId} />
-                  <KeyValue label="pool status" value={selectedTask.status} />
-                  <KeyValue label="candidate run" value={variantRuntimeLabel(selectedTask.runtime?.candidate)} />
-                  <KeyValue label="king run" value={variantRuntimeLabel(selectedTask.runtime?.king)} />
-                  <KeyValue label="tags" value={(selectedTask.tags || []).slice(0, 5).join(", ") || "-"} />
-                </div>
-              </div>
-            ) : (
-              <Empty text="Select a task." />
-            )}
-          </div>
-        </section>
-      ) : null}
+      ) : (
+        <Empty text="No SN60 duel state yet for this lane." />
+      )}
     </div>
   );
 }
@@ -815,7 +634,7 @@ function DocWorkflow({ links }) {
         <DocCard title="Input" text="One PR with one agent bundle under submissions/." />
         <DocCard title="Evaluator" text="Kata runs candidate and king through the same pinned Bitsec sandbox snapshot with repeated replica runs." />
         <DocCard title="Decision" text="kata-bot turns the result into close-invalid, close-losing, rerun-stale, hold, or merge." />
-        <DocCard title="Output" text="A verified winner is merged, copied into kings/, and registered as the new frontier." />
+        <DocCard title="Output" text="A verified winner is merged, copied into kings/, and recorded as the new lane king." />
       </DocGrid>
       <DocSteps
         items={[
@@ -847,29 +666,28 @@ function DocSubmit({ links }) {
       <h1>Submit one candidate agent</h1>
       <p>
         A submission PR must be narrow. It should add or update exactly one
-        directory under `submissions/`. Do not edit benchmark tasks, current
+        directory under `submissions/`. Do not edit lane state, current
         king files, validator code, workflows, or unrelated docs.
       </p>
       <h2>// quick start</h2>
-      <CodeBlock value={`mkdir -p submissions/e35ventura__taopedia-articles/contributor/<github-user>-YYYYMMDD-01\ncd submissions/e35ventura__taopedia-articles/contributor/<github-user>-YYYYMMDD-01\n\n# add these files\nagent.py\nagent_manifest.json\nsubmission.json\n# optional: helpers/*.py`} />
-      <CodeBlock value={`submissions/<repo-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json\n  helpers/*.py`} />
+      <CodeBlock value={`mkdir -p submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01\ncd submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01\n\n# add these files (SN60 miner bundle is self-contained)\nagent.py\nagent_manifest.json\nsubmission.json`} />
+      <CodeBlock value={`submissions/<repo-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json`} />
       <h2>Required metadata</h2>
-      <CodeBlock value={`{\n  "schema_version": 2,\n  "repo_pack": "e35ventura__taopedia-articles",\n  "mode": "contributor",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
+      <CodeBlock value={`{\n  "schema_version": 2,\n  "repo_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
       <RequirementList
         title="Validation rules"
         items={[
           "The PR targets the default competition branch.",
           "The PR touches exactly one submission directory.",
-          "The target repo-pack is active in the benchmark registry.",
-          "The target mode exists in that repo-pack frontier manifest.",
+          "The lane is registered and active in the central pack registry.",
           "The bundle contains valid Python and a valid agent manifest.",
           "The candidate is not an exact copy of the current king.",
           "The bundle contains no symlinks, hardcoded secrets, or direct validator secret env reads."
         ]}
       />
       <DocGrid>
-        <DocCard title="Good PR" text="Small, single submission directory, clear metadata, valid Python, and an agent that generalizes across repo tasks." />
-        <DocCard title="Bad PR" text="Touches kings/, benchmark tasks, workflow files, multiple submissions, or copies the current king exactly." />
+        <DocCard title="Good PR" text="Small, single submission directory, clear metadata, valid Python, and a self-contained agent_main that finds real vulnerabilities." />
+        <DocCard title="Bad PR" text="Touches kings/, lane state, workflow files, multiple submissions, or copies the current king exactly." />
       </DocGrid>
       <DocLinks links={[["Detailed submission docs", links.submissions]]} />
     </section>
@@ -922,47 +740,33 @@ function DocAgent({ links }) {
 }
 
 function DocScoring({ selectedLane }) {
-  const primaryTasks = selectedLane?.duelRules?.publicTaskCount || 20;
-  const holdoutTasks = selectedLane?.duelRules?.privateTaskCount || 10;
-  const primaryMargin = selectedLane?.duelRules?.promotionMarginPoints ?? 10;
-  const holdoutMargin = selectedLane?.duelRules?.holdoutPromotionMarginPoints ?? 10;
+  const projectCount =
+    selectedLane?.projects?.length ||
+    selectedLane?.evaluatorState?.current?.projectKeys?.length ||
+    0;
   return (
     <section>
       <p className="kicker">Scoring</p>
       <h1>How a candidate wins</h1>
       <p>
-        Candidate and king run on the same benchmark tasks under the same
-        validator runtime. Scores are normalized independently for the primary
-        and holdout pools, and both gates must pass.
+        Candidate and king run through the same pinned Bitsec sandbox snapshot
+        with repeated replicas per benchmark codebase. A codebase passes only if
+        at least 2 of 3 runs pass; the aggregated score is passed codebases
+        divided by total codebases.
       </p>
       <DocGrid>
-        <DocCard title="Primary pool" text={`${primaryTasks} random live public tasks. Margin: king + ${formatNumber(primaryMargin)} points.`} />
-        <DocCard title="Hidden holdout" text={`${holdoutTasks} private tasks. Margin: king + ${formatNumber(holdoutMargin)} points.`} />
-        <DocCard title="Task value" text="With 20 public tasks, one binary public task is 5 points. With 10 hidden tasks, one hidden task is 10 points." />
-        <DocCard title="Promotion" text="Current default means roughly +2 public tasks and +1 hidden task versus the king." />
+        <DocCard title="Benchmark" text={`${projectCount} SN60 project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`} />
+        <DocCard title="Codebase pass" text="A codebase passes when at least 2 of 3 replica runs pass." />
+        <DocCard title="Aggregated score" text="Passed codebases divided by total codebases in the round." />
+        <DocCard title="Promotion order" text="Aggregated score, then codebases passed, then true positives." />
       </DocGrid>
-      <h2>Benchmark verification</h2>
+      <h2>Screening</h2>
       <p>
-        A task is not judged by patch similarity. It is judged by checks. The
-        strongest tasks use deterministic oracles: required files changed,
-        required claims or behavior present, known wrong output absent, and
-        repo validation still passing.
+        Every candidate is screened before the duel: static checks plus one
+        sandbox execution that must finish cleanly. Candidates with invalid
+        replica runs are never promoted.
       </p>
-      <DocCallout
-        title="Why two pools?"
-        text="Primary tasks are visible enough for miners to learn the repo. Hidden holdouts protect the system from agents that only memorize public task patterns."
-      />
-      <CodeBlock value={`pool_score = 100 * solved_weight / total_weight\n\npromote only if:\n  candidate_primary >= king_primary + ${formatNumber(primaryMargin)}\n  candidate_holdout >= king_holdout + ${formatNumber(holdoutMargin)}\n  no integrity disqualification`} />
-      <RequirementList
-        title="Invalid behavior collapses score"
-        items={[
-          "Changing forbidden paths.",
-          "Changing files outside allowed task scope.",
-          "Failing to produce an applicable diff.",
-          "Failing repo-level validation or task oracle checks.",
-          "Trying to use hidden validator metadata."
-        ]}
-      />
+      <CodeBlock value={`aggregated_score = passed_codebases / total_codebases\n\npromote only if:\n  screening passed\n  no invalid replica runs\n  candidate outranks king on (score, passes, true positives)`} />
     </section>
   );
 }
@@ -981,10 +785,10 @@ function DocBot() {
           ["Enqueue", "Webhook events become durable queue jobs keyed by repo, PR number, and head SHA."],
           ["Drain", "The resident validator continuously processes pending jobs."],
           ["Inspect", "Changed paths are checked before untrusted PR content is evaluated."],
-          ["Evaluate", "Kata compares candidate and king on primary and holdout pools."],
+          ["Evaluate", "Kata runs candidate and king through the pinned Bitsec sandbox with repeated replicas."],
           ["Comment", "The bot posts a clear PR result with score deltas and reason."],
           ["Close", "Invalid and losing PRs are labeled and closed."],
-          ["Rerun", "Stale results are rerun when the frontier or task pool changed."],
+          ["Rerun", "Stale results are rerun when the king or the pinned benchmark snapshot changed."],
           ["Merge", "Only verified winners are labeled, merged, promoted, and cleaned from submissions/."]
         ]}
       />
@@ -1013,14 +817,14 @@ function DocMilestones() {
       </p>
       <MilestoneList
         items={[
-          ["complete", "MVP lane live", "Taopedia contributor lane has public primary tasks, private holdouts, frontier manifests, and a first king."],
+          ["complete", "SN60 lane live", "The sn60__bitsec/miner lane has a pinned benchmark snapshot and a seeded king."],
           ["complete", "Oracle-backed benchmark design", "Tasks now include visible task text plus validator-side deterministic oracle files."],
           ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
           ["complete", "Live dashboard deployment", "kata-board runs as a Node service behind ngrok and reads the live validator API."],
           ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
           ["current", "Benchmark quality upgrade", "Improve task-specific oracles so checks prove semantic correctness, not only formatting validity."],
           ["next", "Multi-repo lanes", "Add more registered repos so each repo-pack can have its own king and benchmark pool."],
-          ["next", "Pool rotation", "Reveal retired private tasks publicly and generate fresh hidden holdouts without leaking live validation data."],
+          ["next", "Snapshot refresh", "Resync the pinned Bitsec sandbox snapshot as the subnet benchmark evolves."],
           ["later", "Advanced analytics", "Track per-task solve rates, agent regressions, win history, cost, and benchmark coverage over time."]
         ]}
       />
@@ -1038,13 +842,13 @@ function DocPrivacy() {
       <p className="kicker">Visibility</p>
       <h1>What is public and private</h1>
       <p>
-        Kata must be auditable without leaking the live holdout pool. The public
-        system shows enough state for miners to understand the competition while
-        keeping hidden validation material private.
+        Kata must be auditable while keeping the validator scoring key and any
+        hidden benchmark material private. The dashboard shows enough state for
+        miners to understand the competition without exposing secrets.
       </p>
       <DocGrid>
-        <DocCard title="Public" text="Current king code, public tasks, public frontier policy, pool counts, fingerprints, and retired holdout examples." />
-        <DocCard title="Private" text="Live holdout task names, oracle files, private frontier task list, score files, validator credentials, and provider routing." />
+        <DocCard title="Lane state" text="Central pack registry, per-lane king, benchmark snapshot, challenge state, and promotion record." />
+        <DocCard title="Validator" text="Pinned Bitsec sandbox mirror, scorer, and the validator scoring key — kept separate from miner execution keys." />
         <DocCard title="Dashboard" text="Shows hidden counts and fingerprints, not hidden task content." />
         <DocCard title="Retirement" text="Hidden tasks should be revealed only after they leave all live pool versions." />
       </DocGrid>
@@ -1200,25 +1004,6 @@ function ProcessItem({ step, title, text }) {
   );
 }
 
-function BattleSide({ label, name, avatarName, avatarUrl, sub, primaryScore, holdoutScore, totalScore }) {
-  return (
-    <div className={`battle-side battle-side-${label}`}>
-      <Avatar name={name} avatarName={avatarName} avatarUrl={avatarUrl} />
-      <span>{label}</span>
-      <h2>{name}</h2>
-      <p>{sub}</p>
-      <div className="agent-score-strip">
-        <strong>{totalScore}</strong>
-        <small>solved</small>
-      </div>
-      <div className="agent-score-pair">
-        <span>primary {primaryScore}</span>
-        <span>holdout {holdoutScore}</span>
-      </div>
-    </div>
-  );
-}
-
 function ArenaMetaCard({ label, value, sub, tone = "neutral" }) {
   return (
     <article className={`arena-meta-card arena-meta-card-${tone}`}>
@@ -1226,49 +1011,6 @@ function ArenaMetaCard({ label, value, sub, tone = "neutral" }) {
       <strong>{value ?? "-"}</strong>
       <small>{sub}</small>
     </article>
-  );
-}
-
-function ArenaProgressCard({ title, label, percent, sub }) {
-  return (
-    <div className="arena-visual-card">
-      <div className="progress-ring" style={{ "--progress": `${percent}%` }}>
-        <strong>{Math.round(percent)}%</strong>
-      </div>
-      <div>
-        <span>{title}</span>
-        <h3>{label}</h3>
-        <p>{sub}</p>
-      </div>
-    </div>
-  );
-}
-
-function ScoreCompareCard({ title, king, candidate, delta }) {
-  return (
-    <div className="arena-visual-card score-card">
-      <span>{title}</span>
-      <div className="score-bars">
-        <ScoreBar label="king" value={king} />
-        <ScoreBar label="candidate" value={candidate} />
-      </div>
-      <strong className={Number(delta || 0) >= 0 ? "score-delta positive" : "score-delta negative"}>
-        delta {formatSigned(delta)}
-      </strong>
-    </div>
-  );
-}
-
-function ScoreBar({ label, value }) {
-  const numeric = scorePercent(value);
-  return (
-    <div className="score-bar-row">
-      <span>{label}</span>
-      <div className="score-bar-track">
-        <i style={{ width: `${numeric}%` }} />
-      </div>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
@@ -1369,11 +1111,9 @@ function duelFormat(lane) {
   if (!lane) {
     return "not configured";
   }
-  if (lane.evaluatorState?.lane?.evaluator_id === "sn60_bitsec" || lane.mode === "miner") {
-    const count = lane.duelRules.publicTaskCount || lane.evaluatorState?.current?.projectKeys?.length || 0;
-    return `${count} SN60 project${count === 1 ? "" : "s"}`;
-  }
-  return `${lane.duelRules.publicTaskCount} primary / ${lane.duelRules.privateTaskCount} hidden`;
+  const count =
+    lane.projects?.length || lane.evaluatorState?.current?.projectKeys?.length || 0;
+  return `${count} SN60 project${count === 1 ? "" : "s"}`;
 }
 
 function laneActiveEvaluation(activeEvaluation, lane) {
@@ -1391,55 +1131,15 @@ function laneActiveEvaluation(activeEvaluation, lane) {
   return null;
 }
 
-function duelStatus(duel, lane) {
-  if (duel.promotionReady) {
-    return "winner";
-  }
-  const primaryMargin = Number(
-    duel.promotionMarginPoints ?? lane?.duelRules?.promotionMarginPoints ?? 0
-  );
-  const holdoutMargin = Number(
-    duel.holdoutPromotionMarginPoints ??
-      lane?.duelRules?.holdoutPromotionMarginPoints ??
-      0
-  );
-  if ((duel.primary?.candidateDelta ?? Number.NEGATIVE_INFINITY) < primaryMargin) {
-    return "primary short";
-  }
-  if (!duel.holdout && (lane?.duelRules?.privateTaskCount ?? 0) > 0) {
-    return "holdout pending";
-  }
-  if ((duel.holdout?.candidateDelta ?? Number.NEGATIVE_INFINITY) < holdoutMargin) {
-    return "holdout short";
-  }
-  return "blocked";
+function duelStatus(duel) {
+  return duel.promotionReady ? "winner" : "completed";
 }
 
 function promotionGate(lane) {
   if (!lane) {
     return "not configured";
   }
-  if (lane.evaluatorState?.lane?.evaluator_id === "sn60_bitsec" || lane.mode === "miner") {
-    return "screening pass, no invalid runs, candidate outranks king";
-  }
-  return `primary +${formatNumber(lane.duelRules.promotionMarginPoints)} pts, holdout +${formatNumber(lane.duelRules.holdoutPromotionMarginPoints)} pts`;
-}
-
-function marginLabel(lane, pool) {
-  const rules = lane?.duelRules || {};
-  if (pool === "holdout") {
-    return marginWithTasks(
-      rules.holdoutPromotionMarginPoints,
-      rules.holdoutPromotionMarginTasks
-    );
-  }
-  return marginWithTasks(rules.promotionMarginPoints, rules.promotionMarginTasks);
-}
-
-function marginWithTasks(points, tasks) {
-  const taskText =
-    tasks === null || tasks === undefined ? "" : `, about ${formatNumber(tasks)} tasks`;
-  return `king + ${formatNumber(points)} points${taskText}`;
+  return "screening pass, no invalid runs, candidate outranks king";
 }
 
 function kingAgentLink(lane, repoSlug) {
@@ -1502,7 +1202,7 @@ function percentScore(value) {
 
 function sn60Pair(value) {
   const candidate = value?.candidate ?? "-";
-  const king = value?.frontier ?? value?.king ?? "-";
+  const king = value?.king ?? "-";
   return `${candidate} / ${king}`;
 }
 
@@ -1542,77 +1242,6 @@ function activeEvaluationTone(activeEvaluation) {
   return "neutral";
 }
 
-function poolProgress(pool, fallbackTotal) {
-  if (!pool) {
-    const total = Number(fallbackTotal || 0);
-    return {
-      completed: 0,
-      total,
-      percent: 0,
-      label: total ? `0/${total}` : "waiting"
-    };
-  }
-  const total = Number(pool.totalTasks || fallbackTotal || 0);
-  const completed = Number(pool.completedTasks || (pool.live ? 0 : total));
-  return {
-    completed,
-    total,
-    percent: total > 0 ? clampPercent((completed / total) * 100) : 0,
-    label: total > 0 ? `${completed}/${total}` : "waiting"
-  };
-}
-
-function agentPoolScore(pool, variantName, fallbackScore) {
-  const tasks = pool?.taskStatuses || [];
-  if (tasks.length) {
-    const solved = tasks.filter((task) => task?.[variantName]?.solved).length;
-    return `${solved}/${tasks.length}`;
-  }
-  if (fallbackScore !== null && fallbackScore !== undefined) {
-    return `${formatNumber(fallbackScore)} pts`;
-  }
-  if (pool?.totalTasks) {
-    return `0/${pool.totalTasks}`;
-  }
-  return "-";
-}
-
-function agentSolvedTotal(activeEvaluation, latest, variantName) {
-  const pools = [activeEvaluation?.primary, activeEvaluation?.holdout].filter(Boolean);
-  let solved = 0;
-  let total = 0;
-  for (const pool of pools) {
-    const tasks = pool.taskStatuses || [];
-    if (!tasks.length) {
-      continue;
-    }
-    solved += tasks.filter((task) => task?.[variantName]?.solved).length;
-    total += tasks.length;
-  }
-  if (total > 0) {
-    return `${solved}/${total}`;
-  }
-  const score =
-    variantName === "candidate"
-      ? latest?.primary?.candidateScore
-      : latest?.primary?.frontierScore;
-  return score !== null && score !== undefined ? `${formatNumber(score)} pts` : "-";
-}
-
-function scorePercent(value) {
-  if (typeof value === "string" && value.includes("/")) {
-    const [left, right] = value.split("/").map(Number);
-    if (Number.isFinite(left) && Number.isFinite(right) && right > 0) {
-      return clampPercent((left / right) * 100);
-    }
-  }
-  const numeric = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
-  if (!Number.isFinite(numeric)) {
-    return 0;
-  }
-  return clampPercent(numeric);
-}
-
 function clampPercent(value) {
   return Math.max(0, Math.min(100, Number(value) || 0));
 }
@@ -1647,7 +1276,7 @@ function taskRuntimeTone(task) {
   }
   if (
     task.status === "candidate invalid" ||
-    task.status === "frontier ahead" ||
+    task.status === "king ahead" ||
     task.status === "both failed"
   ) {
     return "bad";
@@ -1684,14 +1313,6 @@ function formatNumber(value) {
   return Number(value).toLocaleString(undefined, {
     maximumFractionDigits: Number(value) % 1 === 0 ? 0 : 2
   });
-}
-
-function formatSigned(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "-";
-  }
-  const number = Number(value);
-  return `${number >= 0 ? "+" : ""}${formatNumber(number)}`;
 }
 
 function formatDateTime(value) {

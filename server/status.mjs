@@ -5,8 +5,13 @@ import { loadGithubLeaderboard } from "./github.mjs";
 import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 
 const DEFAULT_CACHE_TTL_MS = 3_000;
+// The GitHub leaderboard fans out one files-request per PR, so it gets its
+// own, much longer TTL than the cheap filesystem status.
+const DEFAULT_LEADERBOARD_CACHE_TTL_MS = 60_000;
 let cachedStatus = null;
 let cachedAt = 0;
+let cachedLeaderboard = null;
+let cachedLeaderboardAt = 0;
 
 export async function loadBoardStatus(env) {
   const cacheTtlMs = readCacheTtlMs(env);
@@ -52,11 +57,15 @@ export async function loadBoardStatus(env) {
 }
 
 function readCacheTtlMs(env) {
-  const value = Number.parseInt(env.KATA_STATUS_CACHE_TTL_MS || "", 10);
+  return readTtlMs(env.KATA_STATUS_CACHE_TTL_MS, DEFAULT_CACHE_TTL_MS);
+}
+
+function readTtlMs(rawValue, defaultMs) {
+  const value = Number.parseInt(rawValue || "", 10);
   if (Number.isFinite(value) && value >= 0) {
     return value;
   }
-  return DEFAULT_CACHE_TTL_MS;
+  return defaultMs;
 }
 
 function resolveRoots(env) {
@@ -145,7 +154,13 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
       title: projectKey,
       tags: ["sn60", "bitsec"]
     })),
-    evaluatorState: state
+    // Project only the derived state the UI consumes; the raw lane files
+    // contain internal fields (server paths, full screening payloads) that
+    // should not ship to unauthenticated clients.
+    evaluatorState: {
+      laneId: state.laneId,
+      current: state.current
+    }
   };
 }
 
@@ -247,7 +262,9 @@ function loadRecentActivity(kataRoot, env) {
   const limit = Number.parseInt(env.KATA_ACTIVITY_LIMIT || "18", 10);
 
   return challengePaths
-    .map((filePath) => readJson(filePath))
+    // readJsonSafe: a single mid-write or corrupt run artifact must not take
+    // down the whole status endpoint.
+    .map((filePath) => readJsonSafe(filePath))
     .filter(Boolean)
     .map((summary) => {
       const primaryCandidateScore = summary.primary?.variant_scores?.candidate ?? 0;
@@ -332,8 +349,31 @@ function loadSn60ActivityMetrics(summary) {
 }
 
 async function loadLeaderboard(env) {
+  const cacheTtlMs = readTtlMs(
+    env.KATA_LEADERBOARD_CACHE_TTL_MS,
+    DEFAULT_LEADERBOARD_CACHE_TTL_MS
+  );
+  if (cachedLeaderboard && Date.now() - cachedLeaderboardAt < cacheTtlMs) {
+    return cachedLeaderboard;
+  }
+  const leaderboard = await computeLeaderboard(env);
+  cachedLeaderboard = leaderboard;
+  cachedLeaderboardAt = Date.now();
+  return leaderboard;
+}
+
+async function computeLeaderboard(env) {
   if (env.KATA_BOARD_EVENT_LOG) {
-    return loadEventLeaderboard(env.KATA_BOARD_EVENT_LOG);
+    try {
+      return loadEventLeaderboard(env.KATA_BOARD_EVENT_LOG);
+    } catch (error) {
+      return {
+        source: "unavailable",
+        error: error instanceof Error ? error.message : "unknown leaderboard error",
+        rows: [],
+        latestLaneWinners: {}
+      };
+    }
   }
 
   try {
@@ -913,7 +953,14 @@ function loadEventLeaderboard(eventLogPath) {
     .filter(Boolean);
 
   for (const line of lines) {
-    const item = JSON.parse(line);
+    let item;
+    try {
+      item = JSON.parse(line);
+    } catch {
+      // Skip partial or corrupt lines (e.g. the tail of an in-progress
+      // append) instead of failing the whole leaderboard.
+      continue;
+    }
     const author = item.author || "unknown";
     const laneKey = `${item.repo_pack || "unknown"}::${item.mode || "unknown"}`;
     const entry = byAuthor.get(author) || createAuthorRow(author);
@@ -937,7 +984,7 @@ function loadEventLeaderboard(eventLogPath) {
   const rows = [...byAuthor.values()]
     .map((entry) => ({
       ...entry,
-      currentFrontiers: [...latestLaneWinners.values()].filter(
+      currentKings: [...latestLaneWinners.values()].filter(
         (winner) => winner.author === entry.author
       ).length,
       score: entry.wins * 100 + entry.openSubmissions * 5
@@ -1145,7 +1192,7 @@ function createAuthorRow(author) {
     totalSubmissions: 0,
     openSubmissions: 0,
     closedSubmissions: 0,
-    currentFrontiers: 0,
+    currentKings: 0,
     score: 0,
     lastActivityAt: null,
     recentPulls: []

@@ -232,3 +232,63 @@ test("degrades gracefully when the kata root is empty", async () => {
   assert.deepEqual(status.activity, []);
   assert.equal(status.dataSources.validatorQueue, false);
 });
+
+test("survives a malformed run artifact without failing the whole status", async () => {
+  const root = makeKataRoot();
+  const badRunRoot = path.join(root, "runs", "sn60-duel-2");
+  fs.mkdirSync(badRunRoot, { recursive: true });
+  // Simulate a challenge summary caught mid-write.
+  fs.writeFileSync(
+    path.join(badRunRoot, "challenge_summary.json"),
+    '{"schema_version": 5, "run_id": "sn60-du'
+  );
+
+  const status = await loadBoardStatus(boardEnv(root));
+
+  assert.equal(status.activity.length, 1);
+  assert.equal(status.activity[0].runId, "sn60-duel-1");
+});
+
+test("skips malformed event-log lines instead of failing the leaderboard", async () => {
+  const root = makeKataRoot();
+  const eventLogPath = path.join(root, "events.jsonl");
+  fs.writeFileSync(
+    eventLogPath,
+    [
+      JSON.stringify({
+        created_at: "2026-07-01T00:00:00Z",
+        author: "alice",
+        repo_pack: "sn60__bitsec",
+        mode: "miner",
+        final_action: "merge",
+        pull_number: 7
+      }),
+      '{"created_at":"2026-07-02T00:00:00Z","author":"bob","repo_'
+    ].join("\n") + "\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOARD_EVENT_LOG: eventLogPath,
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.leaderboard.source, "events");
+  assert.equal(status.leaderboard.rows.length, 1);
+  const row = status.leaderboard.rows[0];
+  assert.equal(row.author, "alice");
+  assert.equal(row.wins, 1);
+  assert.equal(row.currentKings, 1);
+});
+
+test("projects only derived evaluator state to clients", async () => {
+  const root = makeKataRoot();
+  const status = await loadBoardStatus(boardEnv(root));
+  const evaluatorState = status.lanes[0].evaluatorState;
+
+  assert.deepEqual(Object.keys(evaluatorState).sort(), ["current", "laneId"]);
+  // Raw lane files (with server paths and internal payloads) must not ship.
+  assert.equal(evaluatorState.benchmarkSnapshot, undefined);
+  assert.equal(evaluatorState.promotionRecord, undefined);
+  assert.equal(evaluatorState.challengeState, undefined);
+});

@@ -1,6 +1,12 @@
 const SUBMISSION_PATH_PATTERN =
   /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
 
+// Per-PR file listings keyed by updated_at. Without this, every leaderboard
+// refresh costs one files-request per PR (an N+1 that burns the GitHub rate
+// limit); with it, only PRs updated since the last refresh are re-fetched.
+const pullFilesCache = new Map();
+const PULL_FILES_CACHE_MAX_ENTRIES = 2000;
+
 export async function loadGithubLeaderboard({
   repoSlug,
   githubToken
@@ -13,9 +19,9 @@ export async function loadGithubLeaderboard({
   const relevantPulls = [];
 
   for (const pull of pulls) {
-    const touchedSubmissions = await fetchSubmissionFiles(
+    const touchedSubmissions = await fetchSubmissionFilesCached(
       repoSlug,
-      pull.number,
+      pull,
       githubToken
     );
     if (!touchedSubmissions.length) {
@@ -89,7 +95,7 @@ export async function loadGithubLeaderboard({
   const rows = [...byAuthor.values()]
     .map((entry) => ({
       ...entry,
-      currentFrontiers: [...latestLaneWinners.entries()].filter(
+      currentKings: [...latestLaneWinners.entries()].filter(
         ([, lane]) => lane.author === entry.author
       ).length,
       score: entry.wins * 100 + entry.openSubmissions * 5
@@ -124,7 +130,7 @@ function createAuthorRow(author) {
     totalSubmissions: 0,
     openSubmissions: 0,
     closedSubmissions: 0,
-    currentFrontiers: 0,
+    currentKings: 0,
     score: 0,
     lastActivityAt: null,
     recentPulls: []
@@ -157,6 +163,21 @@ async function fetchPulls(repoSlug, githubToken) {
     }
   }
   return pulls;
+}
+
+async function fetchSubmissionFilesCached(repoSlug, pull, githubToken) {
+  const cacheKey = `${repoSlug}#${pull.number}`;
+  const cached = pullFilesCache.get(cacheKey);
+  if (cached && cached.updatedAt === pull.updated_at) {
+    return cached.files;
+  }
+  const files = await fetchSubmissionFiles(repoSlug, pull.number, githubToken);
+  pullFilesCache.set(cacheKey, { updatedAt: pull.updated_at, files });
+  if (pullFilesCache.size > PULL_FILES_CACHE_MAX_ENTRIES) {
+    const oldestKey = pullFilesCache.keys().next().value;
+    pullFilesCache.delete(oldestKey);
+  }
+  return files;
 }
 
 async function fetchSubmissionFiles(repoSlug, pullNumber, githubToken) {

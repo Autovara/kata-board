@@ -12,9 +12,9 @@ Kata stays the evaluation engine, `kata-bot` stays the PR automation layer, and
 This repo reads the current Kata system and shows:
 
 - active repo lanes
-- frontier status
+- current king status per lane
 - benchmark pack health
-- primary and hidden holdout promotion gates
+- SN60 duel state (screening, scores, replica stability, provenance)
 - recent challenge activity
 - optional miner leaderboard
 
@@ -33,9 +33,9 @@ Even without those, the board already shows real live status from:
 
 The current Kata system already exposes:
 
-- `frontier.json`
-- benchmark tasks and pack targets
-- recent `challenge_summary.json` files
+- the pack registry and per-lane state under `kata/lanes/`
+- the published king artifact under `kata/kings/`
+- recent `challenge_summary.json` files under `kata/runs/`
 
 But it does **not** yet persist a full miner ranking database by itself.
 
@@ -104,6 +104,7 @@ Important variables:
 - `KATA_REPO_SLUG`
 - `KATA_GITHUB_TOKEN`
 - `KATA_STATUS_CACHE_TTL_MS`
+- `KATA_LEADERBOARD_CACHE_TTL_MS`
 - `KATA_BOARD_EVENT_LOG`
 
 If the repo roots are omitted, `kata-board` assumes the repos live beside it:
@@ -118,6 +119,11 @@ status file used by `kata-bot`, usually:
 
 `KATA_STATUS_CACHE_TTL_MS` controls API caching. Use a low value such as `3000`
 for live dashboards.
+
+`KATA_LEADERBOARD_CACHE_TTL_MS` controls how often the GitHub PR leaderboard
+refreshes (default `60000`). The GitHub source costs one API call per PR on a
+cold refresh, so keep this well above the status TTL to stay inside rate
+limits.
 
 ## Leaderboard Modes
 
@@ -159,9 +165,8 @@ Current server endpoints:
 `/api/status` returns:
 
 - overview metrics
-- lane status
+- lane status and the current SN60 duel state
 - recent challenge activity
-- primary and holdout margins
 - leaderboard rows
 - data-source flags
 
@@ -203,12 +208,13 @@ The board mirrors the current PR-only Kata workflow:
 
 - miners submit one PR under `submissions/<repo-pack>/<mode>/<submission-id>/`
 - each registered repo-pack/mode has its own current king under `kata/kings`
-- primary duels draw 20 random live public tasks
-- hidden holdout duels use 10 private tasks
-- promotion requires both `candidate >= king + 10` primary points and
-  `candidate >= king + 10` hidden holdout points
-- agents receive task text and repo contents, not oracle files or hidden task
-  metadata
+- candidate and king run repeated replicas per benchmark codebase in the
+  pinned Bitsec sandbox; a codebase passes when at least 2 of 3 runs pass
+- the promotion comparator is aggregated score first, codebases passed
+  second, true positives third; candidates with invalid replica runs never
+  promote
+- agents receive the project contents and an inference endpoint, not oracle
+  files or benchmark answers
 
 ## Production Shape
 

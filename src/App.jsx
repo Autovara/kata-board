@@ -517,7 +517,7 @@ function Leaderboard({ leaderboard }) {
           rows.slice(0, 20).map((row, index) => (
             <div className="table-row" key={row.author}>
               <span>{index + 1}</span>
-              <MinerIdentity name={row.author} sub={row.currentFrontiers?.length ? `${row.currentFrontiers.length} active lanes` : "miner"} />
+              <MinerIdentity name={row.author} sub={row.currentKings ? `${row.currentKings} active lane${row.currentKings === 1 ? "" : "s"}` : "miner"} />
               <span>{row.wins}</span>
               <span>{row.totalSubmissions}</span>
               <span>{row.openSubmissions}</span>
@@ -794,7 +794,7 @@ function DocBot() {
       />
       <DocGrid>
         <DocCard title="kata:invalid" text="Submission shape or bundle contract failed." />
-        <DocCard title="kata:losing" text="Candidate did not clear promotion margins." />
+        <DocCard title="kata:losing" text="Candidate did not beat the current king under the promotion rules." />
         <DocCard title="kata:stale" text="Result is not current and must rerun." />
         <DocCard title="kata:hold" text="Winner is verified but merge or promotion is held for operator attention." />
       </DocGrid>
@@ -1011,14 +1011,6 @@ function ArenaMetaCard({ label, value, sub, tone = "neutral" }) {
       <strong>{value ?? "-"}</strong>
       <small>{sub}</small>
     </article>
-  );
-}
-
-function ProgressBar({ value }) {
-  return (
-    <div className="mini-progress" aria-hidden="true">
-      <i style={{ width: `${value}%` }} />
-    </div>
   );
 }
 
@@ -1244,66 +1236,6 @@ function activeEvaluationTone(activeEvaluation) {
 
 function clampPercent(value) {
   return Math.max(0, Math.min(100, Number(value) || 0));
-}
-
-function queueJobTone(status) {
-  if (status === "running") {
-    return "ok";
-  }
-  if (status === "failed") {
-    return "bad";
-  }
-  return "neutral";
-}
-
-function taskRuntimeLabel(task) {
-  if (!task) {
-    return "waiting";
-  }
-  return task.status || "waiting";
-}
-
-function taskRuntimeTone(task) {
-  if (!task) {
-    return "neutral";
-  }
-  if (
-    task.status === "candidate ahead" ||
-    task.status === "both solved" ||
-    task.status === "finished"
-  ) {
-    return "ok";
-  }
-  if (
-    task.status === "candidate invalid" ||
-    task.status === "king ahead" ||
-    task.status === "both failed"
-  ) {
-    return "bad";
-  }
-  return "neutral";
-}
-
-function variantRuntimeLabel(variant) {
-  if (!variant) {
-    return "waiting";
-  }
-  if (typeof variant.success === "boolean") {
-    if (variant.success) {
-      return "solved";
-    }
-    if (variant.valid === false) {
-      return "invalid";
-    }
-    return "failed";
-  }
-  if (variant.finished) {
-    return "finished";
-  }
-  if (variant.started) {
-    return "running";
-  }
-  return "waiting";
 }
 
 function formatNumber(value) {

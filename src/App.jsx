@@ -774,20 +774,20 @@ function DocOverview({ selectedLane, links }) {
       />
       <DocCallout
         title="Mental model"
-        text="A repo lane has one current king. A candidate PR wins only if its agent beats that king on public primary tasks and private hidden holdouts by the configured margins."
+        text="Each subnet pack has one current king. A candidate PR wins only if its agent beats that king in the SN60 sandbox duel on aggregated score, codebases passed, and true positives."
       />
       <DocGrid>
         <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
-        <DocCard title="kata-benchmarks" text="Public benchmark registry. Holds visible tasks and public frontier policy." />
-        <DocCard title="kata-benchmarks-private" text="Private holdout registry. Holds hidden tasks and private frontier state." />
+        <DocCard title="Pack registry" text="Central registry of subnet packs. Each pack pins its own benchmark snapshot, scoring rules, and current king." />
+        <DocCard title="Bitsec sandbox" text="Pinned SN60 evaluation mirror. Agents run in Docker against the pinned benchmark snapshot." />
         <DocCard title="kata-bot" text="GitHub automation. Queues PRs, evaluates candidates, comments, closes, merges, and promotes winners." />
       </DocGrid>
       <div className="doc-metrics">
         <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
         <KeyValue label="repo-pack" value={selectedLane?.repoPack || "-"} />
         <KeyValue label="mode" value={selectedLane?.mode || "-"} />
-        <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "20 primary / 10 hidden"} />
-        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "+10 primary, +10 holdout"} />
+        <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "SN60 sandbox replicas"} />
+        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "score, passes, true positives"} />
       </div>
       <DocLinks
         links={[
@@ -812,21 +812,21 @@ function DocWorkflow({ links }) {
       </p>
       <DocGrid>
         <DocCard title="Input" text="One PR with one agent bundle under submissions/." />
-        <DocCard title="Evaluator" text="Kata runs candidate and king under the same task pools, model, API route, and timeouts." />
+        <DocCard title="Evaluator" text="Kata runs candidate and king through the same pinned Bitsec sandbox snapshot with repeated replica runs." />
         <DocCard title="Decision" text="kata-bot turns the result into close-invalid, close-losing, rerun-stale, hold, or merge." />
         <DocCard title="Output" text="A verified winner is merged, copied into kings/, and registered as the new frontier." />
       </DocGrid>
       <DocSteps
         items={[
-          ["Prepare pools", "Maintainers create public primary tasks and private holdout tasks with kata-benchkit."],
-          ["Seed the lane", "The first king/frontier is initialized for a repo-pack and mode."],
+          ["Register the pack", "Maintainers register the subnet pack in the central registry and pin its benchmark snapshot."],
+          ["Seed the lane", "The first king agent is seeded under kings/<pack>/<mode>/."],
           ["Open PR", "A miner opens one PR that touches exactly one submission directory."],
           ["Queue job", "kata-bot receives the GitHub webhook and writes a durable queue job."],
           ["Validate shape", "The bot checks changed paths before trusting PR contents."],
-          ["Validate bundle", "Kata validates agent.py, agent_manifest.json, optional helpers, and submission.json."],
-          ["Primary duel", "Candidate and king run on the same random public primary task draw."],
-          ["Holdout duel", "Candidates that clear primary are checked on hidden holdouts."],
-          ["Verify freshness", "Kata rejects stale wins if the king, pools, model, or evaluator changed."],
+          ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
+          ["Screening", "One screener sandbox run must finish cleanly before the full duel."],
+          ["Sandbox duel", "Candidate and king run repeated replicas per benchmark codebase in the Bitsec sandbox."],
+          ["Verify freshness", "Kata rejects stale wins if the king or the pinned benchmark snapshot changed."],
           ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
         ]}
       />

@@ -27,8 +27,6 @@ It supports two leaderboard sources:
 
 Even without those, the board already shows real live status from:
 
-- `kata-benchmarks`
-- `kata-benchmarks-private`, when configured
 - `kata/runs`
 
 ## Current Data Boundary
@@ -98,8 +96,6 @@ cp .env.example .env
 Important variables:
 
 - `KATA_ROOT`
-- `KATA_BENCHMARKS_ROOT`
-- `KATA_PRIVATE_BENCHMARKS_ROOT`
 - `KATA_BOT_ROOT`
 - `KATA_WORK_ROOT`
 - `KATA_QUEUE_STATE_PATH`
@@ -113,7 +109,6 @@ Important variables:
 If the repo roots are omitted, `kata-board` assumes the repos live beside it:
 
 - `../kata`
-- `../kata-benchmarks`
 - `../kata-bot`
 
 For active duel progress, point `KATA_LIVE_STATUS_PATH` at the same durable

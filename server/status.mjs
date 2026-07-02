@@ -14,26 +14,17 @@ export async function loadBoardStatus(env) {
   }
 
   const roots = resolveRoots(env);
-  const publicRegistry = loadBenchmarkRegistry(roots.benchmarksRoot);
-  const privateRegistry = loadBenchmarkRegistry(roots.privateBenchmarksRoot);
   const leaderboard = await loadLeaderboard(env);
   const validator = await loadValidatorStatus(env, roots);
-  const lanes = loadLanes({
+  const lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
-    publicRegistry,
-    privateRegistry,
     latestLaneWinners: leaderboard.latestLaneWinners
   });
-  const activity = loadRecentActivity(
-    roots.kataRoot,
-    env,
-    publicRegistry.activeRepoPacks
-  );
+  const activity = loadRecentActivity(roots.kataRoot, env);
   const notes = buildNotes({
     leaderboard,
     validator,
-    lanes,
-    privateRegistry
+    lanes
   });
 
   cachedStatus = {
@@ -45,7 +36,6 @@ export async function loadBoardStatus(env) {
       filesystem: true,
       githubLeaderboard: leaderboard.source === "github",
       eventFeed: leaderboard.source === "events",
-      privateBenchmarks: Boolean(privateRegistry.exists),
       validatorQueue: Boolean(validator.queue.available),
       validatorHealth: Boolean(validator.health.configured)
     },
@@ -77,14 +67,6 @@ function resolveRoots(env) {
   return {
     boardRoot,
     kataRoot: resolveExistingRoot(env.KATA_ROOT, path.join(boardRoot, "kata")),
-    benchmarksRoot: resolveExistingRoot(
-      env.KATA_BENCHMARKS_ROOT,
-      path.join(boardRoot, "kata-benchmarks")
-    ),
-    privateBenchmarksRoot: resolveExistingRoot(
-      env.KATA_PRIVATE_BENCHMARKS_ROOT,
-      path.join(boardRoot, "kata-benchmarks-private")
-    ),
     kataBotRoot,
     workRoot: path.resolve(
       env.KATA_WORK_ROOT || path.join(kataBotRoot, "work")
@@ -108,192 +90,9 @@ function resolveExistingRoot(explicitPath, fallbackPath) {
   return path.resolve(explicitPath || fallbackPath);
 }
 
-function loadBenchmarkRegistry(root) {
-  const markerPath = path.join(root, "kata-benchmark-registry.json");
-  const marker = readJson(markerPath);
-  const benchmarksDir = path.join(root, marker?.benchmarks_dir || "benchmarks");
-  return {
-    root,
-    exists: fs.existsSync(root),
-    marker,
-    benchmarksDir,
-    activeRepoPacks: marker?.active_repo_packs || []
-  };
-}
 
-function loadLanes({
-  kataRoot,
-  publicRegistry,
-  privateRegistry,
-  latestLaneWinners
-}) {
-  const repoPacks = publicRegistry.activeRepoPacks.length
-    ? publicRegistry.activeRepoPacks
-    : listDirectories(publicRegistry.benchmarksDir);
-  const frontierLanes = repoPacks.flatMap((repoPack) =>
-    loadRepoPackLane({
-      kataRoot,
-      repoPack,
-      publicRegistry,
-      privateRegistry,
-      latestLaneWinners
-    })
-  );
-  const frontierLaneIds = new Set(frontierLanes.map((lane) => lane.id));
-  const evaluatorLanes = loadEvaluatorLanes({
-    kataRoot,
-    existingLaneIds: frontierLaneIds,
-    latestLaneWinners
-  });
 
-  return [...frontierLanes, ...evaluatorLanes];
-}
-
-function loadRepoPackLane({
-  kataRoot,
-  repoPack,
-  publicRegistry,
-  privateRegistry,
-  latestLaneWinners
-}) {
-  const packRoot = path.join(publicRegistry.benchmarksDir, repoPack);
-  const frontier = readJson(path.join(packRoot, "frontier.json"));
-  if (!frontier?.modes) {
-    return [];
-  }
-
-  const benchkitPack = readJson(path.join(packRoot, "benchkit-pack.json")) || {};
-  const publicTasks = listTaskDirectories(packRoot)
-    .map((taskId) => loadTask(packRoot, taskId))
-    .filter(Boolean);
-  const publicTaskStats = summarizePublicTasks(publicTasks, benchkitPack);
-
-  const privatePackRoot = path.join(privateRegistry.benchmarksDir, repoPack);
-  const privateFrontier = readJson(path.join(privatePackRoot, "frontier.private.json"));
-  const privateTaskStats = summarizePrivateTasks(privatePackRoot);
-
-  return Object.entries(frontier.modes).map(([mode, modeConfig]) => {
-    const laneKey = `${repoPack}::${mode}`;
-    const latestWinner = latestLaneWinners?.[laneKey] || null;
-    const privateModeConfig = privateFrontier?.modes?.[mode] || null;
-    const king = loadKingInfo({
-      kataRoot,
-      repoPack,
-      mode,
-      modeConfig
-    });
-
-    const publicPool = {
-      selection: modeConfig.primary_selection || inferPublicSelection(modeConfig),
-      configuredTaskCount:
-        modeConfig.primary_task_count ??
-        (Array.isArray(modeConfig.primary_tasks) ? modeConfig.primary_tasks.length : 0),
-      targetTaskCount:
-        benchkitPack.target_visible_tasks ||
-        modeConfig.primary_task_count ||
-        publicTaskStats.liveTasks,
-      liveTasks: publicTaskStats.liveTasks,
-      totalTasks: publicTaskStats.totalTasks,
-      fingerprint: modeConfig.primary_pool_fingerprint || null,
-      tasks: publicTaskStats.tasks,
-      categoryCounts: publicTaskStats.categoryCounts,
-      categoryTargets: publicTaskStats.categoryTargets,
-      similarityThreshold: publicTaskStats.similarityThreshold,
-      maxScopeConcentration: publicTaskStats.maxScopeConcentration,
-      notes: publicTaskStats.notes
-    };
-
-    const privatePool = {
-      configured: Boolean(
-        privateModeConfig ||
-          modeConfig.holdout_is_private ||
-          modeConfig.holdout_task_count
-      ),
-      hidden: Boolean(
-        privateModeConfig?.holdout_is_private ?? modeConfig.holdout_is_private
-      ),
-      configuredTaskCount:
-        privateModeConfig?.holdout_task_count ??
-        modeConfig.holdout_task_count ??
-        inferConfiguredHoldoutCount(privateModeConfig || modeConfig),
-      targetTaskCount:
-        benchkitPack.target_holdout_tasks ||
-        privateModeConfig?.holdout_task_count ||
-        modeConfig.holdout_task_count ||
-        privateTaskStats.liveTasks,
-      liveTasks: Math.max(
-        privateTaskStats.liveTasks,
-        privateModeConfig?.holdout_task_count || 0,
-        modeConfig.holdout_task_count || 0,
-        inferConfiguredHoldoutCount(privateModeConfig || modeConfig)
-      ),
-      totalTasks: Math.max(
-        privateTaskStats.totalTasks,
-        privateModeConfig?.holdout_task_count || 0,
-        modeConfig.holdout_task_count || 0,
-        inferConfiguredHoldoutCount(privateModeConfig || modeConfig)
-      ),
-      retiredWaitingTasks: privateTaskStats.retiredWaitingTasks,
-      retiredTasks: privateTaskStats.retiredTasks,
-      fingerprint:
-        privateModeConfig?.holdout_pool_fingerprint ||
-        modeConfig.holdout_pool_fingerprint ||
-        null,
-      updatedAt:
-        privateModeConfig?.frontier_updated_at ||
-        privateFrontier?.updated_at ||
-        null,
-      evaluatorVersion:
-        privateModeConfig?.evaluator_version || modeConfig.evaluator_version || null
-    };
-
-    const currentHolder =
-      latestWinner?.author || king.author || humanizeFrontierSource(modeConfig.frontier_source);
-    const evaluatorState = loadEvaluatorLaneState(kataRoot, repoPack);
-
-    return {
-      id: `${repoPack}:${mode}`,
-      repoPack,
-      repoName: displayRepoPack(repoPack),
-      repoRef: frontier.repo_ref,
-      mode,
-      updatedAt: frontier.updated_at,
-      frontierUpdatedAt: modeConfig.frontier_updated_at || frontier.updated_at,
-      currentHolder,
-      currentHolderMergedAt: latestWinner?.mergedAt || null,
-      currentHolderPullNumber: latestWinner?.pullNumber || null,
-      king,
-      duelRules: {
-        publicSelection: publicPool.selection,
-        publicTaskCount: publicPool.configuredTaskCount,
-        privateTaskCount: privatePool.configuredTaskCount,
-        promotionMarginPoints: modeConfig.promotion_margin_points ?? 0,
-        holdoutPromotionMarginPoints:
-          privateModeConfig?.holdout_promotion_margin_points ??
-          modeConfig.holdout_promotion_margin_points ??
-          0,
-        promotionMarginTasks: marginAsTaskCount(
-          modeConfig.promotion_margin_points ?? 0,
-          publicPool.configuredTaskCount
-        ),
-        holdoutPromotionMarginTasks: marginAsTaskCount(
-          privateModeConfig?.holdout_promotion_margin_points ??
-            modeConfig.holdout_promotion_margin_points ??
-            0,
-          privatePool.configuredTaskCount
-        ),
-        holdoutRule: privatePool.configured
-          ? "candidate must beat the king by the holdout margin"
-          : "no holdout pool configured"
-      },
-      publicPool,
-      privatePool,
-      evaluatorState
-    };
-  });
-}
-
-function loadEvaluatorLanes({ kataRoot, existingLaneIds, latestLaneWinners }) {
+function loadEvaluatorLanes({ kataRoot, latestLaneWinners }) {
   const lanesRoot = path.join(kataRoot, "lanes");
   const registry = readJsonSafe(path.join(lanesRoot, "registry.json"));
   const laneIds = Array.isArray(registry?.packs)
@@ -304,8 +103,7 @@ function loadEvaluatorLanes({ kataRoot, existingLaneIds, latestLaneWinners }) {
     : listDirectories(lanesRoot);
   return laneIds
     .map((laneId) => loadEvaluatorLane(kataRoot, laneId, latestLaneWinners))
-    .filter(Boolean)
-    .filter((lane) => !existingLaneIds.has(lane.id));
+    .filter(Boolean);
 }
 
 function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
@@ -479,119 +277,6 @@ function buildEvaluatorCurrentState({
   };
 }
 
-function loadTask(packRoot, taskId) {
-  const taskRoot = path.join(packRoot, taskId);
-  if (!fs.statSync(taskRoot, { throwIfNoEntry: false })?.isDirectory()) {
-    return null;
-  }
-  const metadata = readJson(path.join(taskRoot, "benchkit.json")) || {};
-  const taskText = readText(path.join(taskRoot, "task.md"));
-  return {
-    taskId,
-    title: metadata.title || taskId,
-    description: extractTaskDescription(taskText),
-    visibility: metadata.visibility || "unknown",
-    status: metadata.status || "unknown",
-    qualityScore: metadata.quality_score || null,
-    sourceRef: metadata.source_ref || null,
-    tags: metadata.tags || []
-  };
-}
-
-function summarizePublicTasks(tasks, benchkitPack) {
-  const visibleTasks = tasks.filter((task) => task.visibility === "visible");
-  const liveTasks = visibleTasks.filter((task) => task.status === "live");
-  const categoryCounts = {};
-
-  for (const task of visibleTasks) {
-    for (const tag of task.tags) {
-      categoryCounts[tag] = (categoryCounts[tag] || 0) + 1;
-    }
-  }
-
-  return {
-    totalTasks: visibleTasks.length,
-    liveTasks: liveTasks.length,
-    similarityThreshold: benchkitPack.similarity_threshold || null,
-    maxScopeConcentration: benchkitPack.max_scope_concentration || null,
-    categoryTargets: benchkitPack.category_targets || {},
-    categoryCounts,
-    notes: benchkitPack.notes || null,
-    tasks: liveTasks
-  };
-}
-
-function summarizePrivateTasks(packRoot) {
-  const poolManifest = readJson(path.join(packRoot, "benchkit-pool.private.json")) || {};
-  const manifestLiveTasks = Array.isArray(poolManifest.private_live_tasks)
-    ? poolManifest.private_live_tasks.length
-    : 0;
-  const summary = {
-    totalTasks: manifestLiveTasks,
-    liveTasks: manifestLiveTasks,
-    retiredWaitingTasks: 0,
-    retiredTasks: 0
-  };
-
-  let scannedTasks = 0;
-  let scannedLiveTasks = 0;
-  for (const taskId of listTaskDirectories(packRoot)) {
-    const metadata = readJson(path.join(packRoot, taskId, "benchkit.json")) || {};
-    scannedTasks += 1;
-    const status = metadata.status || "unknown";
-    if (status === "live") {
-      scannedLiveTasks += 1;
-    } else if (status === "retired-waiting") {
-      summary.retiredWaitingTasks += 1;
-    } else if (status === "retired") {
-      summary.retiredTasks += 1;
-    }
-  }
-
-  summary.totalTasks = Math.max(summary.totalTasks, scannedTasks);
-  summary.liveTasks = Math.max(summary.liveTasks, scannedLiveTasks);
-  return summary;
-}
-
-function loadKingInfo({ kataRoot, repoPack, mode, modeConfig }) {
-  const kingRoot = path.join(kataRoot, "kings", repoPack, mode);
-  const kingManifest = readJson(path.join(kingRoot, "king.json")) || {};
-  const submissionId = kingManifest.submission_id || null;
-  return {
-    submissionId,
-    author: inferSubmissionAuthorFromId(submissionId),
-    challengeRunId: kingManifest.challenge_run_id || null,
-    artifactHash:
-      kingManifest.candidate_artifact_hash ||
-      kingManifest.frontier_artifact_hash ||
-      modeConfig.frontier_artifact_hash ||
-      null,
-    source: modeConfig.frontier_source || null,
-    updatedAt: modeConfig.frontier_updated_at || null,
-    seeded: Boolean(submissionId?.startsWith("kata-init"))
-  };
-}
-
-function inferPublicSelection(modeConfig) {
-  if (Array.isArray(modeConfig.primary_tasks) && modeConfig.primary_tasks.length) {
-    return "fixed_list";
-  }
-  return "unknown";
-}
-
-function inferConfiguredHoldoutCount(modeConfig) {
-  return Array.isArray(modeConfig?.holdout_tasks) ? modeConfig.holdout_tasks.length : 0;
-}
-
-function marginAsTaskCount(marginPoints, taskCount) {
-  const points = Number(marginPoints);
-  const count = Number(taskCount);
-  if (!Number.isFinite(points) || !Number.isFinite(count) || points <= 0 || count <= 0) {
-    return null;
-  }
-  return points / (100 / count);
-}
-
 function inferSubmissionAuthorFromId(submissionId) {
   if (!submissionId) {
     return null;
@@ -613,17 +298,10 @@ function humanizeFrontierSource(value) {
   return value;
 }
 
-function listTaskDirectories(rootPath) {
-  return listDirectories(rootPath).filter(
-    (name) => !["agents", "__pycache__"].includes(name)
-  );
-}
-
-function loadRecentActivity(kataRoot, env, activeRepoPacks) {
+function loadRecentActivity(kataRoot, env) {
   const runsRoot = path.join(kataRoot, "runs");
   const challengePaths = collectFiles(runsRoot, "challenge_summary.json");
   const limit = Number.parseInt(env.KATA_ACTIVITY_LIMIT || "18", 10);
-  const activePackSet = new Set(activeRepoPacks || []);
 
   return challengePaths
     .map((filePath) => readJson(filePath))
@@ -669,12 +347,6 @@ function loadRecentActivity(kataRoot, env, activeRepoPacks) {
           : null,
         sn60: sn60Metrics
       };
-    })
-    .filter((item) => {
-      if (!activePackSet.size) {
-        return true;
-      }
-      return activePackSet.has(item.repoPack);
     })
     .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
     .slice(0, limit);
@@ -1437,7 +1109,7 @@ function summarizeScoreSeriesDelta(candidate, frontier) {
   return candidateSummary.average - frontierSummary.average;
 }
 
-function buildNotes({ leaderboard, validator, lanes, privateRegistry }) {
+function buildNotes({ leaderboard, validator, lanes }) {
   const notes = [];
   if (!leaderboard.rows.length) {
     notes.push(
@@ -1447,11 +1119,6 @@ function buildNotes({ leaderboard, validator, lanes, privateRegistry }) {
   if (lanes.some((lane) => lane.privatePool.configured)) {
     notes.push(
       "Private holdout task names are intentionally hidden on this board. Only counts and pool status are shown."
-    );
-  }
-  if (!privateRegistry.exists) {
-    notes.push(
-      "Private benchmark root is not connected. Hidden holdout counts may be incomplete until `KATA_PRIVATE_BENCHMARKS_ROOT` is configured."
     );
   }
   if (!validator.queue.available) {
@@ -1543,28 +1210,6 @@ function readTextSafe(filePath) {
   } catch {
     return "";
   }
-}
-
-function extractTaskDescription(taskText) {
-  if (!taskText.trim()) {
-    return "";
-  }
-  const lines = taskText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const goalIndex = lines.findIndex((line) => line.toLowerCase() === "## goal");
-  if (goalIndex >= 0) {
-    const goalLines = [];
-    for (const line of lines.slice(goalIndex + 1)) {
-      if (line.startsWith("## ")) {
-        break;
-      }
-      goalLines.push(line.replace(/^- /, ""));
-    }
-    return goalLines.join(" ").slice(0, 420);
-  }
-  return lines.filter((line) => !line.startsWith("#")).join(" ").slice(0, 420);
 }
 
 function inferRepoPackFromManifest(manifestPath) {

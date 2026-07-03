@@ -2479,3 +2479,19 @@ html { scroll-behavior: smooth; }
 }
 .battle-bar-track { height: 9px; }
 .battle-bar-head { font-size: 12px; }
+
+/* ============================================================================ */
+/*  Arena v8 — trim the score-bar strip width a little                          */
+/* ============================================================================ */
+.battle-compare {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* ============================================================================ */
+/*  Arena v9 — score-bar strip matches the hero-card row width exactly          */
+/* ============================================================================ */
+.battle-compare {
+  max-width: none;   /* fill the battle-wrap = same width as the two cards */
+  margin: 0;
+}

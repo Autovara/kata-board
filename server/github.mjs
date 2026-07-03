@@ -12,6 +12,7 @@ const SUBMISSION_PATH_PATTERN =
 // limit); with it, only PRs updated since the last refresh are re-fetched.
 const pullFilesCache = new Map();
 const PULL_FILES_CACHE_MAX_ENTRIES = 2000;
+const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
 
 export async function loadGithubLeaderboard({
   repoSlug,
@@ -180,13 +181,28 @@ export async function githubRequest(path, githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
 
-  const response = await fetch(`https://api.github.com${path}`, {
-    headers
-  });
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API request failed: ${response.status} ${response.statusText}`
-    );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(`https://api.github.com${path}`, {
+      headers,
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API request failed: ${response.status} ${response.statusText}`
+      );
+    }
+    return response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(
+        `GitHub API request timed out after ${GITHUB_REQUEST_TIMEOUT_MS}ms`
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return response.json();
 }

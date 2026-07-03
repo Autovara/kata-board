@@ -2466,3 +2466,16 @@ html { scroll-behavior: smooth; }
 }
 .battle-bar-track { height: 6px; }
 .battle-bar-head { font-size: 11px; }
+
+/* ============================================================================ */
+/*  Arena v7 — bars sit right below the cards, at a comfortable size            */
+/* ============================================================================ */
+.arena-hero .battle-wrap { gap: 10px; }   /* bars tuck just below the cards */
+.battle-compare {
+  max-width: none;                         /* full width — not cramped */
+  margin: 0;
+  gap: 22px;
+  padding: 0;
+}
+.battle-bar-track { height: 9px; }
+.battle-bar-head { font-size: 12px; }

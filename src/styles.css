@@ -2273,3 +2273,87 @@ html { scroll-behavior: smooth; }
 @media (max-width: 760px) {
   .lane-metrics { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ============================================================================ */
+/*  Arena v2 — bigger duel cards, VS middle, full-width comparison bars         */
+/* ============================================================================ */
+.arena-hero .battle-wrap {
+  display: grid;
+  gap: 18px;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+}
+.arena-hero .battle {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* larger, fuller duel cards */
+.battle-side {
+  min-height: 260px;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  border-radius: 16px;
+}
+.battle-side .avatar {
+  width: 116px;
+  height: 116px;
+  border-width: 3px;
+}
+.battle-crown { font-size: 30px; }
+.battle-side h2 { font-size: clamp(24px, 3.4vw, 34px); }
+.battle-score strong { font-size: 34px; }
+
+/* middle is now just the VS badge */
+.battle-mid {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.vs {
+  width: 76px;
+  height: 76px;
+  font-size: 18px;
+}
+
+/* head-to-head score bars span the full width below the cards */
+.battle-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+/* six clean metrics read best as 3 columns */
+.lane-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 760px) {
+  .arena-hero .battle { grid-template-columns: 1fr; }
+  .arena-hero .battle-mid { order: -1; }
+  .battle-compare { grid-template-columns: 1fr; }
+  .lane-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================================ */
+/*  Arena v3 — one-line title + failed-screening tone                           */
+/* ============================================================================ */
+.arena-hero-head h1 {
+  font-size: clamp(30px, 5vw, 50px);
+  white-space: nowrap;
+}
+.lane-metric-bad strong { color: var(--red); }
+
+@media (max-width: 460px) {
+  .arena-hero-head h1 { white-space: normal; }
+}

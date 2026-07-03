@@ -427,34 +427,34 @@ function Battle({ state, activeEvaluation }) {
   const kingPct = clampPercent(Number(state?.scores?.king ?? 0) * 100);
 
   return (
-    <div className="battle">
-      <BattleSide
-        role="king"
-        crown
-        name={kingName}
-        score={kingScore}
-        meta={`${state?.codebasesPassed?.king ?? "-"} passed · ${state?.truePositives?.king ?? "-"} found`}
-        won={winner === "king"}
-      />
-      <div className="battle-mid">
-        <div className="vs">VS</div>
-        <div className="battle-bars">
-          <BattleBar label="king" pct={kingPct} value={kingScore} tone="king" />
-          <BattleBar label="candidate" pct={candidatePct} value={candidateScore} tone="candidate" />
+    <div className="battle-wrap">
+      <div className="battle">
+        <BattleSide
+          role="king"
+          crown
+          name={kingName}
+          score={kingScore}
+          won={winner === "king"}
+        />
+        <div className="battle-mid">
+          <div className="vs">VS</div>
         </div>
+        <BattleSide
+          role="candidate"
+          name={candidateName}
+          score={candidateScore}
+          won={winner === "candidate"}
+        />
       </div>
-      <BattleSide
-        role="candidate"
-        name={candidateName}
-        score={candidateScore}
-        meta={`${state?.codebasesPassed?.candidate ?? "-"} passed · ${state?.truePositives?.candidate ?? "-"} found`}
-        won={winner === "candidate"}
-      />
+      <div className="battle-compare">
+        <BattleBar label="king" pct={kingPct} value={kingScore} tone="king" />
+        <BattleBar label="candidate" pct={candidatePct} value={candidateScore} tone="candidate" />
+      </div>
     </div>
   );
 }
 
-function BattleSide({ role, name, score, meta, crown, won }) {
+function BattleSide({ role, name, score, crown, won }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -469,7 +469,6 @@ function BattleSide({ role, name, score, meta, crown, won }) {
         <strong>{score}</strong>
         <small>aggregated score</small>
       </div>
-      <div className="battle-meta">{meta}</div>
     </div>
   );
 }
@@ -492,6 +491,11 @@ function Sn60LanePanel({ state }) {
   const winner = state.finalWinner;
   const result =
     winner === "candidate" ? "Challenger wins" : winner === "king" ? "King holds" : "In progress";
+  const delta = state.scores?.delta;
+  const marginLabel =
+    delta == null ? "-" : `${Number(delta) >= 0 ? "+" : ""}${formatNumber(Number(delta) * 100)} pts`;
+  const marginTone = delta != null && Number(delta) > 0 ? "ok" : "neutral";
+
   return (
     <section className="lane-card">
       <div className="lane-card-head">
@@ -500,18 +504,20 @@ function Sn60LanePanel({ state }) {
           <h2>Latest duel</h2>
         </div>
         <Status
-          label={state.screeningStatus ? `screening ${state.screeningStatus}` : "not screened"}
-          tone={screeningTone(state.screeningStatus)}
+          label={result}
+          tone={winner === "candidate" ? "ok" : winner === "king" ? "neutral" : "neutral"}
         />
       </div>
 
       <div className="lane-metrics">
-        <LaneMetric label="Challenger" value={state.candidateAuthor || state.candidateSubmissionId || "waiting"} />
-        <LaneMetric label="Reigning king" value={state.kingAuthor || state.kingSubmissionId || "seed king"} />
-        <LaneMetric label="Result" value={result} tone={winner === "candidate" ? "ok" : "neutral"} />
+        <LaneMetric label="Score margin" value={marginLabel} sub="challenger − king" tone={marginTone} />
+        <LaneMetric
+          label="Screening"
+          value={state.screeningStatus || "not screened"}
+          sub={state.screeningStage || undefined}
+          tone={screeningTone(state.screeningStatus)}
+        />
         <LaneMetric label="Benchmark" value={`${state.projectKeys?.length || 0} codebases`} />
-        <LaneMetric label="Challenger score" value={percentScore(state.scores?.candidate)} />
-        <LaneMetric label="King score" value={percentScore(state.scores?.king)} />
         <LaneMetric
           label="Codebases passed"
           value={`${state.codebasesPassed?.candidate ?? "-"} vs ${state.codebasesPassed?.king ?? "-"}`}
@@ -521,6 +527,12 @@ function Sn60LanePanel({ state }) {
           label="Vulnerabilities found"
           value={`${state.truePositives?.candidate ?? "-"} vs ${state.truePositives?.king ?? "-"}`}
           sub="challenger vs king"
+        />
+        <LaneMetric
+          label="Invalid runs"
+          value={`${state.invalidRuns?.candidate ?? "-"} vs ${state.invalidRuns?.king ?? "-"}`}
+          sub="challenger vs king"
+          tone={Number(state.invalidRuns?.candidate) > 0 ? "bad" : "neutral"}
         />
       </div>
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
-const POLL_INTERVAL_MS = 5000;
+const STREAM_URL = import.meta.env.VITE_STREAM_URL || "/api/stream";
+const POLL_INTERVAL_MS = 4000;
 const PAGES = [
   { path: "/", label: "Dashboard" },
   { path: "/arena", label: "Arena" },
@@ -31,33 +32,85 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    let source = null;
+    let pollId = null;
+    let receivedAny = false;
 
-    async function fetchStatus() {
+    function applyPayload(payload) {
+      if (cancelled) {
+        return;
+      }
+      if (payload && payload.__error) {
+        setState((current) => ({ loading: false, error: payload.__error, payload: current.payload }));
+        return;
+      }
+      setState({ loading: false, error: null, payload });
+    }
+
+    function applyError(message) {
+      if (cancelled) {
+        return;
+      }
+      setState((current) => ({ loading: false, error: message, payload: current.payload }));
+    }
+
+    async function fetchOnce() {
       try {
         const response = await fetch(statusUrl());
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.message || "failed to load board status");
         }
-        if (!cancelled) {
-          setState({ loading: false, error: null, payload });
-        }
+        applyPayload(payload);
       } catch (error) {
-        if (!cancelled) {
-          setState((current) => ({
-            loading: false,
-            error: error instanceof Error ? error.message : "unknown error",
-            payload: current.payload
-          }));
-        }
+        applyError(error instanceof Error ? error.message : "unknown error");
       }
     }
 
-    fetchStatus();
-    const intervalId = window.setInterval(fetchStatus, POLL_INTERVAL_MS);
+    function startPolling() {
+      if (pollId) {
+        return;
+      }
+      fetchOnce();
+      pollId = window.setInterval(fetchOnce, POLL_INTERVAL_MS);
+    }
+
+    // Prefer a live server-push stream; fall back to polling if EventSource is
+    // unavailable or the stream never delivers a frame.
+    if (typeof window !== "undefined" && "EventSource" in window) {
+      try {
+        source = new EventSource(streamUrl());
+        source.onmessage = (event) => {
+          try {
+            receivedAny = true;
+            applyPayload(JSON.parse(event.data));
+          } catch {
+            // ignore a malformed frame; the next one will refresh state
+          }
+        };
+        source.onerror = () => {
+          if (!receivedAny && source) {
+            source.close();
+            source = null;
+            startPolling();
+          }
+          // otherwise let EventSource auto-reconnect
+        };
+      } catch {
+        startPolling();
+      }
+    } else {
+      startPolling();
+    }
+
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      if (source) {
+        source.close();
+      }
+      if (pollId) {
+        window.clearInterval(pollId);
+      }
     };
   }, []);
 
@@ -222,6 +275,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
 
   return (
     <div className="stack">
+      <LiveNow validator={validator} selectedLane={selectedLane} />
+
       <section className="hero">
         <div className="hero-copy">
           <p className="kicker">Bittensor subnet packs</p>
@@ -265,9 +320,9 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
       <section className="split">
         <div className="section-block">
           <SectionTitle title="Competition profile" />
-          <KeyValue label="system" value="GitTensor-aligned agent arena" />
+          <KeyValue label="system" value="Gittensor-aligned agent arena" />
           <KeyValue label="submission" value="PR-only agent bundle" />
-          <KeyValue label="reward idea" value="current king per subnet pack" />
+          <KeyValue label="outcome" value="new king per subnet pack" />
           <KeyValue label="evaluation" value="SN60 Bitsec sandbox" />
           <KeyValue label="current state" value={activeEvaluationStatus(activeEvaluation)} />
         </div>
@@ -299,6 +354,52 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <KeyValue label="updated" value={formatDateTime(payload.generatedAt)} />
         </div>
       </section>
+    </div>
+  );
+}
+
+function LiveNow({ validator, selectedLane }) {
+  const ev = validator?.activeEvaluation || null;
+  const active = Boolean(ev && ev.state && ev.state !== "idle");
+  const phase = active ? activeEvaluationStatus(ev) : "idle";
+  const tone = active ? activeEvaluationTone(ev) : "neutral";
+  const candidate =
+    ev?.candidateGithubLogin || ev?.candidateAuthor || ev?.candidateSubmissionId || "waiting";
+  const pull = ev?.pullNumber ? `#${ev.pullNumber}` : null;
+  const counts = validator?.queue?.counts || {};
+
+  const detail = active
+    ? [phase, pull ? `PR ${pull}` : null, selectedLane?.repoName].filter(Boolean).join(" · ")
+    : "Waiting for the next challenger PR";
+
+  return (
+    <section className={`live-now ${active ? "is-live" : "is-idle"}`}>
+      <div className="live-now-main">
+        <span className={`live-flag live-flag-${active ? "on" : "off"}`}>
+          <i />
+          {active ? "LIVE" : "IDLE"}
+        </span>
+        <div className="live-now-copy">
+          <strong>{active ? `Evaluating ${candidate}` : "No duel running right now"}</strong>
+          <small>{detail}</small>
+        </div>
+        <Status label={phase} tone={tone} />
+      </div>
+      <div className="live-now-queue">
+        <LiveStat label="running" value={counts.running} tone={counts.running ? "ok" : "neutral"} />
+        <LiveStat label="pending" value={counts.pending} tone="neutral" />
+        <LiveStat label="completed" value={counts.completed} tone="neutral" />
+        <LiveStat label="failed" value={counts.failed} tone={counts.failed ? "bad" : "neutral"} />
+      </div>
+    </section>
+  );
+}
+
+function LiveStat({ label, value, tone = "neutral" }) {
+  return (
+    <div className={`live-stat live-stat-${tone}`}>
+      <strong>{value ?? "-"}</strong>
+      <span>{label}</span>
     </div>
   );
 }
@@ -388,7 +489,7 @@ function Sn60LanePanel({ state }) {
         <Sn60Metric label="candidate miner" value={state.candidateAuthor || state.candidateSubmissionId || "-"} sub={state.candidateSubmissionId || "no active candidate"} />
         <Sn60Metric label="king miner" value={state.kingAuthor || state.kingSubmissionId || "-"} sub={state.kingSubmissionId || "seed king"} />
         <Sn60Metric label="candidate score" value={candidateScore} sub={`king ${kingScore}`} />
-        <Sn60Metric label="final winner" value={state.finalWinner || "-"} sub={state.rewardLabelApplied || "reward label pending"} />
+        <Sn60Metric label="final winner" value={state.finalWinner || "-"} sub={state.rewardLabelApplied || "promotion label pending"} />
         <Sn60Metric label="codebases passed" value={sn60Pair(state.codebasesPassed)} sub={`${state.projectKeys?.length || 0} selected projects`} />
         <Sn60Metric label="true positives" value={sn60Pair(state.truePositives)} sub="candidate vs king" />
         <Sn60Metric label="invalid runs" value={sn60Pair(state.invalidRuns)} sub="candidate vs king" />
@@ -582,7 +683,7 @@ function DocOverview({ selectedLane, links }) {
       <p className="kicker">Newcomer Guide</p>
       <h1>How Kata competition works</h1>
       <p>
-        Kata is a GitTensor-aligned security-agent competition system. Miners do
+        Kata is a Gittensor-aligned security-agent competition system. Miners do
         not submit ordinary code fixes. They submit vulnerability-hunting agents
         that duel the current king in the same pinned Bitsec sandbox, on the
         same benchmark codebases, under the same validator checks.
@@ -941,16 +1042,18 @@ function sourceLinks(kataRepoSlug) {
     ? `https://github.com/${kataRepoSlug}/blob/main`
     : "https://github.com/Autovara/kata/blob/main";
   const botBase = "https://github.com/Autovara/kata-bot/blob/main";
+  // Point every link at a doc that actually exists in the kata repo today.
   return {
     kataReadme: `${kataBase}/README.md`,
-    systemWorkflow: `${kataBase}/docs/system-workflow.md`,
+    systemWorkflow: `${kataBase}/README.md`,
     submissions: `${kataBase}/docs/submissions.md`,
-    scoring: `${kataBase}/docs/SCORING.md`,
-    benchmarkEvaluation: `${kataBase}/docs/benchmark-evaluation.md`,
-    githubAutomation: `${kataBase}/docs/github-automation.md`,
-    botDeployment: `${botBase}/docs/deployment.md`,
-    botChecklist: `${botBase}/docs/production-checklist.md`,
-    botConfig: `${botBase}/docs/config-reference.md`
+    scoring: `${kataBase}/docs/submissions.md`,
+    benchmarkEvaluation: `${kataBase}/docs/submissions.md`,
+    githubAutomation: `${kataBase}/README.md`,
+    milestones: `${kataBase}/docs/milestones.md`,
+    botDeployment: `${botBase}/README.md`,
+    botChecklist: `${botBase}/README.md`,
+    botConfig: `${botBase}/README.md`
   };
 }
 
@@ -1079,6 +1182,10 @@ function Empty({ text }) {
 
 function statusUrl() {
   return STATUS_URL;
+}
+
+function streamUrl() {
+  return STREAM_URL;
 }
 
 function readCurrentRoute() {

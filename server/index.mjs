@@ -34,6 +34,49 @@ app.get("/api/status", async (_request, response) => {
   }
 });
 
+// Real-time push. The client subscribes with EventSource; we emit a fresh
+// payload whenever the status timestamp changes and a lightweight keep-alive
+// comment otherwise. loadBoardStatus is cached, so a short interval is cheap.
+app.get("/api/stream", async (_request, response) => {
+  response.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    // Disable proxy/ngrok response buffering so events flush immediately.
+    "X-Accel-Buffering": "no"
+  });
+  response.flushHeaders?.();
+
+  let closed = false;
+  let lastStamp = null;
+
+  async function push() {
+    if (closed) {
+      return;
+    }
+    try {
+      const payload = await loadBoardStatus(process.env);
+      if (payload.generatedAt !== lastStamp) {
+        lastStamp = payload.generatedAt;
+        response.write(`data: ${JSON.stringify(payload)}\n\n`);
+      } else {
+        response.write(":\n\n"); // keep-alive comment
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      response.write(`data: ${JSON.stringify({ __error: message })}\n\n`);
+    }
+  }
+
+  await push();
+  const interval = setInterval(push, streamIntervalMs(process.env));
+  _request.on("close", () => {
+    closed = true;
+    clearInterval(interval);
+    response.end();
+  });
+});
+
 // Unknown API paths get a JSON 404, never the SPA shell — otherwise a typo'd
 // or removed /api/* route returns index.html with a 200 and confuses clients.
 app.use("/api", (_request, response) => {
@@ -62,6 +105,14 @@ server.on("error", (error) => {
 
   throw error;
 });
+
+function streamIntervalMs(env) {
+  const parsed = Number.parseInt(env.KATA_STREAM_INTERVAL_MS || "2000", 10);
+  if (Number.isFinite(parsed) && parsed >= 1000) {
+    return parsed;
+  }
+  return 2000;
+}
 
 function loadDotEnv(envPath) {
   if (!fs.existsSync(envPath)) {

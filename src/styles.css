@@ -2424,3 +2424,45 @@ html { scroll-behavior: smooth; }
   background: transparent;
   padding: 6px 0 0;
 }
+
+/* ============================================================================ */
+/*  Arena v6 — border per card, no connecting container border, smaller bars    */
+/* ============================================================================ */
+
+/* each duel card gets its own clean border again */
+.battle-side,
+.battle-side-candidate,
+.battle-side-king {
+  min-height: 200px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-3);
+  box-shadow: none;
+}
+
+/* the container that was drawing a border AROUND both cards stays borderless */
+.arena-hero .battle {
+  border: 0;
+  background: transparent;
+}
+
+/* winner is a single green border (no extra ring/box), plus a green name */
+.battle-side-won {
+  border-color: rgba(185, 255, 93, 0.55);
+  box-shadow: none;
+}
+.battle-side-won .avatar {
+  border-color: rgba(244, 247, 239, 0.2);
+  box-shadow: none;
+}
+.battle-side-won h2 { color: var(--green); }
+
+/* shrink the score-bar strip below the cards */
+.battle-compare {
+  max-width: 600px;
+  margin: 0 auto;
+  gap: 16px;
+  padding: 0;
+}
+.battle-bar-track { height: 6px; }
+.battle-bar-head { font-size: 11px; }

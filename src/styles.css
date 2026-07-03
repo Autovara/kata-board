@@ -2495,3 +2495,19 @@ html { scroll-behavior: smooth; }
   max-width: none;   /* fill the battle-wrap = same width as the two cards */
   margin: 0;
 }
+
+/* ============================================================================ */
+/*  Arena v10 — align each pts bar under its card (same 3-col grid as .battle)   */
+/* ============================================================================ */
+.battle-compare {
+  grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
+  gap: 14px;
+}
+.battle-compare > :nth-child(1) { grid-column: 1; }  /* king bar under king card */
+.battle-compare > :nth-child(2) { grid-column: 3; }  /* candidate bar under candidate card */
+
+@media (max-width: 760px) {
+  .battle-compare { grid-template-columns: 1fr; }
+  .battle-compare > :nth-child(1),
+  .battle-compare > :nth-child(2) { grid-column: auto; }
+}

@@ -2391,3 +2391,36 @@ html { scroll-behavior: smooth; }
   padding: 14px 18px;
   background: var(--panel);
 }
+
+/* ============================================================================ */
+/*  Arena v5 — fully boxless duel cards (no borders, no background rectangles)  */
+/* ============================================================================ */
+.arena-hero .battle {
+  border: 0;
+  background: transparent;
+}
+.battle-side,
+.battle-side-candidate,
+.battle-side-king {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+/* accent the winner without a box: green avatar ring + green name */
+.battle-side-won {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.battle-side-won .avatar {
+  border-color: var(--green);
+  box-shadow: 0 0 0 5px rgba(185, 255, 93, 0.14);
+}
+.battle-side-won h2 { color: var(--green); }
+/* comparison bars stand on their own — no surrounding box */
+.battle-compare {
+  border: 0;
+  background: transparent;
+  padding: 6px 0 0;
+}

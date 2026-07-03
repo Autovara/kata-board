@@ -389,7 +389,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
         <div className="arena-hero-head">
           <p className="kicker">Live Arena · SN60</p>
           <h1>
-            King <em>vs</em> Candidate
+            King <em>vs</em> Can
           </h1>
           <div className="arena-hero-status">
             <Status label={phase} tone={tone} />

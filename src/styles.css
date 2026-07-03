@@ -2357,3 +2357,37 @@ html { scroll-behavior: smooth; }
 @media (max-width: 460px) {
   .arena-hero-head h1 { white-space: normal; }
 }
+
+/* ============================================================================ */
+/*  Arena v4 — smaller hero cards, borderless & clean                           */
+/* ============================================================================ */
+.arena-hero { padding: 22px 20px; }
+.arena-hero .battle-wrap { max-width: 860px; }
+
+/* smaller duel cards, no visible borders — separated by background contrast */
+.battle-side {
+  min-height: 190px;
+  padding: 22px 18px;
+  gap: 10px;
+  border: 0;
+  background: var(--panel-3);
+}
+.battle-side-candidate,
+.battle-side-king { border: 0; }
+.battle-side .avatar { width: 92px; height: 92px; border-width: 2px; }
+.battle-side h2 { font-size: clamp(20px, 2.8vw, 27px); }
+.battle-crown { font-size: 26px; }
+.battle-score strong { font-size: 27px; }
+
+/* only the winner is accented — a soft ring, not a hard border */
+.battle-side-won {
+  border: 0;
+  box-shadow: 0 0 0 1.5px rgba(185, 255, 93, 0.45), 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+/* the comparison strip recedes behind the cards */
+.battle-compare {
+  border: 0;
+  padding: 14px 18px;
+  background: var(--panel);
+}

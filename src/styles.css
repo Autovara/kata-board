@@ -2010,3 +2010,166 @@ html { scroll-behavior: smooth; }
   .live-now { flex-direction: column; align-items: stretch; }
   .live-now-queue { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ============================================================================ */
+/*  Redesigned pages — dashboard how-steps, arena battle hero, winners, board   */
+/* ============================================================================ */
+
+/* --- Dashboard: how it works --- */
+.how-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+.how-step {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--panel);
+}
+.how-step-num {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+.how-step strong { display: block; margin-bottom: 6px; font-size: 18px; }
+.how-step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+/* --- Arena: centered king vs candidate hero --- */
+.arena-hero {
+  display: grid;
+  gap: 22px;
+  padding: 26px 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    radial-gradient(130% 80% at 50% -10%, rgba(185, 255, 93, 0.07), transparent 60%),
+    linear-gradient(180deg, var(--panel-2), var(--panel));
+}
+.arena-hero-head { text-align: center; }
+.arena-hero-head h1 { margin: 0 auto; font-size: clamp(34px, 6vw, 62px); }
+.arena-hero-head h1 em {
+  font-style: normal;
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+}
+.arena-hero-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+.arena-hero .battle { padding: 0; background: transparent; }
+
+.battle-side { align-content: start; }
+.battle-side-top { display: flex; align-items: center; gap: 12px; }
+.battle-crown { color: var(--green); font-size: 26px; line-height: 1; }
+.battle-side-won {
+  border-color: rgba(185, 255, 93, 0.5);
+  box-shadow: 0 0 0 1px rgba(185, 255, 93, 0.22), 0 18px 46px rgba(0, 0, 0, 0.4);
+}
+
+.battle-bars { display: grid; gap: 14px; width: 100%; padding: 0 12px; }
+.battle-bar-head {
+  display: flex;
+  justify-content: space-between;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+.battle-bar-head span { color: var(--muted); }
+.battle-bar-head strong { color: var(--text); }
+.battle-bar-track {
+  height: 8px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(244, 247, 239, 0.08);
+}
+.battle-bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.battle-bar-king .battle-bar-track i { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.battle-bar-candidate .battle-bar-track i { background: linear-gradient(90deg, var(--cyan), var(--green)); }
+
+/* --- Winners: king cards --- */
+.winner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.winner-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 26px 20px 18px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(185, 255, 93, 0.05), var(--panel));
+}
+.winner-crown { font-size: 30px; line-height: 1; color: var(--green); }
+.winner-card .avatar { width: 74px; height: 74px; }
+.winner-card h2 { margin: 6px 0 0; font-size: 22px; }
+.winner-sub {
+  margin: 0;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.winner-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.winner-tags > span {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--soft);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+.winner-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+.winner-link { color: var(--green); font-weight: 700; white-space: nowrap; }
+
+/* --- Leaderboard: medals + emphasis --- */
+.lb-rank { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.lb-num { color: var(--soft); font-variant-numeric: tabular-nums; }
+.lb-score { color: var(--green); font-variant-numeric: tabular-nums; }
+.lb-top { border-color: rgba(185, 255, 93, 0.2); }
+.lb-top-1 { background: linear-gradient(90deg, rgba(185, 255, 93, 0.09), transparent 60%); }
+.lb-top-2 { background: linear-gradient(90deg, rgba(244, 247, 239, 0.05), transparent 60%); }
+.lb-top-3 { background: linear-gradient(90deg, rgba(255, 138, 61, 0.06), transparent 60%); }
+
+/* --- responsive for the redesigned blocks --- */
+@media (max-width: 760px) {
+  .how-row { grid-template-columns: 1fr; }
+  .arena-hero .battle { grid-template-columns: 1fr; }
+  .arena-hero .battle-mid { order: -1; }
+}

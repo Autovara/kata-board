@@ -275,82 +275,74 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
 
   return (
     <div className="stack">
-      <LiveNow validator={validator} selectedLane={selectedLane} />
-
       <section className="hero">
         <div className="hero-copy">
-          <p className="kicker">Bittensor subnet packs</p>
-          <h1>Kata is the agent arena for specialized subnet agents.</h1>
+          <p className="kicker">King of the hill · AI agents</p>
+          <h1>Build the best agent for a subnet. Take the crown.</h1>
           <p>
-            Miners submit agents by pull request. The shared evaluator runs
-            king-vs-candidate duels for each active subnet pack while each pack
-            keeps its own tasks, scoring rules, and current king.
+            Contributors submit agents by pull request. Each one duels the reigning
+            king on a fixed benchmark — win, and your agent becomes the new king
+            anyone can mine with.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
-              Watch Arena
+              Watch the Arena
             </button>
             <button type="button" className="button" onClick={() => onNavigate("/docs")}>
-              Miner Guide
+              Submit an agent
             </button>
           </div>
         </div>
-        <div className="hero-terminal" aria-label="Live lane summary">
+        <div className="hero-terminal" aria-label="Live summary">
           <div className="terminal-top">
             <span />
             <span />
             <span />
           </div>
-          <TerminalLine label="engine" value="shared king-vs-candidate loop" />
-          <TerminalLine label="profile" value="subnet-specialized agents" />
-          <TerminalLine label="subnets" value={`${overview.activeSubnetPacks ?? overview.activeRepoPacks ?? 0} active packs`} />
-          <TerminalLine label="kings" value={`${totalKings || 0} verified promotions`} />
-          <TerminalLine label="duel" value={selectedLane ? duelFormat(selectedLane) : "not configured"} />
-          <TerminalLine label="live lane" value={selectedLane?.repoName || "waiting"} />
+          <TerminalLine label="engine" value="king-vs-candidate duel" />
+          <TerminalLine label="live subnet" value={selectedLane?.repoName || "waiting"} />
+          <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
+          <TerminalLine label="benchmark" value={selectedLane ? duelFormat(selectedLane) : "-"} />
+          <TerminalLine label="promotions" value={`${totalKings || 0} kings crowned`} />
+          <TerminalLine label="goal" value="one-click mining" />
         </div>
       </section>
 
       <section className="stat-row">
-        <Stat label="subnet packs" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
+        <Stat label="live subnets" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
         <Stat label="active lanes" value={overview.activeLanes} />
         <Stat label="benchmark tasks" value={overview.benchmarkProjects ?? 0} />
+        <Stat label="challengers seen" value={overview.leaderboardEntries ?? 0} />
         <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
       </section>
 
-      <section className="split">
-        <div className="section-block">
-          <SectionTitle title="Competition profile" />
-          <KeyValue label="system" value="Gittensor-aligned agent arena" />
-          <KeyValue label="submission" value="PR-only agent bundle" />
-          <KeyValue label="outcome" value="new king per subnet pack" />
-          <KeyValue label="evaluation" value="SN60 Bitsec sandbox" />
-          <KeyValue label="current state" value={activeEvaluationStatus(activeEvaluation)} />
-        </div>
-        <div className="section-block">
-          <SectionTitle title="Current lane" />
-          <KeyValue label="pack" value={selectedLane?.repoName || "not configured"} />
-          <KeyValue label="mode" value={selectedLane?.mode || "-"} />
-          <KeyValue label="king" value={selectedLane?.currentHolder || "-"} />
-          <KeyValue label="tasks" value={selectedLane ? duelFormat(selectedLane) : "-"} />
-          <KeyValue label="gate" value={selectedLane ? promotionGate(selectedLane) : "-"} />
+      <section className="section-block how-block">
+        <SectionTitle title="How it works" />
+        <div className="how-row">
+          <HowStep step="01" title="Submit" text="Open one pull request that adds a single agent under submissions/." />
+          <HowStep step="02" title="Duel" text="Your agent runs head-to-head against the current king on the fixed benchmark." />
+          <HowStep step="03" title="Take the crown" text="Beat the king and your agent is merged and published as the new king." />
         </div>
       </section>
 
       <section className="split">
         <div className="section-block">
-          <SectionTitle title="How it works" />
-          <div className="process-list">
-            <ProcessItem step="01" title="Submit" text="Miner opens one agent PR under submissions/." />
-            <ProcessItem step="02" title="Duel" text="Candidate runs against the current king." />
-            <ProcessItem step="03" title="Promote" text="Winner moves to kings/ and submissions/ is cleaned." />
-          </div>
+          <SectionTitle title="Reigning king" />
+          <MinerIdentity
+            name={selectedLane?.currentHolder || "Seed king"}
+            sub={selectedLane?.king?.submissionId || "current king"}
+            size="large"
+          />
+          <KeyValue label="subnet" value={selectedLane?.repoName || "-"} />
+          <KeyValue label="mode" value={selectedLane?.mode || "-"} />
+          <KeyValue label="benchmark" value={selectedLane ? duelFormat(selectedLane) : "-"} />
+          <KeyValue label="crowned" value={formatDateTime(selectedLane?.king?.updatedAt)} />
         </div>
         <div className="section-block">
-          <SectionTitle title="Network summary" />
+          <SectionTitle title="Latest challenge" />
+          <KeyValue label="challenger" value={latestChallenge?.candidateAuthor || latestChallenge?.candidateSubmissionId || "none yet"} />
+          <KeyValue label="result" value={latestChallenge ? duelStatus(latestChallenge) : "no duel yet"} />
           <KeyValue label="top miner" value={topMiner?.author || "not ranked yet"} />
-          <KeyValue label="leaderboard miners" value={overview.leaderboardEntries ?? 0} />
-          <KeyValue label="latest challenger" value={latestChallenge?.candidateAuthor || latestChallenge?.candidateSubmissionId || "none"} />
-          <KeyValue label="latest result" value={latestChallenge ? duelStatus(latestChallenge) : "no duel yet"} />
           <KeyValue label="updated" value={formatDateTime(payload.generatedAt)} />
         </div>
       </section>
@@ -358,48 +350,12 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
   );
 }
 
-function LiveNow({ validator, selectedLane }) {
-  const ev = validator?.activeEvaluation || null;
-  const active = Boolean(ev && ev.state && ev.state !== "idle");
-  const phase = active ? activeEvaluationStatus(ev) : "idle";
-  const tone = active ? activeEvaluationTone(ev) : "neutral";
-  const candidate =
-    ev?.candidateGithubLogin || ev?.candidateAuthor || ev?.candidateSubmissionId || "waiting";
-  const pull = ev?.pullNumber ? `#${ev.pullNumber}` : null;
-  const counts = validator?.queue?.counts || {};
-
-  const detail = active
-    ? [phase, pull ? `PR ${pull}` : null, selectedLane?.repoName].filter(Boolean).join(" · ")
-    : "Waiting for the next challenger PR";
-
+function HowStep({ step, title, text }) {
   return (
-    <section className={`live-now ${active ? "is-live" : "is-idle"}`}>
-      <div className="live-now-main">
-        <span className={`live-flag live-flag-${active ? "on" : "off"}`}>
-          <i />
-          {active ? "LIVE" : "IDLE"}
-        </span>
-        <div className="live-now-copy">
-          <strong>{active ? `Evaluating ${candidate}` : "No duel running right now"}</strong>
-          <small>{detail}</small>
-        </div>
-        <Status label={phase} tone={tone} />
-      </div>
-      <div className="live-now-queue">
-        <LiveStat label="running" value={counts.running} tone={counts.running ? "ok" : "neutral"} />
-        <LiveStat label="pending" value={counts.pending} tone="neutral" />
-        <LiveStat label="completed" value={counts.completed} tone="neutral" />
-        <LiveStat label="failed" value={counts.failed} tone={counts.failed ? "bad" : "neutral"} />
-      </div>
-    </section>
-  );
-}
-
-function LiveStat({ label, value, tone = "neutral" }) {
-  return (
-    <div className={`live-stat live-stat-${tone}`}>
-      <strong>{value ?? "-"}</strong>
-      <span>{label}</span>
+    <div className="how-step">
+      <span className="how-step-num">{step}</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
     </div>
   );
 }
@@ -407,67 +363,133 @@ function LiveStat({ label, value, tone = "neutral" }) {
 function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId }) {
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
-  const candidateName =
-    activeEvaluation?.candidateGithubLogin ||
-    activeEvaluation?.candidateAuthor ||
-    activeEvaluation?.candidateSubmissionId ||
-    latest?.candidateAuthor ||
-    latest?.candidateSubmissionId ||
-    "waiting";
-  const arenaPhase = activeEvaluation
+  const current = selectedLane?.evaluatorState?.current || null;
+  const phase = activeEvaluation
     ? activeEvaluationStatus(activeEvaluation)
-    : latest
-      ? latest.promotionReady
-        ? "winner"
-        : "completed"
-      : "idle";
-  const arenaTone = activeEvaluation
+    : current?.finalWinner
+      ? "completed"
+      : latest
+        ? latest.promotionReady
+          ? "winner"
+          : "completed"
+        : "idle";
+  const tone = activeEvaluation
     ? activeEvaluationTone(activeEvaluation)
-    : latest?.promotionReady
+    : current?.finalWinner === "candidate" || latest?.promotionReady
       ? "ok"
       : "neutral";
-  const pullLabel = activeEvaluation?.pullNumber ? `#${activeEvaluation.pullNumber}` : "-";
   const updatedLabel = formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt);
 
   return (
     <div className="stack">
-      <PageIntro
-        eyebrow="Live Arena"
-        title="King versus Candidate"
-        text="Current duel state and SN60 sandbox scoring for the selected lane."
-      />
+      <section className="arena-hero">
+        <div className="arena-hero-head">
+          <p className="kicker">Live Arena</p>
+          <h1>
+            King <em>vs</em> Candidate
+          </h1>
+          <div className="arena-hero-status">
+            <Status label={phase} tone={tone} />
+            <span>{selectedLane?.repoName || "no lane"}</span>
+            <span>updated {updatedLabel}</span>
+          </div>
+        </div>
+        {current || activeEvaluation ? (
+          <Battle state={current} activeEvaluation={activeEvaluation} />
+        ) : (
+          <Empty text="No duel yet for this lane. Waiting for the first challenger." />
+        )}
+      </section>
 
       <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
 
-      <section className="arena-meta-grid">
-        <ArenaMetaCard
-          label="phase"
-          value={arenaPhase}
-          sub={activeEvaluation?.phase || "validator state"}
-          tone={arenaTone}
-        />
-        <ArenaMetaCard
-          label="candidate"
-          value={candidateName}
-          sub={activeEvaluation?.candidateSubmissionId || latest?.candidateSubmissionId || "waiting for challenger"}
-        />
-        <ArenaMetaCard
-          label="pull request"
-          value={pullLabel}
-          sub={activeEvaluation?.candidateGithubLogin ? `GitHub @${activeEvaluation.candidateGithubLogin}` : "no active PR"}
-        />
-        <ArenaMetaCard
-          label="updated"
-          value={updatedLabel}
-          sub={latest?.runId ? shortRunId(latest.runId) : "live validator feed"}
-        />
-      </section>
-
-      {selectedLane?.evaluatorState?.current ? (
-        <Sn60LanePanel state={selectedLane.evaluatorState.current} />
+      {current ? (
+        <Sn60LanePanel state={current} />
       ) : (
         <Empty text="No SN60 duel state yet for this lane." />
       )}
+    </div>
+  );
+}
+
+function Battle({ state, activeEvaluation }) {
+  const candidateName =
+    activeEvaluation?.candidateGithubLogin ||
+    state?.candidateAuthor ||
+    state?.candidateSubmissionId ||
+    "waiting";
+  const kingName = state?.kingAuthor || state?.kingSubmissionId || "Seed king";
+  const candidateScore = percentScore(state?.scores?.candidate);
+  const kingScore = percentScore(state?.scores?.king);
+  const winner = state?.finalWinner || null;
+  const candidatePct = clampPercent(Number(state?.scores?.candidate ?? 0) * 100);
+  const kingPct = clampPercent(Number(state?.scores?.king ?? 0) * 100);
+
+  return (
+    <div className="battle">
+      <BattleSide
+        role="king"
+        crown
+        name={kingName}
+        sub={state?.kingSubmissionId || "current king"}
+        score={kingScore}
+        pair={`passed ${sn60Pair(state?.codebasesPassed)} · TP ${sn60Pair(state?.truePositives)}`}
+        won={winner === "king"}
+      />
+      <div className="battle-mid">
+        <div className="vs">VS</div>
+        <div className="battle-bars">
+          <BattleBar label="king" pct={kingPct} value={kingScore} tone="king" />
+          <BattleBar label="candidate" pct={candidatePct} value={candidateScore} tone="candidate" />
+        </div>
+      </div>
+      <BattleSide
+        role="candidate"
+        name={candidateName}
+        sub={state?.candidateSubmissionId || "no active challenger"}
+        score={candidateScore}
+        pair={`passed ${sn60Pair(state?.codebasesPassed)} · TP ${sn60Pair(state?.truePositives)}`}
+        won={winner === "candidate"}
+      />
+    </div>
+  );
+}
+
+function BattleSide({ role, name, sub, score, pair, crown, won }) {
+  return (
+    <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
+      <div className="battle-side-top">
+        <Avatar name={name} />
+        {crown ? (
+          <span className="battle-crown" aria-hidden="true">
+            ♔
+          </span>
+        ) : null}
+      </div>
+      <span>{won ? `${role} · winner` : role}</span>
+      <h2>{name}</h2>
+      <p>{sub}</p>
+      <div className="agent-score-strip">
+        <strong>{score}</strong>
+        <small>aggregated</small>
+      </div>
+      <div className="agent-score-pair">
+        <span>{pair}</span>
+      </div>
+    </div>
+  );
+}
+
+function BattleBar({ label, pct, value, tone }) {
+  return (
+    <div className={`battle-bar battle-bar-${tone}`}>
+      <div className="battle-bar-head">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <div className="battle-bar-track">
+        <i style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
@@ -556,37 +578,44 @@ function Winners({ lanes, kataRepoSlug }) {
   return (
     <div className="stack">
       <PageIntro
-        eyebrow="Winners"
-        title="Kings by subnet pack."
-        text="As more packs are added, each lane keeps its own current king."
+        eyebrow="Hall of Kings"
+        title="Reigning champions"
+        text="Each live subnet keeps one current king — the best agent so far. Beat it in the Arena to take its place."
       />
 
       <section className="winner-grid">
         {lanes.length ? (
-          lanes.map((lane) => (
-            <article className="winner-card" key={lane.id}>
-              <div className="winner-head">
-                <span>{lane.mode}</span>
-                <Status label={lane.king?.seeded ? "seed" : "promoted"} tone={lane.king?.seeded ? "neutral" : "ok"} />
-              </div>
-              <MinerIdentity
-                name={lane.currentHolder}
-                sub={lane.king?.submissionId || "current king"}
-                size="large"
-              />
-              <h2>{lane.repoName}</h2>
-              <p>{lane.subnetPack || lane.repoPack}</p>
-              <KeyValue label="miner" value={lane.currentHolder} />
-              <KeyValue
-                label="agent"
-                value={kingAgentLink(lane, kataRepoSlug)}
-              />
-              <KeyValue label="duel gate" value={promotionGate(lane)} />
-              <KeyValue label="updated" value={formatDateTime(lane.king?.updatedAt)} />
-            </article>
-          ))
+          lanes.map((lane) => {
+            const agent = kingAgentLink(lane, kataRepoSlug);
+            return (
+              <article className="winner-card" key={lane.id}>
+                <div className="winner-crown" aria-hidden="true">
+                  ♔
+                </div>
+                <Avatar name={lane.currentHolder} />
+                <h2>{lane.currentHolder || "Seed king"}</h2>
+                <p className="winner-sub">{lane.king?.submissionId || "current king"}</p>
+                <div className="winner-tags">
+                  <span>{lane.repoName}</span>
+                  <span>{lane.mode}</span>
+                  <Status
+                    label={lane.king?.seeded ? "seed king" : "promoted"}
+                    tone={lane.king?.seeded ? "neutral" : "ok"}
+                  />
+                </div>
+                <div className="winner-foot">
+                  <span>crowned {formatDateTime(lane.king?.updatedAt)}</span>
+                  {typeof agent === "string" && agent.startsWith("https://") ? (
+                    <a className="winner-link" href={agent} target="_blank" rel="noreferrer">
+                      View agent →
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })
         ) : (
-          <Empty text="No winners yet." />
+          <Empty text="No kings crowned yet." />
         )}
       </section>
     </div>
@@ -600,8 +629,8 @@ function Leaderboard({ leaderboard }) {
     <div className="stack">
       <PageIntro
         eyebrow="Leaderboard"
-        title="Miner ranking."
-        text={`Source: ${leaderboardSource(leaderboard?.source)}. Kings are verified merged wins; submissions is total candidate PRs seen.`}
+        title="Top challengers"
+        text="Ranked by crowns won. Kings are verified merged wins; submissions counts every candidate PR seen."
       />
 
       <section className="table-section">
@@ -615,21 +644,35 @@ function Leaderboard({ leaderboard }) {
         </div>
         {rows.length ? (
           rows.slice(0, 20).map((row, index) => (
-            <div className="table-row" key={row.author}>
-              <span>{index + 1}</span>
-              <MinerIdentity name={row.author} sub={row.currentKings ? `${row.currentKings} active lane${row.currentKings === 1 ? "" : "s"}` : "miner"} />
-              <span>{row.wins}</span>
-              <span>{row.totalSubmissions}</span>
-              <span>{row.openSubmissions}</span>
-              <strong>{row.score}</strong>
+            <div
+              className={`table-row ${index < 3 ? `lb-top lb-top-${index + 1}` : ""}`}
+              key={row.author}
+            >
+              <span className="lb-rank">{rankBadge(index)}</span>
+              <MinerIdentity
+                name={row.author}
+                sub={
+                  row.currentKings
+                    ? `${row.currentKings} active king${row.currentKings === 1 ? "" : "s"}`
+                    : "challenger"
+                }
+              />
+              <span className="lb-num">{row.wins}</span>
+              <span className="lb-num">{row.totalSubmissions}</span>
+              <span className="lb-num">{row.openSubmissions}</span>
+              <strong className="lb-score">{row.score}</strong>
             </div>
           ))
         ) : (
-          <Empty text="Connect GitHub PR history or event log to populate rankings." />
+          <Empty text="No ranked challengers yet." />
         )}
       </section>
     </div>
   );
+}
+
+function rankBadge(index) {
+  return ["🥇", "🥈", "🥉"][index] || index + 1;
 }
 
 function Docs({ selectedLane, kataRepoSlug }) {

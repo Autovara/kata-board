@@ -1181,11 +1181,14 @@ function inferRepoPackFromSummary(summary) {
 }
 
 function displaySubnetPack(subnetPack) {
-  const raw = subnetPack?.split("__").at(-1) || subnetPack || "subnet";
+  const raw = subnetPack || "subnet";
   return raw
-    .split(/[-_]/)
+    .split(/__/)
+    .flatMap((segment) => segment.split(/[-_]/))
     .filter(Boolean)
-    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .map((part) =>
+      /^sn\d+$/i.test(part) ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)
+    )
     .join(" ");
 }
 

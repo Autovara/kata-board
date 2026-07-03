@@ -299,19 +299,18 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
             <span />
             <span />
           </div>
-          <TerminalLine label="engine" value="king-vs-candidate duel" />
-          <TerminalLine label="live subnet" value={selectedLane?.repoName || "waiting"} />
+          <TerminalLine label="engine" value="SN60 · king vs candidate" />
+          <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
-          <TerminalLine label="benchmark" value={selectedLane ? duelFormat(selectedLane) : "-"} />
-          <TerminalLine label="promotions" value={`${totalKings || 0} kings crowned`} />
+          <TerminalLine label="benchmark" value={`${overview.benchmarkProjects ?? 0} smart-contract codebases`} />
+          <TerminalLine label="promotions" value={`${totalKings || 0} king${totalKings === 1 ? "" : "s"} crowned`} />
           <TerminalLine label="goal" value="one-click mining" />
         </div>
       </section>
 
       <section className="stat-row">
         <Stat label="live subnets" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
-        <Stat label="active lanes" value={overview.activeLanes} />
-        <Stat label="benchmark tasks" value={overview.benchmarkProjects ?? 0} />
+        <Stat label="benchmark codebases" value={overview.benchmarkProjects ?? 0} />
         <Stat label="challengers seen" value={overview.leaderboardEntries ?? 0} />
         <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
       </section>
@@ -382,15 +381,19 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
 
   return (
     <div className="stack">
+      {lanes.length > 1 ? (
+        <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
+      ) : null}
+
       <section className="arena-hero">
         <div className="arena-hero-head">
-          <p className="kicker">Live Arena</p>
+          <p className="kicker">Live Arena · SN60</p>
           <h1>
             King <em>vs</em> Candidate
           </h1>
           <div className="arena-hero-status">
             <Status label={phase} tone={tone} />
-            <span>{selectedLane?.repoName || "no lane"}</span>
+            <span>{selectedLane?.repoName || "SN60 Bitsec"}</span>
             <span>updated {updatedLabel}</span>
           </div>
         </div>
@@ -401,12 +404,10 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
         )}
       </section>
 
-      <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
-
       {current ? (
         <Sn60LanePanel state={current} />
       ) : (
-        <Empty text="No SN60 duel state yet for this lane." />
+        <Empty text="No duel results yet for this subnet." />
       )}
     </div>
   );
@@ -431,9 +432,8 @@ function Battle({ state, activeEvaluation }) {
         role="king"
         crown
         name={kingName}
-        sub={state?.kingSubmissionId || "current king"}
         score={kingScore}
-        pair={`passed ${sn60Pair(state?.codebasesPassed)} · TP ${sn60Pair(state?.truePositives)}`}
+        meta={`${state?.codebasesPassed?.king ?? "-"} passed · ${state?.truePositives?.king ?? "-"} found`}
         won={winner === "king"}
       />
       <div className="battle-mid">
@@ -446,36 +446,30 @@ function Battle({ state, activeEvaluation }) {
       <BattleSide
         role="candidate"
         name={candidateName}
-        sub={state?.candidateSubmissionId || "no active challenger"}
         score={candidateScore}
-        pair={`passed ${sn60Pair(state?.codebasesPassed)} · TP ${sn60Pair(state?.truePositives)}`}
+        meta={`${state?.codebasesPassed?.candidate ?? "-"} passed · ${state?.truePositives?.candidate ?? "-"} found`}
         won={winner === "candidate"}
       />
     </div>
   );
 }
 
-function BattleSide({ role, name, sub, score, pair, crown, won }) {
+function BattleSide({ role, name, score, meta, crown, won }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
-      <div className="battle-side-top">
-        <Avatar name={name} />
-        {crown ? (
-          <span className="battle-crown" aria-hidden="true">
-            ♔
-          </span>
-        ) : null}
-      </div>
-      <span>{won ? `${role} · winner` : role}</span>
+      {crown ? (
+        <span className="battle-crown" aria-hidden="true">
+          ♔
+        </span>
+      ) : null}
+      <Avatar name={name} />
+      <span className="battle-role">{won ? `${role} · winner` : role}</span>
       <h2>{name}</h2>
-      <p>{sub}</p>
-      <div className="agent-score-strip">
+      <div className="battle-score">
         <strong>{score}</strong>
-        <small>aggregated</small>
+        <small>aggregated score</small>
       </div>
-      <div className="agent-score-pair">
-        <span>{pair}</span>
-      </div>
+      <div className="battle-meta">{meta}</div>
     </div>
   );
 }
@@ -495,52 +489,59 @@ function BattleBar({ label, pct, value, tone }) {
 }
 
 function Sn60LanePanel({ state }) {
-  const candidateScore = percentScore(state.scores?.candidate);
-  const kingScore = percentScore(state.scores?.king);
+  const winner = state.finalWinner;
+  const result =
+    winner === "candidate" ? "Challenger wins" : winner === "king" ? "King holds" : "In progress";
   return (
-    <section className="sn60-panel">
-      <div className="sn60-panel-head">
+    <section className="lane-card">
+      <div className="lane-card-head">
         <div>
-          <p className="kicker">SN60 Bitsec lane</p>
-          <h2>{state.candidateSubmissionId || "waiting for challenger"}</h2>
+          <p className="kicker">SN60 · Bitsec security</p>
+          <h2>Latest duel</h2>
         </div>
-        <Status label={state.screeningStatus || "no screening"} tone={screeningTone(state.screeningStatus)} />
+        <Status
+          label={state.screeningStatus ? `screening ${state.screeningStatus}` : "not screened"}
+          tone={screeningTone(state.screeningStatus)}
+        />
       </div>
 
-      <div className="sn60-grid">
-        <Sn60Metric label="candidate miner" value={state.candidateAuthor || state.candidateSubmissionId || "-"} sub={state.candidateSubmissionId || "no active candidate"} />
-        <Sn60Metric label="king miner" value={state.kingAuthor || state.kingSubmissionId || "-"} sub={state.kingSubmissionId || "seed king"} />
-        <Sn60Metric label="candidate score" value={candidateScore} sub={`king ${kingScore}`} />
-        <Sn60Metric label="final winner" value={state.finalWinner || "-"} sub={state.rewardLabelApplied || "promotion label pending"} />
-        <Sn60Metric label="codebases passed" value={sn60Pair(state.codebasesPassed)} sub={`${state.projectKeys?.length || 0} selected projects`} />
-        <Sn60Metric label="true positives" value={sn60Pair(state.truePositives)} sub="candidate vs king" />
-        <Sn60Metric label="invalid runs" value={sn60Pair(state.invalidRuns)} sub="candidate vs king" />
-        <Sn60Metric label="replica spread" value={formatNumber(state.stability?.candidate?.spread)} sub={`king ${formatNumber(state.stability?.king?.spread)}`} />
-      </div>
-
-      <div className="sn60-detail-grid">
-        <div className="sn60-detail-block">
-          <span>local validator replica scores</span>
-          <ReplicaStrip label="candidate" values={state.localReplicaScores?.candidate} />
-          <ReplicaStrip label="king" values={state.localReplicaScores?.king} />
-        </div>
-        <div className="sn60-detail-block">
-          <span>benchmark snapshot provenance</span>
-          <KeyValue label="freshness" value={shortHash(state.provenance?.freshnessFingerprint)} />
-          <KeyValue label="sandbox" value={shortHash(state.provenance?.sandboxCommit)} />
-          <KeyValue label="benchmark" value={shortHash(state.provenance?.benchmarkSha256)} />
-          <KeyValue label="scorer" value={state.provenance?.scorerVersion || "-"} />
-        </div>
+      <div className="lane-metrics">
+        <LaneMetric label="Challenger" value={state.candidateAuthor || state.candidateSubmissionId || "waiting"} />
+        <LaneMetric label="Reigning king" value={state.kingAuthor || state.kingSubmissionId || "seed king"} />
+        <LaneMetric label="Result" value={result} tone={winner === "candidate" ? "ok" : "neutral"} />
+        <LaneMetric label="Benchmark" value={`${state.projectKeys?.length || 0} codebases`} />
+        <LaneMetric label="Challenger score" value={percentScore(state.scores?.candidate)} />
+        <LaneMetric label="King score" value={percentScore(state.scores?.king)} />
+        <LaneMetric
+          label="Codebases passed"
+          value={`${state.codebasesPassed?.candidate ?? "-"} vs ${state.codebasesPassed?.king ?? "-"}`}
+          sub="challenger vs king"
+        />
+        <LaneMetric
+          label="Vulnerabilities found"
+          value={`${state.truePositives?.candidate ?? "-"} vs ${state.truePositives?.king ?? "-"}`}
+          sub="challenger vs king"
+        />
       </div>
 
       {state.screeningReasons?.length ? (
-        <div className="sn60-screening-notes">
+        <div className="lane-notes">
           {state.screeningReasons.slice(0, 3).map((reason) => (
             <span key={reason}>{reason}</span>
           ))}
         </div>
       ) : null}
     </section>
+  );
+}
+
+function LaneMetric({ label, value, sub, tone = "neutral" }) {
+  return (
+    <div className={`lane-metric lane-metric-${tone}`}>
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      {sub ? <small>{sub}</small> : null}
+    </div>
   );
 }
 

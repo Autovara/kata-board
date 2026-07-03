@@ -2173,3 +2173,103 @@ html { scroll-behavior: smooth; }
   .arena-hero .battle { grid-template-columns: 1fr; }
   .arena-hero .battle-mid { order: -1; }
 }
+
+/* ============================================================================ */
+/*  Arena refinements — compact centered battle + clean lane card               */
+/* ============================================================================ */
+
+/* Dashboard stat row adapts to any card count (no empty column). */
+.stat-row { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+/* Compact, centered battle so it doesn't stretch too wide/tall. */
+.arena-hero .battle {
+  max-width: 880px;
+  margin: 0 auto;
+  align-items: stretch;
+}
+.battle-side {
+  min-height: 0;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  padding: 22px 18px;
+  text-align: center;
+}
+.battle-side .avatar { width: 84px; height: 84px; }
+.battle-crown { font-size: 26px; line-height: 1; color: var(--green); }
+.battle-role {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.battle-side h2 {
+  font-size: clamp(20px, 3vw, 26px);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+.battle-score { margin-top: 2px; }
+.battle-score strong {
+  display: block;
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 26px;
+}
+.battle-score small {
+  display: block;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+.battle-meta {
+  color: var(--soft);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+/* Clean, jargon-free lane card. */
+.lane-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+}
+.lane-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.lane-card-head h2 { margin: 4px 0 0; font-size: 22px; }
+.lane-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.lane-metric {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.lane-metric span { color: var(--muted); font-size: 12px; }
+.lane-metric strong { color: var(--text); font-size: 18px; overflow-wrap: anywhere; }
+.lane-metric small { color: var(--muted); font-size: 11px; }
+.lane-metric-ok strong { color: var(--green); }
+.lane-notes { display: flex; flex-wrap: wrap; gap: 8px; }
+.lane-notes span {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--soft);
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .lane-metrics { grid-template-columns: repeat(2, 1fr); }
+}

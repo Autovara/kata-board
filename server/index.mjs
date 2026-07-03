@@ -34,6 +34,12 @@ app.get("/api/status", async (_request, response) => {
   }
 });
 
+// Unknown API paths get a JSON 404, never the SPA shell — otherwise a typo'd
+// or removed /api/* route returns index.html with a 200 and confuses clients.
+app.use("/api", (_request, response) => {
+  response.status(404).json({ status: "error", message: "unknown endpoint" });
+});
+
 if (fs.existsSync(distRoot)) {
   app.use(express.static(distRoot));
   app.get("*", (_request, response) => {

@@ -1,3 +1,9 @@
+import {
+  createAuthorRow,
+  finalizeLeaderboardRows,
+  maxDate
+} from "./leaderboardRows.mjs";
+
 const SUBMISSION_PATH_PATTERN =
   /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
 
@@ -68,14 +74,17 @@ export async function loadGithubLeaderboard({
       entry.closedSubmissions += 1;
     }
     entry.lastActivityAt = maxDate(entry.lastActivityAt, pull.updatedAt);
-    entry.recentPulls.unshift({
-      number: pull.number,
-      title: pull.title,
-      htmlUrl: pull.htmlUrl,
-      state: pull.mergedAt ? "merged" : pull.state,
-      updatedAt: pull.updatedAt
-    });
-    entry.recentPulls = entry.recentPulls.slice(0, 4);
+    // Pulls arrive newest-first (sort=updated&direction=desc), so keep the
+    // first 4 seen — the most recently updated — rather than evicting them.
+    if (entry.recentPulls.length < 4) {
+      entry.recentPulls.push({
+        number: pull.number,
+        title: pull.title,
+        htmlUrl: pull.htmlUrl,
+        state: pull.mergedAt ? "merged" : pull.state,
+        updatedAt: pull.updatedAt
+      });
+    }
     byAuthor.set(pull.author, entry);
 
     if (pull.mergedAt) {
@@ -92,25 +101,9 @@ export async function loadGithubLeaderboard({
     }
   }
 
-  const rows = [...byAuthor.values()]
-    .map((entry) => ({
-      ...entry,
-      currentKings: [...latestLaneWinners.entries()].filter(
-        ([, lane]) => lane.author === entry.author
-      ).length,
-      score: entry.wins * 100 + entry.openSubmissions * 5
-    }))
-    .sort((left, right) => {
-      return (
-        right.score - left.score ||
-        right.wins - left.wins ||
-        right.totalSubmissions - left.totalSubmissions
-      );
-    });
-
   return {
     source: "github",
-    rows,
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners)
   };
 }
@@ -121,30 +114,6 @@ function emptyLeaderboard(source) {
     rows: [],
     latestLaneWinners: {}
   };
-}
-
-function createAuthorRow(author) {
-  return {
-    author,
-    wins: 0,
-    totalSubmissions: 0,
-    openSubmissions: 0,
-    closedSubmissions: 0,
-    currentKings: 0,
-    score: 0,
-    lastActivityAt: null,
-    recentPulls: []
-  };
-}
-
-function maxDate(left, right) {
-  if (!left) {
-    return right;
-  }
-  if (!right) {
-    return left;
-  }
-  return new Date(left) > new Date(right) ? left : right;
 }
 
 async function fetchPulls(repoSlug, githubToken) {
@@ -202,7 +171,7 @@ async function fetchSubmissionFiles(repoSlug, pullNumber, githubToken) {
   return files;
 }
 
-async function githubRequest(path, githubToken) {
+export async function githubRequest(path, githubToken) {
   const headers = {
     "User-Agent": "kata-board",
     Accept: "application/vnd.github+json"

@@ -282,6 +282,52 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
   assert.equal(row.currentKings, 1);
 });
 
+test("survives a wrong-typed selected_project_keys without a 500", async () => {
+  const root = makeKataRoot();
+  const laneRoot = path.join(root, "lanes", "sn60__bitsec");
+  // Valid JSON, wrong type (string instead of array) — must not throw.
+  writeJson(laneRoot, "challenge_state.json", {
+    schema_version: 1,
+    selected_project_keys: "project-alpha",
+    screening_result: { status: "passed", stage: "execution", reasons: [] }
+  });
+
+  const status = await loadBoardStatus(boardEnv(root));
+
+  assert.equal(status.lanes.length, 1);
+  assert.deepEqual(status.lanes[0].projects, []);
+});
+
+test("skips a parseable-but-null event-log line", async () => {
+  const root = makeKataRoot();
+  const eventLogPath = path.join(root, "events.jsonl");
+  fs.writeFileSync(
+    eventLogPath,
+    [
+      JSON.stringify({
+        created_at: "2026-07-01T00:00:00Z",
+        author: "alice",
+        repo_pack: "sn60__bitsec",
+        mode: "miner",
+        final_action: "merge",
+        pull_number: 7
+      }),
+      "null",
+      "123"
+    ].join("\n") + "\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOARD_EVENT_LOG: eventLogPath,
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.leaderboard.source, "events");
+  assert.equal(status.leaderboard.rows.length, 1);
+  assert.equal(status.leaderboard.rows[0].author, "alice");
+});
+
 test("projects only derived evaluator state to clients", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));

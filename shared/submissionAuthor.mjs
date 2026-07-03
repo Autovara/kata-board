@@ -1,6 +1,5 @@
-// Shared by the Express server (server/status.mjs) and the React client
-// (src/App.jsx). Both run as ESM — node at runtime, vite at build — so a single
-// module removes the previously-divergent duplicate implementations.
+// Used by the Express server (server/status.mjs). Kept in shared/ (ESM, run by
+// both node and vite) so the React client can adopt it without a second copy.
 export function inferSubmissionAuthorFromId(submissionId) {
   if (!submissionId) {
     return null;

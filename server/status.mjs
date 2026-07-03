@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { loadGithubLeaderboard } from "./github.mjs";
+import { githubRequest, loadGithubLeaderboard } from "./github.mjs";
+import {
+  createAuthorRow,
+  finalizeLeaderboardRows,
+  maxDate
+} from "./leaderboardRows.mjs";
 import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 
 const DEFAULT_CACHE_TTL_MS = 3_000;
@@ -143,7 +148,10 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
   const latestWinnerMatchesKing =
     Boolean(latestWinner?.author) &&
     (!king.author || latestWinner.author === king.author);
-  const selectedProjects = state.challengeState?.selected_project_keys || [];
+  const selectedProjectsRaw = state.challengeState?.selected_project_keys;
+  const selectedProjects = Array.isArray(selectedProjectsRaw)
+    ? selectedProjectsRaw
+    : [];
   return {
     id: `${subnetPack}:${mode}`,
     subnetPack,
@@ -211,7 +219,9 @@ function buildEvaluatorCurrentState({
   }
   const screening = challengeState?.screening_result || null;
   const finalMetrics = promotionRecord?.final_metrics || {};
-  const projectKeys = challengeState?.selected_project_keys || benchmarkSnapshot?.project_keys || [];
+  const projectKeysRaw =
+    challengeState?.selected_project_keys || benchmarkSnapshot?.project_keys;
+  const projectKeys = Array.isArray(projectKeysRaw) ? projectKeysRaw : [];
   return {
     candidateSubmissionId: challengeState?.candidate_submission_id || null,
     candidateAuthor: inferSubmissionAuthorFromId(challengeState?.candidate_submission_id),
@@ -425,7 +435,7 @@ async function loadActivePullAuthor(env, activeJob) {
     return null;
   }
   try {
-    const pull = await githubApiRequest(
+    const pull = await githubRequest(
       `/repos/${activeJob.kataRepo}/pulls/${activeJob.pullNumber}`,
       env.KATA_GITHUB_TOKEN
     );
@@ -451,21 +461,6 @@ function enrichActiveEvaluationWithPullAuthor(activeEvaluation, pullAuthor) {
     candidateGithubUrl: pullAuthor.htmlUrl,
     candidateAuthor: pullAuthor.login
   };
-}
-
-async function githubApiRequest(requestPath, githubToken) {
-  const headers = {
-    "User-Agent": "kata-board",
-    Accept: "application/vnd.github+json"
-  };
-  if (githubToken) {
-    headers.Authorization = `Bearer ${githubToken}`;
-  }
-  const response = await fetch(`https://api.github.com${requestPath}`, { headers });
-  if (!response.ok) {
-    throw new Error(`GitHub API request failed: ${response.status}`);
-  }
-  return response.json();
 }
 
 function loadQueueStatus(queueStatePath, healthQueuePayload = null) {
@@ -974,6 +969,11 @@ function loadEventLeaderboard(eventLogPath) {
       // append) instead of failing the whole leaderboard.
       continue;
     }
+    // A parseable-but-non-object line (e.g. literal `null`) must not take out
+    // the whole leaderboard either.
+    if (!item || typeof item !== "object") {
+      continue;
+    }
     const author = item.author || "unknown";
     const laneKey = `${item.subnet_pack || item.repo_pack || "unknown"}::${item.mode || "unknown"}`;
     const entry = byAuthor.get(author) || createAuthorRow(author);
@@ -994,19 +994,9 @@ function loadEventLeaderboard(eventLogPath) {
     byAuthor.set(author, entry);
   }
 
-  const rows = [...byAuthor.values()]
-    .map((entry) => ({
-      ...entry,
-      currentKings: [...latestLaneWinners.values()].filter(
-        (winner) => winner.author === entry.author
-      ).length,
-      score: entry.wins * 100 + entry.openSubmissions * 5
-    }))
-    .sort((left, right) => right.score - left.score);
-
   return {
     source: "events",
-    rows,
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners)
   };
 }
@@ -1199,26 +1189,3 @@ function displaySubnetPack(subnetPack) {
     .join(" ");
 }
 
-function createAuthorRow(author) {
-  return {
-    author,
-    wins: 0,
-    totalSubmissions: 0,
-    openSubmissions: 0,
-    closedSubmissions: 0,
-    currentKings: 0,
-    score: 0,
-    lastActivityAt: null,
-    recentPulls: []
-  };
-}
-
-function maxDate(left, right) {
-  if (!left) {
-    return right;
-  }
-  if (!right) {
-    return left;
-  }
-  return new Date(left) > new Date(right) ? left : right;
-}

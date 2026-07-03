@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 
 const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
 const POLL_INTERVAL_MS = 5000;

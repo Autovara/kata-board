@@ -800,7 +800,7 @@ function DocWorkflow({ links }) {
           ["Queue job", "kata-bot receives the GitHub webhook and writes a durable queue job."],
           ["Validate shape", "The bot checks changed paths before trusting PR contents."],
           ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
-          ["Screening", "One screener sandbox run must finish cleanly before the full duel."],
+          ["Screening", "Static checks and one screener sandbox run must pass before the full duel."],
           ["Sandbox duel", "Candidate and king run repeated replicas per selected benchmark codebase in the Bitsec sandbox."],
           ["Verify freshness", "Kata rejects stale wins if the king or the pinned benchmark snapshot changed."],
           ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
@@ -885,7 +885,7 @@ function DocAgent({ links }) {
           "Do not hardcode provider endpoints or secret tokens.",
           "Do not set model sampling parameters (temperature, top_p, seed, ...).",
           "Do not embed benchmark-answer maps or dataset leakage tokens.",
-          "Return a top-level `vulnerabilities` list, not prose-only output.",
+          "Return a top-level `vulnerabilities` list with at least one useful finding during screening, not prose-only output.",
           "Do not copy the current king bundle; exact copies are rejected."
         ]}
       />
@@ -917,9 +917,11 @@ function DocScoring({ selectedLane }) {
       </DocGrid>
       <h2>Screening</h2>
       <p>
-        Every candidate is screened before the duel: static checks plus one
-        sandbox execution that must finish cleanly. Candidates with invalid
-        replica runs are never promoted.
+        Every candidate is screened before the duel. Static checks reject
+        no-op agents, helper files, leaked benchmark-answer hints, and secret
+        references. The screener run must return at least one useful finding
+        with a title and description. Candidates with invalid replica runs are
+        never promoted.
       </p>
       <CodeBlock value={`aggregated_score = passed_codebases / total_codebases\n\npromote only if:\n  screening passed\n  no invalid replica runs\n  candidate outranks king on (score, passes, true positives)`} />
     </section>

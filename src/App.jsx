@@ -363,9 +363,10 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
   const current = selectedLane?.evaluatorState?.current || null;
+  const displayState = mergeActiveEvaluationState(current, activeEvaluation, selectedLane);
   const phase = activeEvaluation
     ? activeEvaluationStatus(activeEvaluation)
-    : current?.finalWinner
+    : displayState?.finalWinner
       ? "completed"
       : latest
         ? latest.promotionReady
@@ -374,7 +375,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
         : "idle";
   const tone = activeEvaluation
     ? activeEvaluationTone(activeEvaluation)
-    : current?.finalWinner === "candidate" || latest?.promotionReady
+    : displayState?.finalWinner === "candidate" || latest?.promotionReady
       ? "ok"
       : "neutral";
   const updatedLabel = formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt);
@@ -397,15 +398,15 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
             <span>updated {updatedLabel}</span>
           </div>
         </div>
-        {current || activeEvaluation ? (
-          <Battle state={current} activeEvaluation={activeEvaluation} />
+        {displayState || activeEvaluation ? (
+          <Battle state={displayState} activeEvaluation={activeEvaluation} />
         ) : (
           <Empty text="No duel yet for this lane. Waiting for the first challenger." />
         )}
       </section>
 
-      {current ? (
-        <Sn60LanePanel state={current} />
+      {displayState ? (
+        <Sn60LanePanel state={displayState} />
       ) : (
         <Empty text="No duel results yet for this subnet." />
       )}
@@ -489,12 +490,18 @@ function BattleBar({ label, pct, value, tone }) {
 
 function Sn60LanePanel({ state }) {
   const winner = state.finalWinner;
-  const result =
-    winner === "candidate" ? "Challenger wins" : winner === "king" ? "King holds" : "In progress";
+  const result = state.live
+    ? "Duel running"
+    : winner === "candidate"
+      ? "Challenger wins"
+      : winner === "king"
+        ? "King holds"
+        : "In progress";
   const delta = state.scores?.delta;
   const marginLabel =
     delta == null ? "-" : `${Number(delta) >= 0 ? "+" : ""}${formatNumber(Number(delta) * 100)} pts`;
   const marginTone = delta != null && Number(delta) > 0 ? "ok" : "neutral";
+  const replicaProgress = formatReplicaProgress(state.replicaProgress);
 
   return (
     <section className="lane-card">
@@ -533,6 +540,12 @@ function Sn60LanePanel({ state }) {
           value={`${state.invalidRuns?.candidate ?? "-"} vs ${state.invalidRuns?.king ?? "-"}`}
           sub="challenger vs king"
           tone={Number(state.invalidRuns?.candidate) > 0 ? "bad" : "neutral"}
+        />
+        <LaneMetric
+          label="Replica progress"
+          value={replicaProgress.value}
+          sub={replicaProgress.sub}
+          tone={state.live ? "ok" : "neutral"}
         />
       </div>
 
@@ -1274,6 +1287,9 @@ function laneActiveEvaluation(activeEvaluation, lane) {
   if (!activeEvaluation || !lane) {
     return null;
   }
+  if (activeEvaluation.laneId && activeEvaluation.laneId === lane.evaluatorState?.laneId) {
+    return activeEvaluation;
+  }
   if (
     (activeEvaluation.subnetPack || activeEvaluation.repoPack) &&
     activeEvaluation.mode &&
@@ -1283,6 +1299,62 @@ function laneActiveEvaluation(activeEvaluation, lane) {
     return activeEvaluation;
   }
   return null;
+}
+
+function mergeActiveEvaluationState(current, activeEvaluation, lane) {
+  if (!activeEvaluation || activeEvaluation.state === "idle") {
+    return current;
+  }
+  const primary = activeEvaluation.primary || {};
+  return {
+    ...(current || {}),
+    live: true,
+    candidateSubmissionId:
+      activeEvaluation.candidateSubmissionId || current?.candidateSubmissionId || null,
+    candidateAuthor:
+      activeEvaluation.candidateAuthor ||
+      activeEvaluation.candidateGithubLogin ||
+      current?.candidateAuthor ||
+      null,
+    kingSubmissionId: current?.kingSubmissionId || lane?.king?.submissionId || null,
+    kingAuthor: current?.kingAuthor || lane?.king?.author || lane?.currentHolder || null,
+    screeningStatus: current?.screeningStatus || (activeEvaluation.phase === "sn60-screening" ? "running" : null),
+    screeningStage: current?.screeningStage || (activeEvaluation.phase === "sn60-screening" ? "screening" : null),
+    screeningReasons: current?.screeningReasons || [],
+    projectKeys: primary.projectKeys?.length
+      ? primary.projectKeys
+      : activeEvaluation.projectKeys?.length
+        ? activeEvaluation.projectKeys
+        : current?.projectKeys || [],
+    codebasesPassed: livePair(primary.passCounts, current?.codebasesPassed),
+    truePositives: livePair(primary.truePositives, current?.truePositives),
+    invalidRuns: livePair(primary.invalidRuns, current?.invalidRuns),
+    scores: liveScores(primary.scores, current?.scores),
+    replicaProgress: primary.replicaProgress || current?.replicaProgress || null,
+    finalWinner: null,
+    liveProgress: {
+      phase: activeEvaluation.phase,
+      state: activeEvaluation.state,
+      totalTasks: primary.totalTasks ?? null,
+      completedTasks: primary.completedTasks ?? null,
+      updatedAt: activeEvaluation.updatedAt || primary.updatedAt || null
+    }
+  };
+}
+
+function livePair(liveValue, fallback) {
+  return {
+    king: liveValue?.king ?? fallback?.king ?? null,
+    candidate: liveValue?.candidate ?? fallback?.candidate ?? null
+  };
+}
+
+function liveScores(liveValue, fallback) {
+  return {
+    king: liveValue?.king ?? fallback?.king ?? null,
+    candidate: liveValue?.candidate ?? fallback?.candidate ?? null,
+    delta: liveValue?.delta ?? fallback?.delta ?? null
+  };
 }
 
 function duelStatus(duel) {
@@ -1327,6 +1399,15 @@ function leaderboardSource(source) {
   if (source === "events") {
     return "event log";
   }
+  if (source === "events+runs") {
+    return "event log + run artifacts";
+  }
+  if (source === "github+runs") {
+    return "GitHub PR history + run artifacts";
+  }
+  if (source === "github-not-configured+runs" || source === "unavailable+runs") {
+    return "run artifacts";
+  }
   if (source === "github-not-configured") {
     return "not configured";
   }
@@ -1352,6 +1433,18 @@ function percentScore(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)} pts`;
+}
+
+function formatReplicaProgress(progress) {
+  const candidate = progress?.candidate || {};
+  const king = progress?.king || {};
+  const candidateText =
+    candidate.total > 0 ? `${candidate.completed}/${candidate.total}` : "-";
+  const kingText = king.total > 0 ? `${king.completed}/${king.total}` : "-";
+  return {
+    value: `${candidateText} vs ${kingText}`,
+    sub: "challenger vs king"
+  };
 }
 
 function sn60Pair(value) {

@@ -25,13 +25,16 @@ export async function loadBoardStatus(env) {
   }
 
   const roots = resolveRoots(env);
-  const leaderboard = await loadLeaderboard(env);
   const validator = await loadValidatorStatus(env, roots);
+  const activity = loadRecentActivity(roots.kataRoot, env);
+  const leaderboard = augmentLeaderboardWithActivity(
+    await loadLeaderboard(env),
+    activity
+  );
   const lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
     latestLaneWinners: leaderboard.latestLaneWinners
   });
-  const activity = loadRecentActivity(roots.kataRoot, env);
   const notes = buildNotes({
     leaderboard,
     validator,
@@ -548,41 +551,45 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
   }
 
   const liveStatus = loadLiveEvaluationProgress(liveStatusPath, activeJob);
-  if (liveStatus) {
+  const workspaceRoot = findLatestActiveWorkspace(workRoot);
+  const lane = workspaceRoot ? inferLaneFromWorkspace(workspaceRoot) : null;
+  const phaseProgress = workspaceRoot
+    ? inspectChallengePhase(
+        path.join(workspaceRoot, "runs-confirm"),
+        "confirm",
+        liveStatus?.projectKeys || []
+      ) ||
+      inspectChallengePhase(
+        path.join(workspaceRoot, "runs-initial"),
+        "initial",
+        liveStatus?.projectKeys || []
+      )
+    : null;
+  if (liveStatus || phaseProgress || lane) {
     return {
       ...base,
-      ...liveStatus
+      ...(liveStatus || {}),
+      workspacePath: liveStatus?.workspacePath || workspaceRoot || null,
+      updatedAt:
+        liveStatus?.updatedAt ||
+        phaseProgress?.updatedAt ||
+        (workspaceRoot ? statMtimeIso(workspaceRoot) : null) ||
+        activeJob.startedAt ||
+        activeJob.enqueuedAt,
+      subnetPack:
+        liveStatus?.subnetPack || lane?.subnetPack || lane?.repoPack || null,
+      repoPack:
+        liveStatus?.repoPack || lane?.subnetPack || lane?.repoPack || null,
+      mode: liveStatus?.mode || lane?.mode || null,
+      candidateSubmissionId:
+        liveStatus?.candidateSubmissionId || lane?.submissionId || null,
+      candidateAuthor:
+        liveStatus?.candidateAuthor ||
+        (lane?.submissionId ? inferSubmissionAuthorFromId(lane.submissionId) : null),
+      primary: liveStatus?.primary || phaseProgress?.primary || null
     };
   }
-
-  const workspaceRoot = findLatestActiveWorkspace(workRoot);
-  if (!workspaceRoot) {
-    return base;
-  }
-
-  const lane = inferLaneFromWorkspace(workspaceRoot);
-  const phaseProgress =
-    inspectChallengePhase(path.join(workspaceRoot, "runs-confirm"), "confirm") ||
-    inspectChallengePhase(path.join(workspaceRoot, "runs-initial"), "initial");
-  return {
-    ...base,
-    state: phaseProgress?.state || "running",
-    phase: phaseProgress?.phase || "staging",
-    workspacePath: workspaceRoot,
-    updatedAt:
-      phaseProgress?.updatedAt ||
-      statMtimeIso(workspaceRoot) ||
-      activeJob.startedAt ||
-      activeJob.enqueuedAt,
-    subnetPack: lane?.subnetPack || lane?.repoPack || null,
-    repoPack: lane?.subnetPack || lane?.repoPack || null,
-    mode: lane?.mode || null,
-    candidateSubmissionId: lane?.submissionId || null,
-    candidateAuthor: lane?.submissionId
-      ? inferSubmissionAuthorFromId(lane.submissionId)
-      : null,
-    primary: phaseProgress?.primary || null
-  };
+  return base;
 }
 
 function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
@@ -591,15 +598,17 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     return null;
   }
   const primary = normalizeLivePool(payload.pools?.primary, true);
+  const laneId = payload.lane_id || null;
   return {
     available: true,
     state: payload.state || "running",
     phase: payload.phase || "running",
     workspacePath: null,
     updatedAt: payload.updated_at || null,
-    subnetPack: payload.subnet_pack || payload.repo_pack || null,
-    repoPack: payload.subnet_pack || payload.repo_pack || null,
-    mode: payload.mode || null,
+    laneId,
+    subnetPack: payload.subnet_pack || payload.repo_pack || laneId,
+    repoPack: payload.subnet_pack || payload.repo_pack || laneId,
+    mode: payload.mode || (laneId === "sn60__bitsec" ? "miner" : null),
     candidateSubmissionId: payload.candidate_submission_id || null,
     candidateGithubLogin: payload.candidate_github_login || null,
     candidateAvatarUrl: payload.candidate_avatar_url || null,
@@ -608,6 +617,8 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
       payload.candidate_github_login ||
       payload.candidate_author ||
       inferSubmissionAuthorFromId(payload.candidate_submission_id),
+    projectKeys: Array.isArray(payload.project_keys) ? payload.project_keys : [],
+    replicasPerProject: Number(payload.replicas_per_project || 0) || null,
     pullNumber: payload.job.pull_number || activeJob.pullNumber || null,
     startedAt: payload.job.started_at || activeJob.startedAt || null,
     enqueuedAt: payload.job.enqueued_at || activeJob.enqueuedAt || null,
@@ -637,7 +648,38 @@ function normalizeLivePool(pool, revealTaskIds) {
     ),
     taskStatuses: revealTaskIds ? taskStatuses : [],
     counts: summarizeTaskStatusCounts(taskStatuses),
+    scores: normalizeVariantNumberMap(pool.scores),
+    passCounts: normalizeVariantNumberMap(pool.pass_counts),
+    truePositives: normalizeVariantNumberMap(pool.true_positives),
+    invalidRuns: normalizeVariantNumberMap(pool.invalid_runs),
+    replicaProgress: normalizeReplicaProgress(pool.replica_progress),
+    projectKeys: Array.isArray(pool.project_keys) ? pool.project_keys : [],
     updatedAt: pool.updated_at || null
+  };
+}
+
+function normalizeVariantNumberMap(value) {
+  const payload = value && typeof value === "object" ? value : {};
+  return {
+    king: numberOrNull(payload.king),
+    candidate: numberOrNull(payload.candidate),
+    delta: numberOrNull(payload.delta)
+  };
+}
+
+function normalizeReplicaProgress(value) {
+  const payload = value && typeof value === "object" ? value : {};
+  return {
+    king: normalizeReplicaProgressSide(payload.king),
+    candidate: normalizeReplicaProgressSide(payload.candidate)
+  };
+}
+
+function normalizeReplicaProgressSide(value) {
+  const payload = value && typeof value === "object" ? value : {};
+  return {
+    completed: Number(payload.completed || 0),
+    total: Number(payload.total || 0)
   };
 }
 
@@ -700,7 +742,7 @@ function inferLaneFromWorkspace(workspaceRoot) {
   return null;
 }
 
-function inspectChallengePhase(phaseRoot, phase) {
+function inspectChallengePhase(phaseRoot, phase, selectedProjectKeys = []) {
   if (!fs.existsSync(phaseRoot)) {
     return null;
   }
@@ -721,6 +763,20 @@ function inspectChallengePhase(phaseRoot, phase) {
   const challengeRoot = challengeRoots[0];
   const summaryPath = path.join(challengeRoot, "challenge_summary.json");
   const summary = readJsonSafe(summaryPath);
+  const sn60Progress = inspectSn60Progress(challengeRoot, summary, selectedProjectKeys);
+  if (sn60Progress) {
+    return {
+      state: summary ? "verifying" : "running",
+      phase,
+      runId: path.basename(challengeRoot),
+      updatedAt:
+        summary?.created_at ||
+        sn60Progress.updatedAt ||
+        statMtimeIso(summaryPath) ||
+        statMtimeIso(challengeRoot),
+      primary: sn60Progress
+    };
+  }
   return {
     state: summary ? "verifying" : "running",
     phase,
@@ -731,6 +787,309 @@ function inspectChallengePhase(phaseRoot, phase) {
       statMtimeIso(challengeRoot),
     primary: inspectPoolProgress(path.join(challengeRoot, "primary"), true)
   };
+}
+
+function inspectSn60Progress(runRoot, summary, selectedProjectKeys = []) {
+  const runId = path.basename(runRoot);
+  if (runId.startsWith("sn60-screening-")) {
+    const screening = readJsonSafe(path.join(runRoot, "screening_result.json"));
+    return {
+      live: !summary,
+      totalTasks: 1,
+      completedTasks: screening ? 1 : 0,
+      taskStatuses: [
+        {
+          taskId: screening?.project_key || "screening",
+          status: screening?.status === "passed" ? "screening passed" : screening ? "screening failed" : "screening",
+          completed: Boolean(screening),
+          candidate: {
+            started: true,
+            finished: Boolean(screening),
+            solved: screening?.status === "passed",
+            valid: screening?.status === "passed",
+            success: screening?.status === "passed",
+            verifierScore: null,
+            weightedTaskScore: null
+          },
+          king: {
+            started: false,
+            finished: false,
+            solved: false,
+            valid: false,
+            success: false,
+            verifierScore: null,
+            weightedTaskScore: null
+          }
+        }
+      ],
+      counts: screening
+        ? { [screening.status === "passed" ? "screening passed" : "screening failed"]: 1 }
+        : { screening: 1 },
+      scores: { king: null, candidate: null, delta: null },
+      passCounts: { king: 0, candidate: 0, delta: 0 },
+      truePositives: { king: 0, candidate: 0, delta: 0 },
+      invalidRuns: { king: 0, candidate: screening?.status === "failed" ? 1 : 0, delta: null },
+      replicaProgress: {
+        king: { completed: 0, total: 0 },
+        candidate: { completed: screening ? 1 : 0, total: 1 }
+      },
+      projectKeys: screening?.project_key ? [screening.project_key] : [],
+      updatedAt: statMtimeIso(path.join(runRoot, "screening_result.json")) || statMtimeIso(runRoot)
+    };
+  }
+  if (!runId.startsWith("sn60-duel-")) {
+    return null;
+  }
+  if (summary?.primary) {
+    return summarizeSn60SummaryPrimary(summary, runRoot);
+  }
+  return summarizeRunningSn60Duel(runRoot, selectedProjectKeys);
+}
+
+function summarizeSn60SummaryPrimary(summary, runRoot) {
+  const primary = summary.primary || {};
+  const candidateScore = numberOrNull(primary.variant_scores?.candidate);
+  const kingScore = numberOrNull(primary.variant_scores?.king);
+  const passCounts = primary.variant_successes || {};
+  const invalidRuns = primary.variant_invalid_runs || {};
+  const projectKeys = Array.isArray(primary.project_keys) ? primary.project_keys : [];
+  return {
+    live: false,
+    totalTasks: projectKeys.length,
+    completedTasks: projectKeys.length,
+    taskStatuses: [],
+    counts: {},
+    scores: {
+      king: kingScore === null ? null : kingScore / 100,
+      candidate: candidateScore === null ? null : candidateScore / 100,
+      delta:
+        candidateScore === null || kingScore === null
+          ? null
+          : (candidateScore - kingScore) / 100
+    },
+    passCounts: {
+      king: numberOrNull(passCounts.king),
+      candidate: numberOrNull(passCounts.candidate),
+      delta: null
+    },
+    truePositives: { king: null, candidate: null, delta: null },
+    invalidRuns: {
+      king: numberOrNull(invalidRuns.king),
+      candidate: numberOrNull(invalidRuns.candidate),
+      delta: null
+    },
+    replicaProgress: {
+      king: { completed: 0, total: 0 },
+      candidate: { completed: 0, total: 0 }
+    },
+    projectKeys,
+    updatedAt: summary.created_at || statMtimeIso(runRoot)
+  };
+}
+
+function summarizeRunningSn60Duel(runRoot, selectedProjectKeys = []) {
+  const king = summarizeSn60VariantProgress(path.join(runRoot, "king"));
+  const candidate = summarizeSn60VariantProgress(path.join(runRoot, "candidate"));
+  const projectKeys = [
+    ...new Set([...selectedProjectKeys, ...king.projectKeys, ...candidate.projectKeys])
+  ].sort();
+  const totalProjects = projectKeys.length || Math.max(king.projectCount, candidate.projectCount, 1);
+  const taskStatuses = projectKeys.map((projectKey) => {
+    const kingProject = king.projects.get(projectKey) || emptySn60ProjectProgress(projectKey);
+    const candidateProject =
+      candidate.projects.get(projectKey) || emptySn60ProjectProgress(projectKey);
+    return {
+      taskId: projectKey,
+      status:
+        candidateProject.finished && kingProject.finished
+          ? exactTaskStatusLabel(candidateProject, kingProject)
+          : runningTaskStatusLabel(candidateProject, kingProject),
+      completed: candidateProject.finished && kingProject.finished,
+      candidate: sn60ProjectToLiveVariant(candidateProject),
+      king: sn60ProjectToLiveVariant(kingProject)
+    };
+  });
+  return {
+    live: true,
+    totalTasks: totalProjects,
+    completedTasks: taskStatuses.filter((task) => task.completed).length,
+    taskStatuses,
+    counts: summarizeTaskStatusCounts(taskStatuses),
+    scores: {
+      king: king.codebasesPassed / totalProjects,
+      candidate: candidate.codebasesPassed / totalProjects,
+      delta: (candidate.codebasesPassed - king.codebasesPassed) / totalProjects
+    },
+    passCounts: {
+      king: king.codebasesPassed,
+      candidate: candidate.codebasesPassed,
+      delta: candidate.codebasesPassed - king.codebasesPassed
+    },
+    truePositives: {
+      king: king.truePositives,
+      candidate: candidate.truePositives,
+      delta: candidate.truePositives - king.truePositives
+    },
+    invalidRuns: {
+      king: king.invalidRuns,
+      candidate: candidate.invalidRuns,
+      delta: candidate.invalidRuns - king.invalidRuns
+    },
+    replicaProgress: {
+      king: { completed: king.completedReplicas, total: king.totalReplicas },
+      candidate: {
+        completed: candidate.completedReplicas,
+        total: candidate.totalReplicas
+      }
+    },
+    projectKeys,
+    updatedAt: statMtimeIso(runRoot)
+  };
+}
+
+function summarizeSn60VariantProgress(variantRoot) {
+  const projects = new Map();
+  if (!fs.existsSync(variantRoot)) {
+    return {
+      projectKeys: [],
+      projectCount: 0,
+      projects,
+      codebasesPassed: 0,
+      truePositives: 0,
+      invalidRuns: 0,
+      completedReplicas: 0,
+      totalReplicas: 0
+    };
+  }
+  for (const projectKey of listDirectories(variantRoot).sort()) {
+    const project = summarizeSn60ProjectProgress(
+      path.join(variantRoot, projectKey),
+      projectKey
+    );
+    projects.set(projectKey, project);
+  }
+  const projectList = [...projects.values()];
+  return {
+    projectKeys: projectList.map((project) => project.projectKey),
+    projectCount: projectList.length,
+    projects,
+    codebasesPassed: projectList.filter((project) => project.solved).length,
+    truePositives: projectList.reduce(
+      (total, project) => total + project.truePositives,
+      0
+    ),
+    invalidRuns: projectList.reduce(
+      (total, project) => total + project.invalidRuns,
+      0
+    ),
+    completedReplicas: projectList.reduce(
+      (total, project) => total + project.completedReplicas,
+      0
+    ),
+    totalReplicas: projectList.reduce(
+      (total, project) => total + project.totalReplicas,
+      0
+    )
+  };
+}
+
+function summarizeSn60ProjectProgress(projectRoot, projectKey) {
+  const replicaRoots = listDirectories(projectRoot)
+    .filter((name) => name.startsWith("replica-"))
+    .map((name) => path.join(projectRoot, name))
+    .sort();
+  const replicas = replicaRoots.map((replicaRoot) =>
+    summarizeSn60ReplicaProgress(replicaRoot, projectKey)
+  );
+  const completedReplicas = replicas.filter((replica) => replica.finished).length;
+  const passCount = replicas.filter((replica) => replica.result === "PASS").length;
+  return {
+    projectKey,
+    started: replicas.some((replica) => replica.started),
+    finished: replicas.length > 0 && completedReplicas === replicas.length,
+    solved: projectPasses(passCount, replicas.length),
+    valid: replicas.every((replica) => replica.valid),
+    success: replicas.some((replica) => replica.success),
+    verifierScore: replicas.length ? passCount / replicas.length : null,
+    weightedTaskScore: replicas.length ? passCount / replicas.length : null,
+    truePositives: replicas.reduce(
+      (total, replica) => total + replica.truePositives,
+      0
+    ),
+    invalidRuns: replicas.filter((replica) => replica.finished && !replica.valid).length,
+    completedReplicas,
+    totalReplicas: replicas.length
+  };
+}
+
+function summarizeSn60ReplicaProgress(replicaRoot, projectKey) {
+  const reportPath = findFirstExistingFile([
+    path.join(replicaRoot, "reports", projectKey, "report.json"),
+    path.join(replicaRoot, "report.json")
+  ]);
+  const evaluationPath = findFirstExistingFile([
+    path.join(replicaRoot, "reports", projectKey, "evaluation.json"),
+    path.join(replicaRoot, "evaluation.json")
+  ]);
+  const evaluation = evaluationPath ? readJsonSafe(evaluationPath) : null;
+  const status = normalizeEvaluationStatus(evaluation?.status);
+  const result = evaluation?.result && typeof evaluation.result === "object"
+    ? evaluation.result
+    : {};
+  const valid = !evaluation || status === "success";
+  return {
+    started: Boolean(reportPath || evaluationPath || fs.existsSync(replicaRoot)),
+    finished: Boolean(evaluation),
+    valid,
+    success: status === "success",
+    result: status === "success" ? String(result.result || "") : null,
+    truePositives:
+      status === "success" ? Number(result.true_positives || 0) || 0 : 0
+  };
+}
+
+function emptySn60ProjectProgress(projectKey) {
+  return {
+    projectKey,
+    started: false,
+    finished: false,
+    solved: false,
+    valid: false,
+    success: false,
+    verifierScore: null,
+    weightedTaskScore: null,
+    truePositives: 0,
+    invalidRuns: 0,
+    completedReplicas: 0,
+    totalReplicas: 0
+  };
+}
+
+function sn60ProjectToLiveVariant(project) {
+  return {
+    started: Boolean(project.started),
+    finished: Boolean(project.finished),
+    solved: Boolean(project.solved),
+    valid: Boolean(project.valid),
+    success: Boolean(project.success),
+    verifierScore: numberOrNull(project.verifierScore),
+    weightedTaskScore: numberOrNull(project.weightedTaskScore)
+  };
+}
+
+function projectPasses(passCount, replicaCount) {
+  if (!replicaCount) {
+    return false;
+  }
+  return passCount * 3 >= replicaCount * 2;
+}
+
+function normalizeEvaluationStatus(value) {
+  return String(value || "pending").toLowerCase().split(".").pop();
+}
+
+function findFirstExistingFile(paths) {
+  return paths.find((filePath) => fs.existsSync(filePath)) || null;
 }
 
 function inspectPoolProgress(poolRoot, revealTaskIds) {
@@ -1001,6 +1360,66 @@ function loadEventLeaderboard(eventLogPath) {
   };
 }
 
+function augmentLeaderboardWithActivity(leaderboard, activity) {
+  const byAuthor = new Map(
+    (leaderboard.rows || []).map((row) => [row.author, { ...row }])
+  );
+  const latestLaneWinners = new Map(
+    Object.entries(leaderboard.latestLaneWinners || {})
+  );
+  const activityByAuthor = new Map();
+
+  for (const item of activity || []) {
+    const author =
+      item.candidateAuthor ||
+      inferSubmissionAuthorFromId(item.candidateSubmissionId) ||
+      "unknown";
+    const entry = activityByAuthor.get(author) || createAuthorRow(author);
+    entry.totalSubmissions += 1;
+    if (item.promotionReady) {
+      entry.wins += 1;
+    } else {
+      entry.closedSubmissions += 1;
+    }
+    entry.lastActivityAt = maxDate(entry.lastActivityAt, item.createdAt);
+    activityByAuthor.set(author, entry);
+
+    if (item.promotionReady && item.laneId) {
+      const laneKey = item.laneId.replace(":", "::");
+      const current = latestLaneWinners.get(laneKey);
+      if (!current || new Date(item.createdAt) > new Date(current.mergedAt || 0)) {
+        latestLaneWinners.set(laneKey, {
+          author,
+          mergedAt: item.createdAt,
+          pullNumber: null
+        });
+      }
+    }
+  }
+
+  for (const [author, activityEntry] of activityByAuthor.entries()) {
+    const entry = byAuthor.get(author) || createAuthorRow(author);
+    entry.totalSubmissions = Math.max(
+      entry.totalSubmissions || 0,
+      activityEntry.totalSubmissions
+    );
+    entry.wins = Math.max(entry.wins || 0, activityEntry.wins);
+    entry.closedSubmissions = Math.max(
+      entry.closedSubmissions || 0,
+      activityEntry.closedSubmissions
+    );
+    entry.lastActivityAt = maxDate(entry.lastActivityAt, activityEntry.lastActivityAt);
+    byAuthor.set(author, entry);
+  }
+
+  return {
+    ...leaderboard,
+    source: activity?.length ? `${leaderboard.source}+runs` : leaderboard.source,
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
+    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+  };
+}
+
 function buildOverview(lanes, activity, leaderboard, validator) {
   const projectCount = lanes.reduce(
     (accumulator, lane) => accumulator + (lane.projects?.length || 0),
@@ -1191,4 +1610,3 @@ function displaySubnetPack(subnetPack) {
     )
     .join(" ");
 }
-

@@ -225,6 +225,129 @@ test("loads recent activity from challenge summaries", async () => {
   assert.equal(entry.primary.candidateScore, 100);
 });
 
+test("merges live status with active SN60 worktree progress", async () => {
+  const root = makeKataRoot();
+  const botRoot = path.join(root, "bot");
+  const queuePath = path.join(botRoot, "state", "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const workRoot = path.join(botRoot, "work");
+  const jobId = "job-1";
+  writeJson(path.dirname(queuePath), "queue.json", {
+    schema_version: 1,
+    jobs: [
+      {
+        schema_version: 1,
+        job_id: jobId,
+        kata_repo: "owner/kata",
+        pull_number: 42,
+        head_sha: "a".repeat(40),
+        status: "running",
+        attempts: 1,
+        enqueued_at: "2026-07-02T02:00:00+00:00",
+        started_at: "2026-07-02T02:01:00+00:00"
+      }
+    ]
+  });
+  writeJson(path.dirname(liveStatusPath), "live-status.json", {
+    schema_version: 1,
+    state: "evaluating",
+    phase: "sn60-duel",
+    subnet_pack: "sn60__bitsec",
+    mode: "miner",
+    candidate_submission_id: "carol-20260702-01",
+    project_keys: ["project-alpha", "project-beta"],
+    replicas_per_project: 3,
+    job: {
+      job_id: jobId,
+      pull_number: 42,
+      attempts: 1,
+      enqueued_at: "2026-07-02T02:00:00+00:00",
+      started_at: "2026-07-02T02:01:00+00:00"
+    }
+  });
+
+  const workspace = path.join(workRoot, "kata-bot-job-active");
+  fs.mkdirSync(workspace, { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, "changed-paths.txt"),
+    "submissions/sn60__bitsec/miner/carol-20260702-01/agent.py\n"
+  );
+  const runRoot = path.join(workspace, "runs-initial", "sn60-duel-active");
+  writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
+    status: "success",
+    result: { result: "PASS", true_positives: 3 }
+  });
+  writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-02", {
+    status: "success",
+    result: { result: "PASS", true_positives: 2 }
+  });
+  writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 0 }
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOT_ROOT: botRoot,
+    KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_LIVE_STATUS_PATH: liveStatusPath,
+    KATA_WORK_ROOT: workRoot
+  });
+
+  const active = status.validator.activeEvaluation;
+  assert.equal(active.state, "evaluating");
+  assert.equal(active.phase, "sn60-duel");
+  assert.equal(active.candidateSubmissionId, "carol-20260702-01");
+  assert.equal(active.primary.totalTasks, 2);
+  assert.equal(active.primary.passCounts.candidate, 1);
+  assert.equal(active.primary.passCounts.king, 0);
+  assert.equal(active.primary.scores.candidate, 0.5);
+  assert.equal(active.primary.truePositives.candidate, 5);
+  assert.deepEqual(active.primary.replicaProgress.candidate, {
+    completed: 2,
+    total: 2
+  });
+});
+
+test("leaderboard includes losing candidates from run artifacts", async () => {
+  const root = makeKataRoot();
+  const losingRunRoot = path.join(root, "runs", "sn60-duel-loser");
+  writeJson(losingRunRoot, "challenge_summary.json", {
+    schema_version: 5,
+    run_id: "sn60-duel-loser",
+    manifest_path: path.join(losingRunRoot, "duel_summary.json"),
+    mode: "miner",
+    evaluator_version: "ScaBenchScorerV2@b462a1e8e10b",
+    validator_model: "sn60-bitsec-sandbox",
+    king_artifact: "/kings/sn60__bitsec/miner",
+    candidate_artifact: "/submissions/sn60__bitsec/miner/dave-20260702-01",
+    king_artifact_hash: "king-hash",
+    candidate_artifact_hash: "candidate-hash-2",
+    primary_pool_fingerprint: "fingerprint-2",
+    created_at: "2026-07-02T03:00:00+00:00",
+    primary: {
+      project_keys: ["project-alpha", "project-beta"],
+      run_summary_path: "duel_summary.json",
+      total_task_weight: 2,
+      variant_successes: { king: 2, candidate: 1 },
+      variant_invalid_runs: { king: 0, candidate: 0 },
+      variant_scores: { king: 100, candidate: 50 },
+      candidate_beats_king: false,
+      candidate_score_delta: -50
+    },
+    promotion_ready: false,
+    promotion_reason: "sn60__bitsec: candidate did not beat the current SN60 king"
+  });
+
+  const status = await loadBoardStatus(boardEnv(root));
+  const dave = status.leaderboard.rows.find((row) => row.author === "dave");
+
+  assert.ok(dave);
+  assert.equal(dave.wins, 0);
+  assert.equal(dave.totalSubmissions, 1);
+  assert.equal(dave.closedSubmissions, 1);
+});
+
 test("degrades gracefully when the kata root is empty", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-empty-"));
   const status = await loadBoardStatus(boardEnv(root));
@@ -233,6 +356,26 @@ test("degrades gracefully when the kata root is empty", async () => {
   assert.deepEqual(status.activity, []);
   assert.equal(status.dataSources.validatorQueue, false);
 });
+
+function writeSn60Evaluation(runRoot, variant, projectKey, replicaName, payload) {
+  const reportsRoot = path.join(
+    runRoot,
+    variant,
+    projectKey,
+    replicaName,
+    "reports",
+    projectKey
+  );
+  fs.mkdirSync(reportsRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(reportsRoot, "report.json"),
+    JSON.stringify({ success: true, report: { vulnerabilities: [] } }) + "\n"
+  );
+  fs.writeFileSync(
+    path.join(reportsRoot, "evaluation.json"),
+    JSON.stringify(payload) + "\n"
+  );
+}
 
 test("survives a malformed run artifact without failing the whole status", async () => {
   const root = makeKataRoot();
@@ -274,12 +417,11 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
     KATA_LEADERBOARD_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.leaderboard.source, "events");
-  assert.equal(status.leaderboard.rows.length, 1);
-  const row = status.leaderboard.rows[0];
+  assert.equal(status.leaderboard.source, "events+runs");
+  const row = status.leaderboard.rows.find((item) => item.author === "alice");
+  assert.ok(row);
   assert.equal(row.author, "alice");
   assert.equal(row.wins, 1);
-  assert.equal(row.currentKings, 1);
 });
 
 test("survives a wrong-typed selected_project_keys without a 500", async () => {
@@ -323,9 +465,8 @@ test("skips a parseable-but-null event-log line", async () => {
     KATA_LEADERBOARD_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.leaderboard.source, "events");
-  assert.equal(status.leaderboard.rows.length, 1);
-  assert.equal(status.leaderboard.rows[0].author, "alice");
+  assert.equal(status.leaderboard.source, "events+runs");
+  assert.ok(status.leaderboard.rows.find((row) => row.author === "alice"));
 });
 
 test("projects only derived evaluator state to clients", async () => {

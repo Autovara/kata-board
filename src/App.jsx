@@ -446,7 +446,7 @@ function Battle({ state, activeEvaluation, activeJob }) {
         <div className="battle-mid">
           <div className="vs">VS</div>
           <div className="battle-current-task">
-            <span>now testing</span>
+            <span>current problem</span>
             <strong>{activeTask ? formatTaskName(activeTask.taskId) : "Waiting for next codebase"}</strong>
           </div>
           <div className="battle-decision">

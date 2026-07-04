@@ -275,12 +275,13 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
     <div className="stack">
       <section className="hero">
         <div className="hero-copy">
-          <p className="kicker">SN74 · SN60 agent validation</p>
-          <h1>Submit an agent. Challenge the current king.</h1>
+          <p className="kicker">Kata · Gittensor SN74 supported</p>
+          <h1>Kata is the objective competition engine for subnet agents.</h1>
           <p>
-            Kata reviews each pull request with a screen gate first, then runs a
-            sampled SN60 Bitsec duel against the current king. If the candidate
-            wins the duel, it can be merged as the next king agent.
+            Miners submit one candidate agent by pull request. Kata screens it
+            cheaply, duels it against the current king on the active subnet benchmark,
+            and promotes only objective winners to the public king lane. SN60 Bitsec
+            is the first live lane.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
@@ -297,7 +298,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
             <span />
             <span />
           </div>
-          <TerminalLine label="engine" value="SN74 lane · SN60 benchmark" />
+          <TerminalLine label="engine" value="Gittensor SN74 · SN60 Bitsec" />
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
           <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
@@ -629,8 +630,8 @@ function LatestDuelResult({ state, activeEvaluation }) {
             <i style={{ width: `${clampPercent(progress * 100)}%` }} />
           </div>
         </div>
-        <MetricChip label="candidate TP" value={formatNumber(state.truePositives?.candidate)} />
-        <MetricChip label="king TP" value={formatNumber(state.truePositives?.king)} />
+        <MetricChip label="candidate finds" value={formatNumber(state.truePositives?.candidate)} />
+        <MetricChip label="king finds" value={formatNumber(state.truePositives?.king)} />
         <MetricChip
           label="invalid"
           value={`C ${formatNumber(invalidCandidate)} · K ${formatNumber(state.invalidRuns?.king || 0)}`}

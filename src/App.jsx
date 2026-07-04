@@ -175,6 +175,7 @@ export default function App() {
             selectedLane={selectedLane}
             laneActivity={laneActivity}
             validator={payload.validator}
+            kataRepoSlug={payload.publicLinks?.kataRepo}
             setSelectedLaneId={setSelectedLaneId}
           />
         ) : null}
@@ -359,7 +360,7 @@ function HowStep({ step, title, text }) {
   );
 }
 
-function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId }) {
+function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, setSelectedLaneId }) {
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
   const activeJob = validator?.queue?.activeJob || null;
@@ -397,7 +398,13 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           </div>
         </div>
         {displayState || activeEvaluation ? (
-          <Battle state={displayState} activeEvaluation={activeEvaluation} activeJob={activeJob} />
+          <Battle
+            state={displayState}
+            activeEvaluation={activeEvaluation}
+            activeJob={activeJob}
+            selectedLane={selectedLane}
+            kataRepoSlug={kataRepoSlug}
+          />
         ) : (
           <Empty text="No duel yet for this lane. Waiting for the first challenger." />
         )}
@@ -412,7 +419,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   );
 }
 
-function Battle({ state, activeEvaluation, activeJob }) {
+function Battle({ state, activeEvaluation, activeJob, selectedLane, kataRepoSlug }) {
   const candidateName =
     activeEvaluation?.candidateGithubLogin ||
     state?.candidateAuthor ||
@@ -430,6 +437,7 @@ function Battle({ state, activeEvaluation, activeJob }) {
       : state?.candidateSubmissionId || "candidate";
   const candidateLinks = candidateActionLinks(activeJob, activeEvaluation);
   const kingSub = state?.kingSubmissionId || "current king";
+  const kingLinks = kingActionLinks(selectedLane, kataRepoSlug);
 
   return (
     <div className="battle-wrap">
@@ -440,6 +448,7 @@ function Battle({ state, activeEvaluation, activeJob }) {
           name={kingName}
           sub={kingSub}
           score={kingScore}
+          actions={kingLinks}
           won={winner === "king"}
         />
         <div className="battle-mid">
@@ -1688,6 +1697,25 @@ function candidateActionLinks(activeJob, activeEvaluation) {
       href: activeEvaluation?.candidateAgentUrl || `${pullUrl}/files`
     }
   ];
+}
+
+function kingActionLinks(lane, kataRepoSlug) {
+  if (!lane) {
+    return [];
+  }
+  const repoSlug = kataRepoSlug || "Autovara/kata";
+  const actions = [];
+  if (lane.currentHolderPullNumber) {
+    actions.push({
+      label: "Open PR",
+      href: `https://github.com/${repoSlug}/pull/${lane.currentHolderPullNumber}`
+    });
+  }
+  const agent = kingAgentLink(lane, repoSlug);
+  if (typeof agent === "string" && agent.startsWith("https://")) {
+    actions.push({ label: "Agent code", href: agent });
+  }
+  return actions;
 }
 
 function scoreLeadLabel(value) {

@@ -529,13 +529,18 @@ function BattleReplicaBar({ label, progress, tone }) {
 
 function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
   const winner = state.finalWinner;
-  const result = state.live
-    ? "Duel running"
-    : winner === "candidate"
-      ? "Challenger wins"
-      : winner === "king"
-        ? "King holds"
-        : "In progress";
+  const screeningFailed = state.screeningStatus === "failed";
+  const result = screeningFailed
+    ? "Screening failed"
+    : state.live
+      ? state.screeningStatus === "running"
+        ? "Screening"
+        : "Duel running"
+      : winner === "candidate"
+        ? "Challenger wins"
+        : winner === "king"
+          ? "King holds"
+          : "In progress";
   const outcome = duelOutcomeMessage(state);
 
   return (
@@ -543,14 +548,14 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
       <div className="lane-card-head">
         <div>
           <p className="kicker">SN60 · Bitsec security</p>
-          <h2>{state.live ? "Live validator run" : "Latest duel result"}</h2>
+          <h2>{state.live ? "Live validator run" : "Latest validator result"}</h2>
           <p className="lane-card-sub">
             {outcome}
           </p>
         </div>
         <Status
           label={result}
-          tone={winner === "candidate" ? "ok" : winner === "king" ? "neutral" : "neutral"}
+          tone={screeningFailed ? "bad" : winner === "candidate" ? "ok" : winner === "king" ? "neutral" : "neutral"}
         />
       </div>
 
@@ -1854,7 +1859,16 @@ function readablePhase(value) {
 }
 
 function duelOutcomeMessage(state) {
+  if (state.screeningStatus === "failed") {
+    const reason = state.screeningReasons?.[0];
+    return reason
+      ? `Screening failed: ${reason}`
+      : "Screening failed, so the full duel did not run.";
+  }
   if (state.live) {
+    if (state.screeningStatus === "running") {
+      return "Screening is running one candidate-only check before the full duel.";
+    }
     const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
     if (invalidCandidate > 0) {
       return "Candidate has invalid/error evaluations. They score zero and hurt tie-breaks.";

@@ -422,8 +422,6 @@ function Battle({ state, activeEvaluation, activeJob }) {
   const candidateScore = percentScore(state?.scores?.candidate);
   const kingScore = percentScore(state?.scores?.king);
   const winner = state?.finalWinner || null;
-  const candidatePct = clampPercent(Number(state?.scores?.candidate ?? 0) * 100);
-  const kingPct = clampPercent(Number(state?.scores?.king ?? 0) * 100);
   const scoreDelta = Number(state?.scores?.delta ?? 0);
   const activeTask = currentTask(state);
   const candidateSub =
@@ -469,8 +467,6 @@ function Battle({ state, activeEvaluation, activeJob }) {
       <div className="battle-compare">
         <BattleReplicaBar label="king replicas" progress={state?.replicaProgress?.king} tone="king" />
         <BattleReplicaBar label="candidate replicas" progress={state?.replicaProgress?.candidate} tone="candidate" />
-        <BattleBar label="king score" pct={kingPct} value={kingScore} tone="king" />
-        <BattleBar label="candidate score" pct={candidatePct} value={candidateScore} tone="candidate" />
       </div>
     </div>
   );
@@ -505,20 +501,6 @@ function BattleReplicaBar({ label, progress, tone }) {
       </div>
       <div className="battle-bar-track">
         <i style={{ width: `${progressPercent(progress)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function BattleBar({ label, pct, value, tone }) {
-  return (
-    <div className={`battle-bar battle-bar-${tone}`}>
-      <div className="battle-bar-head">
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <div className="battle-bar-track">
-        <i style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -712,11 +694,11 @@ function LiveTaskRow({ task }) {
         <span>{task.taskId || "hidden task"}</span>
       </div>
       <Status label={task.status || "queued"} tone={taskStatusTone(task.status)} />
-      <div className="live-task-side">
+      <div className={`live-task-side live-task-side-${variantTone(candidate)}`}>
         <span>C · {variantResultLabel(candidate)}</span>
         <strong>{formatVariantReplicas(candidate)}</strong>
       </div>
-      <div className="live-task-side">
+      <div className={`live-task-side live-task-side-${variantTone(king)}`}>
         <span>K · {variantResultLabel(king)}</span>
         <strong>{formatVariantReplicas(king)}</strong>
       </div>
@@ -1634,13 +1616,23 @@ function formatVariantReplicas(variant) {
 }
 
 function variantResultLabel(variant) {
-  if (variant?.invalid) {
+  if (variant?.finished && !variant?.valid) {
     return "invalid";
   }
   if (!variant?.finished) {
     return variant?.started ? "running" : "waiting";
   }
-  return variant?.solved ? "passed" : "not passed";
+  return variant?.solved ? "passed" : "failed";
+}
+
+function variantTone(variant) {
+  if (variant?.finished && !variant?.valid) {
+    return "bad";
+  }
+  if (!variant?.finished) {
+    return variant?.started ? "active" : "neutral";
+  }
+  return variant?.solved ? "ok" : "bad";
 }
 
 function taskCompletion(state) {

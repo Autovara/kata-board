@@ -994,26 +994,37 @@ function summarizeRunningSn60Duel(
       king: sn60ProjectToLiveVariant(kingProject)
     };
   });
+  const completedTasks = taskStatuses.filter((task) => task.completed);
+  const completedCandidatePasses = completedTasks.filter((task) => task.candidate.solved).length;
+  const completedKingPasses = completedTasks.filter((task) => task.king.solved).length;
+  const completedCandidateTruePositives = completedTasks.reduce(
+    (total, task) => total + Number(task.candidate.truePositives || 0),
+    0
+  );
+  const completedKingTruePositives = completedTasks.reduce(
+    (total, task) => total + Number(task.king.truePositives || 0),
+    0
+  );
   return {
     live: true,
     totalTasks: totalProjects,
-    completedTasks: taskStatuses.filter((task) => task.completed).length,
+    completedTasks: completedTasks.length,
     taskStatuses,
     counts: summarizeTaskStatusCounts(taskStatuses),
     scores: {
-      king: king.codebasesPassed / totalProjects,
-      candidate: candidate.codebasesPassed / totalProjects,
-      delta: (candidate.codebasesPassed - king.codebasesPassed) / totalProjects
+      king: completedKingPasses / totalProjects,
+      candidate: completedCandidatePasses / totalProjects,
+      delta: (completedCandidatePasses - completedKingPasses) / totalProjects
     },
     passCounts: {
-      king: king.codebasesPassed,
-      candidate: candidate.codebasesPassed,
-      delta: candidate.codebasesPassed - king.codebasesPassed
+      king: completedKingPasses,
+      candidate: completedCandidatePasses,
+      delta: completedCandidatePasses - completedKingPasses
     },
     truePositives: {
-      king: king.truePositives,
-      candidate: candidate.truePositives,
-      delta: candidate.truePositives - king.truePositives
+      king: completedKingTruePositives,
+      candidate: completedCandidateTruePositives,
+      delta: completedCandidateTruePositives - completedKingTruePositives
     },
     invalidRuns: {
       king: king.invalidRuns,
@@ -1179,6 +1190,7 @@ function sn60ProjectToLiveVariant(project) {
     success: Boolean(project.success),
     verifierScore: numberOrNull(project.verifierScore),
     weightedTaskScore: numberOrNull(project.weightedTaskScore),
+    truePositives: Number(project.truePositives || 0),
     completedReplicas: Number(project.completedReplicas || 0),
     totalReplicas: Number(project.totalReplicas || 0)
   };

@@ -293,9 +293,25 @@ test("merges live status with active SN60 worktree progress", async () => {
     status: "success",
     result: { result: "PASS", true_positives: 2 }
   });
+  writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-03", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 0 }
+  });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
     status: "success",
     result: { result: "FAIL", true_positives: 0 }
+  });
+  writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-02", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 0 }
+  });
+  writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-03", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 0 }
+  });
+  writeSn60Evaluation(runRoot, "candidate", "project-beta", "replica-01", {
+    status: "success",
+    result: { result: "PASS", true_positives: 9 }
   });
 
   const status = await loadBoardStatus({
@@ -316,16 +332,16 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.scores.candidate, 0.5);
   assert.equal(active.primary.truePositives.candidate, 5);
   assert.deepEqual(active.primary.replicaProgress.candidate, {
-    completed: 2,
+    completed: 4,
     total: 6
   });
   assert.deepEqual(active.primary.replicaProgress.king, {
-    completed: 1,
+    completed: 3,
     total: 6
   });
-  assert.equal(active.primary.taskStatuses[0].candidate.completedReplicas, 2);
+  assert.equal(active.primary.taskStatuses[0].candidate.completedReplicas, 3);
   assert.equal(active.primary.taskStatuses[0].candidate.totalReplicas, 3);
-  assert.equal(active.primary.taskStatuses[1].candidate.completedReplicas, 0);
+  assert.equal(active.primary.taskStatuses[1].candidate.completedReplicas, 1);
   assert.equal(active.primary.taskStatuses[1].candidate.totalReplicas, 3);
 });
 

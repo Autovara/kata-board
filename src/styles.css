@@ -3008,3 +3008,379 @@ html { scroll-behavior: smooth; }
     justify-content: space-between;
   }
 }
+
+/* ============================================================================ */
+/*  Arena v12 — simplified miner view                                           */
+/* ============================================================================ */
+.arena-hero {
+  gap: 18px;
+  padding: clamp(16px, 2.5vw, 24px);
+}
+
+.arena-topline {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.arena-topline .arena-hero-status {
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.arena-hero .battle {
+  grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.battle-side,
+.battle-side-candidate,
+.battle-side-king {
+  min-height: 252px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 18px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(244, 247, 239, 0.07), transparent 42%),
+    rgba(13, 16, 13, 0.9);
+}
+
+.battle-side .avatar {
+  justify-self: center;
+  width: 86px;
+  height: 86px;
+  margin: 2px auto 4px;
+}
+
+.battle-crown {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+}
+
+.battle-role {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.battle-side h2 {
+  max-width: 100%;
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(22px, 3vw, 32px);
+  overflow-wrap: anywhere;
+}
+
+.battle-side p {
+  min-height: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.battle-score {
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.battle-score strong {
+  color: var(--text);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.battle-score small {
+  margin-top: 4px;
+}
+
+.battle-progress {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.battle-progress > div:first-child {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.battle-progress-track {
+  height: 10px;
+}
+
+.battle-mid {
+  gap: 10px;
+}
+
+.vs {
+  width: 64px;
+  height: 64px;
+  border-color: rgba(185, 255, 93, 0.32);
+  background: rgba(185, 255, 93, 0.08);
+}
+
+.battle-current-task {
+  width: 150px;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 8, 0.44);
+  text-align: center;
+}
+
+.battle-current-task span,
+.battle-current-task strong {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.battle-current-task span {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.battle-current-task strong {
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.battle-decision {
+  width: 150px;
+  gap: 6px;
+  padding: 14px 12px;
+  border-color: rgba(244, 247, 239, 0.14);
+  background:
+    linear-gradient(180deg, rgba(244, 247, 239, 0.04), transparent),
+    rgba(8, 9, 8, 0.48);
+}
+
+.battle-decision strong {
+  font-size: 20px;
+}
+
+.battle-compare {
+  grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.battle-bar-track {
+  height: 10px;
+}
+
+.battle-bar-head {
+  font-size: 11px;
+}
+
+.lane-card {
+  padding: clamp(16px, 2.5vw, 22px);
+}
+
+.lane-card-head h2 {
+  font-size: 24px;
+}
+
+.lane-card-sub {
+  max-width: 760px;
+  font-size: 14px;
+}
+
+.duel-run-graph {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(185, 255, 93, 0.08), transparent 58%),
+    rgba(8, 9, 8, 0.28);
+}
+
+.duel-run-graph-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.duel-run-graph-head span,
+.duel-run-graph-head small,
+.graph-rail span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.duel-run-graph-head strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 22px;
+}
+
+.duel-graph-rails {
+  display: grid;
+  gap: 11px;
+}
+
+.graph-rail {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.graph-rail > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.graph-rail strong {
+  color: var(--soft);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+.graph-rail i {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(244, 247, 239, 0.08);
+}
+
+.graph-rail b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+  transition: width 260ms ease;
+}
+
+.graph-rail-candidate b {
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}
+
+.graph-rail-king b {
+  background: linear-gradient(90deg, rgba(185, 255, 93, 0.64), var(--green));
+}
+
+.lane-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lane-metric {
+  min-height: 96px;
+  border-radius: 16px;
+}
+
+.lane-metric strong {
+  font-size: 21px;
+}
+
+.live-task-progress {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.live-task-progress-head {
+  padding: 0 2px;
+}
+
+.live-task-list {
+  gap: 6px;
+  max-height: 500px;
+}
+
+.live-task-table-head {
+  grid-template-columns: minmax(0, 1fr) 112px 128px 128px;
+  padding: 0 16px;
+}
+
+.live-task-row {
+  grid-template-columns: minmax(0, 1fr) 112px 128px 128px;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(8, 9, 8, 0.3);
+}
+
+.live-task-row:hover {
+  border-color: rgba(185, 255, 93, 0.22);
+  background: rgba(185, 255, 93, 0.045);
+}
+
+.live-task-main strong {
+  font-size: 13px;
+}
+
+.live-task-main span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+
+.live-task-side {
+  align-content: center;
+}
+
+.live-task-side span {
+  font-size: 10px;
+}
+
+.live-task-side strong {
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .arena-topline {
+    justify-content: flex-start;
+  }
+
+  .arena-hero .battle,
+  .battle-compare {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-mid {
+    order: -1;
+  }
+
+  .battle-current-task,
+  .battle-decision {
+    width: min(100%, 320px);
+  }
+
+  .battle-compare > :nth-child(1),
+  .battle-compare > :nth-child(2) {
+    grid-column: auto;
+  }
+
+  .lane-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .graph-rail,
+  .live-task-row {
+    grid-template-columns: 1fr;
+  }
+
+  .live-task-table-head {
+    display: none;
+  }
+
+  .lane-metrics {
+    grid-template-columns: 1fr;
+  }
+}

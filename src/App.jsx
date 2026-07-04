@@ -388,19 +388,11 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
       ) : null}
 
       <section className="arena-hero">
-        <div className="arena-hero-head arena-hero-head-clear">
-          <div>
-            <p className="kicker">Live Arena · SN60 Bitsec</p>
-            <h1>Miner duel status</h1>
-            <p className="arena-hero-copy">
-              This page tracks the candidate PR against the current king. Watch
-              replica progress, score margin, invalid runs, and per-codebase
-              results to understand whether the miner is moving toward promotion.
-            </p>
-          </div>
+        <div className="arena-topline">
           <div className="arena-hero-status">
             <Status label={phase} tone={tone} />
             <span>{selectedLane?.repoName || "SN60 Bitsec"}</span>
+            {activeJob?.pullNumber ? <span>PR #{activeJob.pullNumber}</span> : null}
             <span>updated {updatedLabel}</span>
           </div>
         </div>
@@ -430,11 +422,10 @@ function Battle({ state, activeEvaluation, activeJob }) {
   const candidateScore = percentScore(state?.scores?.candidate);
   const kingScore = percentScore(state?.scores?.king);
   const winner = state?.finalWinner || null;
-  const candidatePct = clampPercent(Number(state?.scores?.candidate ?? 0) * 100);
-  const kingPct = clampPercent(Number(state?.scores?.king ?? 0) * 100);
   const candidateProgress = progressPercent(state?.replicaProgress?.candidate);
   const kingProgress = progressPercent(state?.replicaProgress?.king);
   const scoreDelta = Number(state?.scores?.delta ?? 0);
+  const activeTask = currentTask(state);
   const candidateSub =
     activeJob?.pullNumber
       ? `PR #${activeJob.pullNumber} · ${state?.candidateSubmissionId || "candidate"}`
@@ -456,12 +447,16 @@ function Battle({ state, activeEvaluation, activeJob }) {
         />
         <div className="battle-mid">
           <div className="vs">VS</div>
+          <div className="battle-current-task">
+            <span>now testing</span>
+            <strong>{activeTask ? formatTaskName(activeTask.taskId) : "Waiting for next codebase"}</strong>
+          </div>
           <div className="battle-decision">
-            <span>score gap</span>
+            <span>{scoreLeadLabel(scoreDelta)}</span>
             <strong className={scoreDelta > 0 ? "positive" : scoreDelta < 0 ? "negative" : ""}>
               {formatSignedPoints(scoreDelta)}
             </strong>
-            <small>candidate minus king</small>
+            <small>candidate vs king</small>
           </div>
         </div>
         <BattleSide
@@ -476,8 +471,8 @@ function Battle({ state, activeEvaluation, activeJob }) {
         />
       </div>
       <div className="battle-compare">
-        <BattleBar label="king" pct={kingPct} value={kingScore} tone="king" />
-        <BattleBar label="candidate" pct={candidatePct} value={candidateScore} tone="candidate" />
+        <BattleReplicaBar label="king replicas" progress={state?.replicaProgress?.king} tone="king" />
+        <BattleReplicaBar label="candidate replicas" progress={state?.replicaProgress?.candidate} tone="candidate" />
       </div>
     </div>
   );
@@ -512,6 +507,20 @@ function BattleSide({ role, name, sub, score, progress, progressLabel, avatarUrl
   );
 }
 
+function BattleReplicaBar({ label, progress, tone }) {
+  return (
+    <div className={`battle-bar battle-bar-${tone}`}>
+      <div className="battle-bar-head">
+        <span>{label}</span>
+        <strong>{formatReplicaSide(progress)}</strong>
+      </div>
+      <div className="battle-bar-track">
+        <i style={{ width: `${progressPercent(progress)}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function BattleBar({ label, pct, value, tone }) {
   return (
     <div className={`battle-bar battle-bar-${tone}`}>
@@ -539,10 +548,6 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
   const marginLabel =
     delta == null ? "-" : `${Number(delta) >= 0 ? "+" : ""}${formatNumber(Number(delta) * 100)} pts`;
   const marginTone = delta != null && Number(delta) > 0 ? "ok" : "neutral";
-  const replicaProgress = formatReplicaProgress(state.replicaProgress);
-  const taskProgress = taskCompletion(state);
-  const candidateProgress = progressPercent(state.replicaProgress?.candidate);
-  const kingProgress = progressPercent(state.replicaProgress?.king);
   const livePhase = readablePhase(activeEvaluation?.phase || state.liveProgress?.phase);
   const outcome = duelOutcomeMessage(state);
 
@@ -562,44 +567,10 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
         />
       </div>
 
-      <div className="arena-summary-grid">
-        <ArenaInsight
-          label="Current step"
-          value={livePhase}
-          sub={activeJob?.pullNumber ? `watching PR #${activeJob.pullNumber}` : "validator pipeline"}
-          tone={state.live ? "ok" : "neutral"}
-        />
-        <ArenaInsight
-          label="Codebases complete"
-          value={`${taskProgress.completed}/${taskProgress.total}`}
-          sub="selected benchmark projects"
-          progress={taskProgress.percent}
-        />
-        <ArenaInsight
-          label="Candidate replicas"
-          value={formatReplicaSide(state.replicaProgress?.candidate)}
-          sub="miner agent runs"
-          progress={candidateProgress}
-          tone="candidate"
-        />
-        <ArenaInsight
-          label="King replicas"
-          value={formatReplicaSide(state.replicaProgress?.king)}
-          sub="current king baseline"
-          progress={kingProgress}
-          tone="king"
-        />
-      </div>
+      <DuelRunGraph state={state} livePhase={livePhase} activeJob={activeJob} />
 
       <div className="lane-metrics">
         <LaneMetric label="Score margin" value={marginLabel} sub="challenger − king" tone={marginTone} />
-        <LaneMetric
-          label="Screening"
-          value={state.screeningStatus || "not screened"}
-          sub={state.screeningStage || undefined}
-          tone={screeningTone(state.screeningStatus)}
-        />
-        <LaneMetric label="Benchmark" value={`${state.projectKeys?.length || 0} codebases`} />
         <LaneMetric
           label="Codebases passed"
           value={`${state.codebasesPassed?.candidate ?? "-"} vs ${state.codebasesPassed?.king ?? "-"}`}
@@ -616,12 +587,6 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
           sub="challenger vs king"
           tone={Number(state.invalidRuns?.candidate) > 0 ? "bad" : "neutral"}
         />
-        <LaneMetric
-          label="Replica progress"
-          value={replicaProgress.value}
-          sub={replicaProgress.sub}
-          tone={state.live ? "ok" : "neutral"}
-        />
       </div>
 
       {state.screeningReasons?.length ? (
@@ -634,6 +599,57 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <LiveTaskProgress state={state} />
     </section>
+  );
+}
+
+function DuelRunGraph({ state, livePhase, activeJob }) {
+  const taskProgress = taskCompletion(state);
+  const candidateProgress = progressPercent(state.replicaProgress?.candidate);
+  const kingProgress = progressPercent(state.replicaProgress?.king);
+
+  return (
+    <div className="duel-run-graph">
+      <div className="duel-run-graph-head">
+        <div>
+          <span>run progress</span>
+          <strong>{livePhase}</strong>
+        </div>
+        <small>{activeJob?.pullNumber ? `PR #${activeJob.pullNumber}` : "validator run"}</small>
+      </div>
+      <div className="duel-graph-rails">
+        <GraphRail
+          label="codebases"
+          value={`${taskProgress.completed}/${taskProgress.total}`}
+          progress={taskProgress.percent}
+        />
+        <GraphRail
+          label="candidate"
+          value={formatReplicaSide(state.replicaProgress?.candidate)}
+          progress={candidateProgress}
+          tone="candidate"
+        />
+        <GraphRail
+          label="king"
+          value={formatReplicaSide(state.replicaProgress?.king)}
+          progress={kingProgress}
+          tone="king"
+        />
+      </div>
+    </div>
+  );
+}
+
+function GraphRail({ label, value, progress, tone = "neutral" }) {
+  return (
+    <div className={`graph-rail graph-rail-${tone}`}>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <i>
+        <b style={{ width: `${clampPercent(progress)}%` }} />
+      </i>
+    </div>
   );
 }
 
@@ -669,21 +685,21 @@ function LiveTaskProgress({ state }) {
     <div className="live-task-progress">
       <div className="live-task-progress-head">
         <div>
-          <span>Per-codebase progress</span>
+          <span>problem list</span>
           <strong>
-            {completedTasks}/{totalTasks} codebases complete
+            {completedTasks}/{totalTasks} complete
           </strong>
-          <small>Each codebase runs candidate replicas and king replicas. Passing more codebases is what moves the score.</small>
+          <small>Clean view of every selected benchmark codebase and both agents' replica status.</small>
         </div>
         <div>
-          <span>Replica runs</span>
+          <span>all replicas</span>
           <strong>
-            candidate {formatReplicaSide(candidateReplicas)} · king {formatReplicaSide(kingReplicas)}
+            C {formatReplicaSide(candidateReplicas)} · K {formatReplicaSide(kingReplicas)}
           </strong>
         </div>
       </div>
       <div className="live-task-table-head">
-        <span>codebase</span>
+        <span>problem</span>
         <span>state</span>
         <span>candidate</span>
         <span>king</span>
@@ -708,11 +724,11 @@ function LiveTaskRow({ task }) {
       </div>
       <Status label={task.status || "queued"} tone={taskStatusTone(task.status)} />
       <div className="live-task-side">
-        <span>{variantResultLabel(candidate)}</span>
+        <span>C · {variantResultLabel(candidate)}</span>
         <strong>{formatVariantReplicas(candidate)}</strong>
       </div>
       <div className="live-task-side">
-        <span>{variantResultLabel(king)}</span>
+        <span>K · {variantResultLabel(king)}</span>
         <strong>{formatVariantReplicas(king)}</strong>
       </div>
     </div>
@@ -1651,6 +1667,30 @@ function taskCompletion(state) {
     total,
     percent: total > 0 ? (completed / total) * 100 : 0
   };
+}
+
+function currentTask(state) {
+  const tasks = Array.isArray(state?.liveProgress?.taskStatuses)
+    ? state.liveProgress.taskStatuses
+    : [];
+  return (
+    tasks.find((task) => String(task.status || "").toLowerCase().includes("running")) ||
+    tasks.find((task) => task.candidate?.started && !task.candidate?.finished) ||
+    tasks.find((task) => task.king?.started && !task.king?.finished) ||
+    tasks.find((task) => !task.completed) ||
+    null
+  );
+}
+
+function scoreLeadLabel(value) {
+  const numeric = Number(value || 0);
+  if (numeric > 0) {
+    return "candidate ahead";
+  }
+  if (numeric < 0) {
+    return "king ahead";
+  }
+  return "even score";
 }
 
 function readablePhase(value) {

@@ -535,10 +535,6 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
       : winner === "king"
         ? "King holds"
         : "In progress";
-  const delta = state.scores?.delta;
-  const marginLabel =
-    delta == null ? "-" : `${Number(delta) >= 0 ? "+" : ""}${formatNumber(Number(delta) * 100)} pts`;
-  const marginTone = delta != null && Number(delta) > 0 ? "ok" : "neutral";
   const livePhase = readablePhase(activeEvaluation?.phase || state.liveProgress?.phase);
   const outcome = duelOutcomeMessage(state);
 
@@ -560,25 +556,7 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <DuelRunGraph state={state} livePhase={livePhase} activeJob={activeJob} />
 
-      <div className="lane-metrics">
-        <LaneMetric label="Score margin" value={marginLabel} sub="challenger − king" tone={marginTone} />
-        <LaneMetric
-          label="Codebases passed"
-          value={`${state.codebasesPassed?.candidate ?? "-"} vs ${state.codebasesPassed?.king ?? "-"}`}
-          sub="challenger vs king"
-        />
-        <LaneMetric
-          label="Vulnerabilities found"
-          value={`${state.truePositives?.candidate ?? "-"} vs ${state.truePositives?.king ?? "-"}`}
-          sub="challenger vs king"
-        />
-        <LaneMetric
-          label="Invalid runs"
-          value={`${state.invalidRuns?.candidate ?? "-"} vs ${state.invalidRuns?.king ?? "-"}`}
-          sub="challenger vs king"
-          tone={Number(state.invalidRuns?.candidate) > 0 ? "bad" : "neutral"}
-        />
-      </div>
+      <DuelInsights state={state} />
 
       {state.screeningReasons?.length ? (
         <div className="lane-notes">
@@ -590,6 +568,70 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <LiveTaskProgress state={state} />
     </section>
+  );
+}
+
+function DuelInsights({ state }) {
+  const taskProgress = taskCompletion(state);
+  const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
+  return (
+    <div className="duel-insights">
+      <div className="duel-ring-card">
+        <div className="duel-ring" style={{ "--progress": `${clampPercent(taskProgress.percent)}%` }}>
+          <strong>{taskProgress.completed}</strong>
+          <span>/{taskProgress.total}</span>
+        </div>
+        <div>
+          <span>Codebase progress</span>
+          <strong>{taskProgress.completed}/{taskProgress.total} complete</strong>
+          <small>score updates after both candidate and king finish a problem</small>
+        </div>
+      </div>
+      <div className="duel-comparison-stack">
+        <ComparisonRail
+          label="Codebases passed"
+          candidate={state.codebasesPassed?.candidate}
+          king={state.codebasesPassed?.king}
+        />
+        <ComparisonRail
+          label="Vulnerabilities found"
+          candidate={state.truePositives?.candidate}
+          king={state.truePositives?.king}
+          tone="cyan"
+        />
+      </div>
+      <div className={`duel-health-card ${invalidCandidate > 0 ? "duel-health-card-bad" : ""}`}>
+        <span>Invalid runs</span>
+        <strong>{invalidCandidate > 0 ? `${invalidCandidate} candidate` : "clean"}</strong>
+        <small>
+          {invalidCandidate > 0
+            ? "candidate cannot promote"
+            : `king ${state.invalidRuns?.king ?? 0} · candidate 0`}
+        </small>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonRail({ label, candidate, king, tone = "green" }) {
+  const candidateValue = Number(candidate ?? 0);
+  const kingValue = Number(king ?? 0);
+  const maxValue = Math.max(candidateValue, kingValue, 1);
+  return (
+    <div className={`comparison-rail comparison-rail-${tone}`}>
+      <div className="comparison-rail-head">
+        <span>{label}</span>
+        <strong>C {formatNumber(candidateValue)} · K {formatNumber(kingValue)}</strong>
+      </div>
+      <div className="comparison-bars">
+        <i style={{ width: `${clampPercent((candidateValue / maxValue) * 100)}%` }}>
+          candidate
+        </i>
+        <b style={{ width: `${clampPercent((kingValue / maxValue) * 100)}%` }}>
+          king
+        </b>
+      </div>
+    </div>
   );
 }
 

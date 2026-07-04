@@ -2967,6 +2967,7 @@ html { scroll-behavior: smooth; }
   }
 
   .arena-summary-grid,
+  .duel-insights,
   .lane-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3325,6 +3326,153 @@ html { scroll-behavior: smooth; }
   color: var(--red);
 }
 
+.duel-insights {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 1.4fr) minmax(180px, 0.7fr);
+  gap: 12px;
+}
+
+.duel-ring-card,
+.duel-health-card,
+.comparison-rail {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(8, 9, 8, 0.3);
+}
+
+.duel-ring-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+.duel-ring {
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(13, 16, 13, 0.98) 57%, transparent 59%),
+    conic-gradient(var(--green) var(--progress), rgba(244, 247, 239, 0.08) 0);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.duel-ring strong {
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.duel-ring span {
+  margin-top: -18px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.duel-ring-card div:last-child,
+.duel-health-card {
+  display: grid;
+  gap: 5px;
+}
+
+.duel-ring-card span,
+.duel-ring-card small,
+.duel-health-card span,
+.duel-health-card small,
+.comparison-rail-head span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.duel-ring-card div:last-child strong,
+.duel-health-card strong {
+  color: var(--text);
+  font-size: 20px;
+}
+
+.duel-ring-card small,
+.duel-health-card small {
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.duel-comparison-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-rail {
+  display: grid;
+  gap: 10px;
+  padding: 13px 14px;
+}
+
+.comparison-rail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.comparison-rail-head strong {
+  color: var(--soft);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+.comparison-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.comparison-bars i,
+.comparison-bars b {
+  min-width: 44px;
+  height: 10px;
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  color: transparent;
+  transition: width 260ms ease;
+}
+
+.comparison-bars i {
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+}
+
+.comparison-bars b {
+  background: rgba(244, 247, 239, 0.18);
+}
+
+.comparison-rail-cyan .comparison-bars i {
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}
+
+.duel-health-card {
+  align-content: center;
+  padding: 16px;
+  border-color: rgba(185, 255, 93, 0.22);
+}
+
+.duel-health-card strong {
+  color: var(--green);
+}
+
+.duel-health-card-bad {
+  border-color: rgba(255, 95, 90, 0.38);
+  background: rgba(255, 95, 90, 0.07);
+}
+
+.duel-health-card-bad strong {
+  color: var(--red);
+}
+
 .lane-metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -3462,6 +3610,7 @@ html { scroll-behavior: smooth; }
     display: none;
   }
 
+  .duel-insights,
   .lane-metrics {
     grid-template-columns: 1fr;
   }

@@ -3228,107 +3228,20 @@ html { scroll-behavior: smooth; }
   font-size: 14px;
 }
 
-.duel-run-graph {
+.duel-insights {
   display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.35fr);
   gap: 14px;
   padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   background:
-    linear-gradient(135deg, rgba(185, 255, 93, 0.08), transparent 58%),
+    radial-gradient(circle at 0% 0%, rgba(185, 255, 93, 0.08), transparent 38%),
     rgba(8, 9, 8, 0.28);
 }
 
-.duel-run-graph-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-.duel-run-graph-head span,
-.duel-run-graph-head small,
-.graph-rail span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.duel-run-graph-head strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--text);
-  font-size: 22px;
-}
-
-.duel-graph-rails {
+.duel-insights-main {
   display: grid;
-  gap: 11px;
-}
-
-.graph-rail {
-  display: grid;
-  grid-template-columns: 130px minmax(0, 1fr);
-  gap: 14px;
-  align-items: center;
-}
-
-.graph-rail > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.graph-rail strong {
-  color: var(--soft);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-}
-
-.graph-rail i {
-  height: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(244, 247, 239, 0.08);
-}
-
-.graph-rail b {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--green), var(--cyan));
-  transition: width 260ms ease;
-}
-
-.graph-rail-candidate b {
-  background: linear-gradient(90deg, var(--cyan), var(--green));
-}
-
-.graph-rail-king b {
-  background: linear-gradient(90deg, rgba(185, 255, 93, 0.64), var(--green));
-}
-
-.graph-rail-score b {
-  background: linear-gradient(90deg, var(--cyan), var(--green));
-}
-
-.graph-rail-ok b {
-  background: linear-gradient(90deg, rgba(185, 255, 93, 0.72), var(--green));
-}
-
-.graph-rail-bad b {
-  background: linear-gradient(90deg, rgba(255, 95, 90, 0.64), var(--red));
-}
-
-.graph-rail-bad strong {
-  color: var(--red);
-}
-
-.duel-insights {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 1.4fr) minmax(180px, 0.7fr);
   gap: 12px;
 }
 
@@ -3595,13 +3508,13 @@ html { scroll-behavior: smooth; }
     grid-column: auto;
   }
 
+  .duel-insights,
   .lane-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .graph-rail,
   .live-task-row {
     grid-template-columns: 1fr;
   }

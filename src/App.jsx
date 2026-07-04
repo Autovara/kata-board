@@ -535,7 +535,6 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
       : winner === "king"
         ? "King holds"
         : "In progress";
-  const livePhase = readablePhase(activeEvaluation?.phase || state.liveProgress?.phase);
   const outcome = duelOutcomeMessage(state);
 
   return (
@@ -553,8 +552,6 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
           tone={winner === "candidate" ? "ok" : winner === "king" ? "neutral" : "neutral"}
         />
       </div>
-
-      <DuelRunGraph state={state} livePhase={livePhase} activeJob={activeJob} />
 
       <DuelInsights state={state} />
 
@@ -575,16 +572,27 @@ function DuelInsights({ state }) {
   const taskProgress = taskCompletion(state);
   const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
   return (
-    <div className="duel-insights">
-      <div className="duel-ring-card">
-        <div className="duel-ring" style={{ "--progress": `${clampPercent(taskProgress.percent)}%` }}>
-          <strong>{taskProgress.completed}</strong>
-          <span>/{taskProgress.total}</span>
+    <div className="duel-insights" aria-label="Duel summary">
+      <div className="duel-insights-main">
+        <div className="duel-ring-card">
+          <div className="duel-ring" style={{ "--progress": `${clampPercent(taskProgress.percent)}%` }}>
+            <strong>{taskProgress.completed}</strong>
+            <span>/{taskProgress.total}</span>
+          </div>
+          <div>
+            <span>Codebase progress</span>
+            <strong>{taskProgress.completed}/{taskProgress.total} complete</strong>
+            <small>updates after both candidate and king finish a problem</small>
+          </div>
         </div>
-        <div>
-          <span>Codebase progress</span>
-          <strong>{taskProgress.completed}/{taskProgress.total} complete</strong>
-          <small>score updates after both candidate and king finish a problem</small>
+        <div className={`duel-health-card ${invalidCandidate > 0 ? "duel-health-card-bad" : ""}`}>
+          <span>Invalid runs</span>
+          <strong>{invalidCandidate > 0 ? `${invalidCandidate} candidate` : "clean"}</strong>
+          <small>
+            {invalidCandidate > 0
+              ? "candidate cannot promote"
+              : `king ${state.invalidRuns?.king ?? 0} · candidate 0`}
+          </small>
         </div>
       </div>
       <div className="duel-comparison-stack">
@@ -599,15 +607,6 @@ function DuelInsights({ state }) {
           king={state.truePositives?.king}
           tone="cyan"
         />
-      </div>
-      <div className={`duel-health-card ${invalidCandidate > 0 ? "duel-health-card-bad" : ""}`}>
-        <span>Invalid runs</span>
-        <strong>{invalidCandidate > 0 ? `${invalidCandidate} candidate` : "clean"}</strong>
-        <small>
-          {invalidCandidate > 0
-            ? "candidate cannot promote"
-            : `king ${state.invalidRuns?.king ?? 0} · candidate 0`}
-        </small>
       </div>
     </div>
   );
@@ -631,58 +630,6 @@ function ComparisonRail({ label, candidate, king, tone = "green" }) {
           king
         </b>
       </div>
-    </div>
-  );
-}
-
-function DuelRunGraph({ state, livePhase, activeJob }) {
-  const taskProgress = taskCompletion(state);
-  const scoreProgress = clampPercent(Number(state.scores?.candidate ?? 0) * 100);
-  const invalidCount = Number(state.invalidRuns?.candidate || 0);
-  const healthProgress = invalidCount > 0 ? 100 : taskProgress.percent;
-
-  return (
-    <div className="duel-run-graph">
-      <div className="duel-run-graph-head">
-        <div>
-          <span>run progress</span>
-          <strong>{livePhase}</strong>
-        </div>
-        <small>{activeJob?.pullNumber ? `PR #${activeJob.pullNumber}` : "validator run"}</small>
-      </div>
-      <div className="duel-graph-rails">
-        <GraphRail
-          label="codebases"
-          value={`${taskProgress.completed}/${taskProgress.total}`}
-          progress={taskProgress.percent}
-        />
-        <GraphRail
-          label="score"
-          value={percentScore(state.scores?.candidate)}
-          progress={scoreProgress}
-          tone="score"
-        />
-        <GraphRail
-          label="health"
-          value={invalidCount > 0 ? "invalid" : "clean"}
-          progress={healthProgress}
-          tone={invalidCount > 0 ? "bad" : "ok"}
-        />
-      </div>
-    </div>
-  );
-}
-
-function GraphRail({ label, value, progress, tone = "neutral" }) {
-  return (
-    <div className={`graph-rail graph-rail-${tone}`}>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <i>
-        <b style={{ width: `${clampPercent(progress)}%` }} />
-      </i>
     </div>
   );
 }

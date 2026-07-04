@@ -585,9 +585,7 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <LatestDuelResult state={state} activeEvaluation={activeEvaluation} />
 
-      <ScreeningWaitNotice state={state} />
-
-      <LiveTaskProgress state={state} />
+      {state.screeningStatus !== "running" ? <LiveTaskProgress state={state} /> : null}
     </section>
   );
 }
@@ -735,44 +733,6 @@ function decisionCue(state) {
     return "King kept the crown.";
   }
   return "Waiting for validator results.";
-}
-
-function ScreeningWaitNotice({ state }) {
-  if (state.screeningStatus !== "running") {
-    return null;
-  }
-  const meta = state.screeningMeta || {};
-  const task = currentTask(state);
-  const projectKey = meta.projectKey || task?.taskId || state.projectKeys?.[0] || "screening project";
-  const startedAt = meta.startedAt || state.liveProgress?.updatedAt;
-  const timeoutAt = meta.timeoutAt || null;
-  const timeoutSeconds = Number(meta.timeoutSeconds || 0);
-  const elapsedMs = startedAt ? Date.now() - new Date(startedAt).getTime() : null;
-  const remainingMs = timeoutAt ? new Date(timeoutAt).getTime() - Date.now() : null;
-  return (
-    <div className="screening-wait">
-      <div>
-        <span>Screening gate</span>
-        <strong>{formatTaskName(projectKey)}</strong>
-        <small>
-          Candidate is running one cheap sandbox check before the full duel.
-        </small>
-      </div>
-      <div>
-        <span>Elapsed</span>
-        <strong>{elapsedMs === null ? "-" : formatDuration(elapsedMs)}</strong>
-        <small>
-          {remainingMs === null
-            ? timeoutSeconds > 0
-              ? `timeout ${formatDuration(timeoutSeconds * 1000)}`
-              : "waiting for report"
-            : remainingMs > 0
-              ? `auto-fails in ${formatDuration(remainingMs)}`
-              : "timeout reached; waiting for validator cleanup"}
-        </small>
-      </div>
-    </div>
-  );
 }
 
 function LiveTaskProgress({ state }) {
@@ -1982,22 +1942,4 @@ function formatDateTime(value) {
   } catch {
     return value;
   }
-}
-
-function formatDuration(valueMs) {
-  if (!Number.isFinite(Number(valueMs))) {
-    return "-";
-  }
-  const totalSeconds = Math.max(0, Math.round(Number(valueMs) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    const restMinutes = minutes % 60;
-    return `${hours}h ${restMinutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
-  }
-  return `${seconds}s`;
 }

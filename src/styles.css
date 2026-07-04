@@ -3309,6 +3309,22 @@ html { scroll-behavior: smooth; }
   background: linear-gradient(90deg, rgba(185, 255, 93, 0.64), var(--green));
 }
 
+.graph-rail-score b {
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}
+
+.graph-rail-ok b {
+  background: linear-gradient(90deg, rgba(185, 255, 93, 0.72), var(--green));
+}
+
+.graph-rail-bad b {
+  background: linear-gradient(90deg, rgba(255, 95, 90, 0.64), var(--red));
+}
+
+.graph-rail-bad strong {
+  color: var(--red);
+}
+
 .lane-metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

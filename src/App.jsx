@@ -595,8 +595,9 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
 function DuelRunGraph({ state, livePhase, activeJob }) {
   const taskProgress = taskCompletion(state);
-  const candidateProgress = progressPercent(state.replicaProgress?.candidate);
-  const kingProgress = progressPercent(state.replicaProgress?.king);
+  const scoreProgress = clampPercent(Number(state.scores?.candidate ?? 0) * 100);
+  const invalidCount = Number(state.invalidRuns?.candidate || 0);
+  const healthProgress = invalidCount > 0 ? 100 : taskProgress.percent;
 
   return (
     <div className="duel-run-graph">
@@ -614,16 +615,16 @@ function DuelRunGraph({ state, livePhase, activeJob }) {
           progress={taskProgress.percent}
         />
         <GraphRail
-          label="candidate"
-          value={formatReplicaSide(state.replicaProgress?.candidate)}
-          progress={candidateProgress}
-          tone="candidate"
+          label="score"
+          value={percentScore(state.scores?.candidate)}
+          progress={scoreProgress}
+          tone="score"
         />
         <GraphRail
-          label="king"
-          value={formatReplicaSide(state.replicaProgress?.king)}
-          progress={kingProgress}
-          tone="king"
+          label="health"
+          value={invalidCount > 0 ? "invalid" : "clean"}
+          progress={healthProgress}
+          tone={invalidCount > 0 ? "bad" : "ok"}
         />
       </div>
     </div>

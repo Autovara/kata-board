@@ -362,6 +362,7 @@ function HowStep({ step, title, text }) {
 function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId }) {
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
+  const activeJob = validator?.queue?.activeJob || null;
   const current = selectedLane?.evaluatorState?.current || null;
   const displayState = mergeActiveEvaluationState(current, activeEvaluation, selectedLane);
   const phase = activeEvaluation
@@ -387,11 +388,16 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
       ) : null}
 
       <section className="arena-hero">
-        <div className="arena-hero-head">
-          <p className="kicker">Live Arena · SN60</p>
-          <h1>
-            King <em>vs</em> Candidate
-          </h1>
+        <div className="arena-hero-head arena-hero-head-clear">
+          <div>
+            <p className="kicker">Live Arena · SN60 Bitsec</p>
+            <h1>Miner duel status</h1>
+            <p className="arena-hero-copy">
+              This page tracks the candidate PR against the current king. Watch
+              replica progress, score margin, invalid runs, and per-codebase
+              results to understand whether the miner is moving toward promotion.
+            </p>
+          </div>
           <div className="arena-hero-status">
             <Status label={phase} tone={tone} />
             <span>{selectedLane?.repoName || "SN60 Bitsec"}</span>
@@ -399,14 +405,14 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
           </div>
         </div>
         {displayState || activeEvaluation ? (
-          <Battle state={displayState} activeEvaluation={activeEvaluation} />
+          <Battle state={displayState} activeEvaluation={activeEvaluation} activeJob={activeJob} />
         ) : (
           <Empty text="No duel yet for this lane. Waiting for the first challenger." />
         )}
       </section>
 
       {displayState ? (
-        <Sn60LanePanel state={displayState} />
+        <Sn60LanePanel state={displayState} activeEvaluation={activeEvaluation} activeJob={activeJob} />
       ) : (
         <Empty text="No duel results yet for this subnet." />
       )}
@@ -414,7 +420,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
   );
 }
 
-function Battle({ state, activeEvaluation }) {
+function Battle({ state, activeEvaluation, activeJob }) {
   const candidateName =
     activeEvaluation?.candidateGithubLogin ||
     state?.candidateAuthor ||
@@ -426,6 +432,14 @@ function Battle({ state, activeEvaluation }) {
   const winner = state?.finalWinner || null;
   const candidatePct = clampPercent(Number(state?.scores?.candidate ?? 0) * 100);
   const kingPct = clampPercent(Number(state?.scores?.king ?? 0) * 100);
+  const candidateProgress = progressPercent(state?.replicaProgress?.candidate);
+  const kingProgress = progressPercent(state?.replicaProgress?.king);
+  const scoreDelta = Number(state?.scores?.delta ?? 0);
+  const candidateSub =
+    activeJob?.pullNumber
+      ? `PR #${activeJob.pullNumber} · ${state?.candidateSubmissionId || "candidate"}`
+      : state?.candidateSubmissionId || "candidate";
+  const kingSub = state?.kingSubmissionId || "current king";
 
   return (
     <div className="battle-wrap">
@@ -434,16 +448,30 @@ function Battle({ state, activeEvaluation }) {
           role="king"
           crown
           name={kingName}
+          sub={kingSub}
           score={kingScore}
+          progress={kingProgress}
+          progressLabel={formatReplicaSide(state?.replicaProgress?.king)}
           won={winner === "king"}
         />
         <div className="battle-mid">
           <div className="vs">VS</div>
+          <div className="battle-decision">
+            <span>score gap</span>
+            <strong className={scoreDelta > 0 ? "positive" : scoreDelta < 0 ? "negative" : ""}>
+              {formatSignedPoints(scoreDelta)}
+            </strong>
+            <small>candidate minus king</small>
+          </div>
         </div>
         <BattleSide
           role="candidate"
           name={candidateName}
+          sub={candidateSub}
+          avatarUrl={activeEvaluation?.candidateAvatarUrl}
           score={candidateScore}
+          progress={candidateProgress}
+          progressLabel={formatReplicaSide(state?.replicaProgress?.candidate)}
           won={winner === "candidate"}
         />
       </div>
@@ -455,7 +483,7 @@ function Battle({ state, activeEvaluation }) {
   );
 }
 
-function BattleSide({ role, name, score, crown, won }) {
+function BattleSide({ role, name, sub, score, progress, progressLabel, avatarUrl, crown, won }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -463,12 +491,22 @@ function BattleSide({ role, name, score, crown, won }) {
           ♔
         </span>
       ) : null}
-      <Avatar name={name} />
+      <Avatar name={name} avatarUrl={avatarUrl} />
       <span className="battle-role">{won ? `${role} · winner` : role}</span>
       <h2>{name}</h2>
+      <p>{sub}</p>
       <div className="battle-score">
         <strong>{score}</strong>
         <small>aggregated score</small>
+      </div>
+      <div className="battle-progress">
+        <div>
+          <span>replicas done</span>
+          <strong>{progressLabel}</strong>
+        </div>
+        <div className="battle-progress-track">
+          <i style={{ width: `${progress}%` }} />
+        </div>
       </div>
     </div>
   );
@@ -488,7 +526,7 @@ function BattleBar({ label, pct, value, tone }) {
   );
 }
 
-function Sn60LanePanel({ state }) {
+function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
   const winner = state.finalWinner;
   const result = state.live
     ? "Duel running"
@@ -502,17 +540,54 @@ function Sn60LanePanel({ state }) {
     delta == null ? "-" : `${Number(delta) >= 0 ? "+" : ""}${formatNumber(Number(delta) * 100)} pts`;
   const marginTone = delta != null && Number(delta) > 0 ? "ok" : "neutral";
   const replicaProgress = formatReplicaProgress(state.replicaProgress);
+  const taskProgress = taskCompletion(state);
+  const candidateProgress = progressPercent(state.replicaProgress?.candidate);
+  const kingProgress = progressPercent(state.replicaProgress?.king);
+  const livePhase = readablePhase(activeEvaluation?.phase || state.liveProgress?.phase);
+  const outcome = duelOutcomeMessage(state);
 
   return (
     <section className="lane-card">
       <div className="lane-card-head">
         <div>
           <p className="kicker">SN60 · Bitsec security</p>
-          <h2>Latest duel</h2>
+          <h2>{state.live ? "Live validator run" : "Latest duel result"}</h2>
+          <p className="lane-card-sub">
+            {outcome}
+          </p>
         </div>
         <Status
           label={result}
           tone={winner === "candidate" ? "ok" : winner === "king" ? "neutral" : "neutral"}
+        />
+      </div>
+
+      <div className="arena-summary-grid">
+        <ArenaInsight
+          label="Current step"
+          value={livePhase}
+          sub={activeJob?.pullNumber ? `watching PR #${activeJob.pullNumber}` : "validator pipeline"}
+          tone={state.live ? "ok" : "neutral"}
+        />
+        <ArenaInsight
+          label="Codebases complete"
+          value={`${taskProgress.completed}/${taskProgress.total}`}
+          sub="selected benchmark projects"
+          progress={taskProgress.percent}
+        />
+        <ArenaInsight
+          label="Candidate replicas"
+          value={formatReplicaSide(state.replicaProgress?.candidate)}
+          sub="miner agent runs"
+          progress={candidateProgress}
+          tone="candidate"
+        />
+        <ArenaInsight
+          label="King replicas"
+          value={formatReplicaSide(state.replicaProgress?.king)}
+          sub="current king baseline"
+          progress={kingProgress}
+          tone="king"
         />
       </div>
 
@@ -562,6 +637,21 @@ function Sn60LanePanel({ state }) {
   );
 }
 
+function ArenaInsight({ label, value, sub, progress, tone = "neutral" }) {
+  return (
+    <article className={`arena-insight arena-insight-${tone}`}>
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      <small>{sub}</small>
+      {typeof progress === "number" ? (
+        <div className="arena-insight-progress">
+          <i style={{ width: `${clampPercent(progress)}%` }} />
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function LiveTaskProgress({ state }) {
   const tasks = Array.isArray(state.liveProgress?.taskStatuses)
     ? state.liveProgress.taskStatuses
@@ -579,10 +669,11 @@ function LiveTaskProgress({ state }) {
     <div className="live-task-progress">
       <div className="live-task-progress-head">
         <div>
-          <span>Live task progress</span>
+          <span>Per-codebase progress</span>
           <strong>
             {completedTasks}/{totalTasks} codebases complete
           </strong>
+          <small>Each codebase runs candidate replicas and king replicas. Passing more codebases is what moves the score.</small>
         </div>
         <div>
           <span>Replica runs</span>
@@ -590,6 +681,12 @@ function LiveTaskProgress({ state }) {
             candidate {formatReplicaSide(candidateReplicas)} · king {formatReplicaSide(kingReplicas)}
           </strong>
         </div>
+      </div>
+      <div className="live-task-table-head">
+        <span>codebase</span>
+        <span>state</span>
+        <span>candidate</span>
+        <span>king</span>
       </div>
       <div className="live-task-list">
         {tasks.map((task) => (
@@ -601,19 +698,22 @@ function LiveTaskProgress({ state }) {
 }
 
 function LiveTaskRow({ task }) {
+  const candidate = task.candidate || {};
+  const king = task.king || {};
   return (
     <div className={`live-task-row live-task-row-${taskStatusTone(task.status)}`}>
       <div className="live-task-main">
-        <strong>{task.taskId || "hidden task"}</strong>
-        <span>{task.status || "queued"}</span>
+        <strong>{formatTaskName(task.taskId || "hidden task")}</strong>
+        <span>{task.taskId || "hidden task"}</span>
+      </div>
+      <Status label={task.status || "queued"} tone={taskStatusTone(task.status)} />
+      <div className="live-task-side">
+        <span>{variantResultLabel(candidate)}</span>
+        <strong>{formatVariantReplicas(candidate)}</strong>
       </div>
       <div className="live-task-side">
-        <span>candidate</span>
-        <strong>{formatVariantReplicas(task.candidate)}</strong>
-      </div>
-      <div className="live-task-side">
-        <span>king</span>
-        <strong>{formatVariantReplicas(task.king)}</strong>
+        <span>{variantResultLabel(king)}</span>
+        <strong>{formatVariantReplicas(king)}</strong>
       </div>
     </div>
   );
@@ -1514,12 +1614,104 @@ function formatReplicaSide(progress) {
   return total > 0 ? `${completed}/${total}` : "-";
 }
 
+function progressPercent(progress) {
+  const completed = Number(progress?.completed || 0);
+  const total = Number(progress?.total || 0);
+  return total > 0 ? clampPercent((completed / total) * 100) : 0;
+}
+
 function formatVariantReplicas(variant) {
   const completed = Number(variant?.completedReplicas || 0);
   const total = Number(variant?.totalReplicas || 0);
   const solved = variant?.solved ? "pass" : variant?.finished ? "fail" : "";
   const suffix = solved ? ` · ${solved}` : "";
   return total > 0 ? `${completed}/${total}${suffix}` : "-";
+}
+
+function variantResultLabel(variant) {
+  if (variant?.invalid) {
+    return "invalid";
+  }
+  if (!variant?.finished) {
+    return variant?.started ? "running" : "waiting";
+  }
+  return variant?.solved ? "passed" : "not passed";
+}
+
+function taskCompletion(state) {
+  const tasks = Array.isArray(state.liveProgress?.taskStatuses)
+    ? state.liveProgress.taskStatuses
+    : [];
+  const total = Number(state.liveProgress?.totalTasks ?? tasks.length ?? 0);
+  const completed = Number(
+    state.liveProgress?.completedTasks ?? tasks.filter((task) => task.completed).length ?? 0
+  );
+  return {
+    completed,
+    total,
+    percent: total > 0 ? (completed / total) * 100 : 0
+  };
+}
+
+function readablePhase(value) {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized.includes("screen")) {
+    return "Screen gate";
+  }
+  if (normalized.includes("duel")) {
+    return "Full duel";
+  }
+  if (normalized.includes("confirm")) {
+    return "Confirming win";
+  }
+  if (normalized.includes("queued")) {
+    return "Queued";
+  }
+  if (!normalized || normalized === "null") {
+    return "Waiting";
+  }
+  return value;
+}
+
+function duelOutcomeMessage(state) {
+  if (state.live) {
+    const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
+    if (invalidCandidate > 0) {
+      return "Candidate has an invalid run. The validator should stop this duel and close the PR as invalid.";
+    }
+    const delta = Number(state.scores?.delta || 0);
+    if (delta > 0) {
+      return "Candidate is currently ahead. Final promotion still depends on all selected codebases finishing cleanly.";
+    }
+    if (delta < 0) {
+      return "King is currently ahead. Candidate needs more passed codebases or true positives to recover.";
+    }
+    return "Duel is running. Early numbers can change until all replicas finish.";
+  }
+  if (state.finalWinner === "candidate") {
+    return "Candidate beat the king and is ready for promotion.";
+  }
+  if (state.finalWinner === "king") {
+    return "King held the lane. The candidate did not beat the promotion gate.";
+  }
+  return "Waiting for enough results to decide the duel.";
+}
+
+function formatSignedPoints(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "-";
+  }
+  const numeric = Number(value);
+  return `${numeric > 0 ? "+" : ""}${formatNumber(numeric * 100)} pts`;
+}
+
+function formatTaskName(value) {
+  const raw = String(value || "hidden task");
+  return raw
+    .replace(/^(code4rena|sherlock|cantina)_/, "")
+    .replace(/_\d{4}_\d{2}$/, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function taskStatusTone(status) {

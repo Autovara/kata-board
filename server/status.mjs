@@ -616,6 +616,7 @@ function loadActiveEvaluationProgress(
     enqueuedAt: activeJob?.enqueuedAt || null,
     attempts: activeJob?.attempts || 0,
     finalAction: activeJob?.finalAction || null,
+    finalReason: activeJob?.finalReason || null,
     primary: null
   };
   if (!activeJob) {
@@ -632,6 +633,8 @@ function loadActiveEvaluationProgress(
   const workspaceRoot = workspace?.workspaceRoot || null;
   const lane = workspace?.lane || null;
   const phaseProgress = workspace?.phaseProgress || null;
+  const sn60Final = phaseProgress?.sn60 || null;
+  const phaseScreeningFailed = sn60Final?.screeningStatus === "failed";
   if (liveStatus || phaseProgress || lane) {
     return {
       ...base,
@@ -653,6 +656,17 @@ function loadActiveEvaluationProgress(
       candidateAuthor:
         liveStatus?.candidateAuthor ||
         (lane?.submissionId ? inferSubmissionAuthorFromId(lane.submissionId) : null),
+      screeningStatus: liveStatus?.screeningStatus || sn60Final?.screeningStatus || null,
+      screeningStage: liveStatus?.screeningStage || sn60Final?.screeningStage || null,
+      screeningReasons: liveStatus?.screeningReasons?.length
+        ? liveStatus.screeningReasons
+        : sn60Final?.screeningReasons || [],
+      finalReason:
+        (phaseScreeningFailed ? phaseProgress?.promotionReason : null) ||
+        liveStatus?.finalReason ||
+        phaseProgress?.promotionReason ||
+        activeJob.finalReason ||
+        null,
       primary: liveStatus?.primary || phaseProgress?.primary || null
     };
   }
@@ -702,6 +716,9 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
       timeoutSeconds: numberOrNull(payload.screening_timeout_seconds),
       timeoutAt: payload.screening_timeout_at || null
     },
+    screeningStatus: payload.screening_status || null,
+    screeningStage: payload.screening_stage || null,
+    screeningReasons: Array.isArray(payload.screening_reasons) ? payload.screening_reasons : [],
     candidateAuthor:
       payload.candidate_github_login ||
       payload.candidate_author ||
@@ -943,11 +960,14 @@ function inspectChallengePhase(
     replicasPerProject,
     benchmarkExpectedCounts
   );
+  const sn60Metrics = summary ? loadSn60ActivityMetrics(summary) : null;
   if (sn60Progress) {
     return {
       state: summary ? "verifying" : "running",
       phase,
       runId: path.basename(challengeRoot),
+      promotionReason: summary?.promotion_reason || null,
+      sn60: sn60Metrics,
       updatedAt:
         summary?.created_at ||
         sn60Progress.updatedAt ||
@@ -960,6 +980,8 @@ function inspectChallengePhase(
     state: summary ? "verifying" : "running",
     phase,
     runId: path.basename(challengeRoot),
+    promotionReason: summary?.promotion_reason || null,
+    sn60: sn60Metrics,
     updatedAt:
       summary?.created_at ||
       statMtimeIso(summaryPath) ||
@@ -1689,6 +1711,7 @@ function summarizeQueueJob(job) {
     headSha: job.head_sha || null,
     attempts: job.attempts,
     finalAction: job.final_action || null,
+    finalReason: job.final_reason || null,
     enqueuedAt: job.enqueued_at || null,
     startedAt: job.started_at || null,
     finishedAt: job.finished_at || null,

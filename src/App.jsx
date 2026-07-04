@@ -1548,6 +1548,14 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
   const primary = activeEvaluation.primary || {};
   const completed = activeEvaluation.state === "completed" || activeEvaluation.state === "failed";
   const activeScreening = !completed && activeEvaluation.phase === "sn60-screening";
+  const completedScreeningFailed =
+    completed &&
+    (activeEvaluation.screeningStatus === "failed" ||
+      String(activeEvaluation.finalReason || "").toLowerCase().includes("failed sn60 screening") ||
+      String(activeEvaluation.finalReason || "").toLowerCase().includes("failed screening"));
+  const screeningMetricFallback = completedScreeningFailed
+    ? { king: 0, candidate: 0, delta: 0 }
+    : null;
   return {
     ...(current || {}),
     live: !completed,
@@ -1560,22 +1568,30 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
       null,
     kingSubmissionId: current?.kingSubmissionId || lane?.king?.submissionId || null,
     kingAuthor: current?.kingAuthor || lane?.king?.author || lane?.currentHolder || null,
-    screeningStatus: activeScreening ? "running" : current?.screeningStatus || null,
-    screeningStage: activeScreening ? "screening" : current?.screeningStage || null,
-    screeningReasons: activeScreening ? [] : current?.screeningReasons || [],
+    screeningStatus: activeScreening
+      ? "running"
+      : activeEvaluation.screeningStatus || current?.screeningStatus || null,
+    screeningStage: activeScreening
+      ? "screening"
+      : activeEvaluation.screeningStage || current?.screeningStage || null,
+    screeningReasons: activeScreening
+      ? []
+      : activeEvaluation.screeningReasons?.length
+        ? activeEvaluation.screeningReasons
+        : current?.screeningReasons || [],
     screeningMeta: activeEvaluation.screening || current?.screeningMeta || null,
     projectKeys: primary.projectKeys?.length
       ? primary.projectKeys
       : activeEvaluation.projectKeys?.length
         ? activeEvaluation.projectKeys
         : current?.projectKeys || [],
-    codebasesPassed: livePair(primary.passCounts, current?.codebasesPassed),
-    truePositives: livePair(primary.truePositives, current?.truePositives),
-    totalExpected: livePair(primary.totalExpected, current?.totalExpected),
-    precision: livePair(primary.precision, current?.precision),
-    f1Scores: livePair(primary.f1Scores, current?.f1Scores),
-    invalidRuns: livePair(primary.invalidRuns, current?.invalidRuns),
-    scores: liveScores(primary.scores, current?.scores),
+    codebasesPassed: livePair(primary.passCounts, screeningMetricFallback || current?.codebasesPassed),
+    truePositives: livePair(primary.truePositives, screeningMetricFallback || current?.truePositives),
+    totalExpected: livePair(primary.totalExpected, screeningMetricFallback || current?.totalExpected),
+    precision: livePair(primary.precision, screeningMetricFallback || current?.precision),
+    f1Scores: livePair(primary.f1Scores, screeningMetricFallback || current?.f1Scores),
+    invalidRuns: livePair(primary.invalidRuns, completedScreeningFailed ? { king: 0, candidate: 1 } : current?.invalidRuns),
+    scores: liveScores(primary.scores, screeningMetricFallback || current?.scores),
     replicaProgress: primary.replicaProgress || current?.replicaProgress || null,
     finalWinner: completed
       ? finalWinnerFromAction(activeEvaluation.finalAction, current?.finalWinner)

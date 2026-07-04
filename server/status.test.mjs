@@ -554,6 +554,103 @@ test("shows live SN60 screening project and timeout before result exists", async
   assert.equal(active.primary.taskStatuses[0].status, "screening running");
 });
 
+test("completed SN60 screening failure overrides stale lane winner state", async () => {
+  const root = makeKataRoot();
+  const botRoot = path.join(root, "bot");
+  const queuePath = path.join(botRoot, "state", "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const workRoot = path.join(botRoot, "work");
+  const jobId = "job-screen-failed";
+  const reason = "SN60 screening report must include at least one candidate vulnerability. Empty reports are treated as no-op submissions.";
+  writeJson(path.dirname(queuePath), "queue.json", {
+    schema_version: 1,
+    jobs: [
+      {
+        schema_version: 1,
+        job_id: jobId,
+        kata_repo: "owner/kata",
+        pull_number: 42,
+        head_sha: "d".repeat(40),
+        status: "completed",
+        attempts: 1,
+        enqueued_at: "2026-07-02T05:00:00+00:00",
+        started_at: "2026-07-02T05:01:00+00:00",
+        finished_at: "2026-07-02T05:08:00+00:00",
+        final_action: "close-losing"
+      }
+    ]
+  });
+  writeJson(path.dirname(liveStatusPath), "live-status.json", {
+    schema_version: 1,
+    state: "completed",
+    phase: "completed",
+    lane_id: "sn60__bitsec",
+    candidate_submission_id: "failer-20260702-01",
+    project_keys: ["project-alpha"],
+    final_action: "close-losing",
+    final_reason: "Submission lost to the current king and should be auto-closed.",
+    job: {
+      job_id: jobId,
+      kata_repo: "owner/kata",
+      pull_number: 42,
+      attempts: 1,
+      enqueued_at: "2026-07-02T05:00:00+00:00",
+      started_at: "2026-07-02T05:01:00+00:00",
+      finished_at: "2026-07-02T05:08:00+00:00"
+    }
+  });
+
+  const workspace = path.join(workRoot, "kata-bot-job-screen-failed");
+  fs.mkdirSync(workspace, { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, "changed-paths.txt"),
+    "submissions/sn60__bitsec/miner/failer-20260702-01/agent.py\n"
+  );
+  const runRoot = path.join(workspace, "runs-initial", "sn60-screening-failed");
+  writeJson(runRoot, "screening_result.json", {
+    status: "failed",
+    stage: "execution",
+    project_key: "project-alpha",
+    reasons: [reason]
+  });
+  writeJson(runRoot, "challenge_summary.json", {
+    schema_version: 5,
+    run_id: "sn60-screening-failed",
+    manifest_path: path.join(runRoot, "screening_result.json"),
+    mode: "miner",
+    created_at: "2026-07-02T05:08:00+00:00",
+    primary: {
+      project_keys: ["project-alpha"],
+      run_summary_path: "screening_result.json",
+      variant_successes: { king: 0, candidate: 0 },
+      variant_invalid_runs: { king: 0, candidate: 1 },
+      variant_scores: { king: 0, candidate: 0 },
+      candidate_beats_king: false,
+      candidate_score_delta: 0
+    },
+    promotion_ready: false,
+    promotion_reason: `sn60__bitsec: candidate failed SN60 screening: ${reason}`
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOT_ROOT: botRoot,
+    KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_LIVE_STATUS_PATH: liveStatusPath,
+    KATA_WORK_ROOT: workRoot
+  });
+
+  const active = status.validator.activeEvaluation;
+  assert.equal(active.state, "completed");
+  assert.equal(active.finalAction, "close-losing");
+  assert.equal(active.finalReason, `sn60__bitsec: candidate failed SN60 screening: ${reason}`);
+  assert.equal(active.screeningStatus, "failed");
+  assert.equal(active.screeningStage, "execution");
+  assert.deepEqual(active.screeningReasons, [reason]);
+  assert.equal(active.primary.completedTasks, 1);
+  assert.equal(active.primary.taskStatuses[0].status, "screening failed");
+});
+
 test("leaderboard includes losing candidates from run artifacts", async () => {
   const root = makeKataRoot();
   const losingRunRoot = path.join(root, "runs", "sn60-duel-loser");

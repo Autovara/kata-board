@@ -302,7 +302,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <TerminalLine label="engine" value="SN60 · king vs candidate" />
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
-          <TerminalLine label="benchmark" value={`${overview.benchmarkProjects ?? 0} smart-contract codebases`} />
+          <TerminalLine label="selected set" value={`${overview.benchmarkProjects ?? 0} smart-contract codebases`} />
           <TerminalLine label="promotions" value={`${totalKings || 0} king${totalKings === 1 ? "" : "s"} crowned`} />
           <TerminalLine label="goal" value="one-click mining" />
         </div>
@@ -310,7 +310,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
 
       <section className="stat-row">
         <Stat label="live subnets" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
-        <Stat label="benchmark codebases" value={overview.benchmarkProjects ?? 0} />
+        <Stat label="selected codebases" value={overview.benchmarkProjects ?? 0} />
         <Stat label="challengers seen" value={overview.leaderboardEntries ?? 0} />
         <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
       </section>
@@ -742,7 +742,7 @@ function DocOverview({ selectedLane, links }) {
         Kata is a Gittensor-aligned security-agent competition system. Miners do
         not submit ordinary code fixes. They submit vulnerability-hunting agents
         that duel the current king in the same pinned Bitsec sandbox, on the
-        same benchmark codebases, under the same validator checks.
+        same selected benchmark codebases, under the same validator checks.
       </p>
       <DocCallout
         title="If you are new, start here"
@@ -755,7 +755,7 @@ function DocOverview({ selectedLane, links }) {
       <DocGrid>
         <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
         <DocCard title="Pack registry" text="Central registry of subnet packs. Each pack pins its own benchmark snapshot, scoring rules, and current king." />
-        <DocCard title="Bitsec sandbox" text="Pinned SN60 evaluation mirror. Agents run in Docker against the pinned benchmark snapshot." />
+        <DocCard title="Bitsec sandbox" text="Pinned SN60 evaluation mirror. Agents run in Docker against selected projects from the pinned benchmark snapshot." />
         <DocCard title="kata-bot" text="GitHub automation. Queues PRs, evaluates candidates, comments, closes, merges, and promotes winners." />
       </DocGrid>
       <div className="doc-metrics">
@@ -788,7 +788,7 @@ function DocWorkflow({ links }) {
       </p>
       <DocGrid>
         <DocCard title="Input" text="One PR with one agent bundle under submissions/." />
-        <DocCard title="Evaluator" text="Kata runs candidate and king through the same pinned Bitsec sandbox snapshot with repeated replica runs." />
+        <DocCard title="Evaluator" text="Kata runs candidate and king through the same selected Bitsec benchmark projects with repeated replica runs." />
         <DocCard title="Decision" text="kata-bot turns the result into close-invalid, close-losing, rerun-stale, hold, or merge." />
         <DocCard title="Output" text="A verified winner is merged, copied into kings/, and recorded as the new lane king." />
       </DocGrid>
@@ -801,7 +801,7 @@ function DocWorkflow({ links }) {
           ["Validate shape", "The bot checks changed paths before trusting PR contents."],
           ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
           ["Screening", "One screener sandbox run must finish cleanly before the full duel."],
-          ["Sandbox duel", "Candidate and king run repeated replicas per benchmark codebase in the Bitsec sandbox."],
+          ["Sandbox duel", "Candidate and king run repeated replicas per selected benchmark codebase in the Bitsec sandbox."],
           ["Verify freshness", "Kata rejects stale wins if the king or the pinned benchmark snapshot changed."],
           ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
         ]}
@@ -904,15 +904,15 @@ function DocScoring({ selectedLane }) {
       <p className="kicker">Scoring</p>
       <h1>How a candidate wins</h1>
       <p>
-        Candidate and king run through the same pinned Bitsec sandbox snapshot
-        with repeated replicas per benchmark codebase. A codebase passes only if
-        at least 2 of 3 runs pass; the aggregated score is passed codebases
-        divided by total codebases.
+        Candidate and king run through the same selected projects from the
+        pinned Bitsec benchmark snapshot with repeated replicas per codebase.
+        A codebase passes only if at least 2 of 3 runs pass; the aggregated
+        score is passed codebases divided by selected codebases.
       </p>
       <DocGrid>
-        <DocCard title="Benchmark" text={`${projectCount} SN60 project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`} />
+        <DocCard title="Benchmark" text={`${projectCount} selected SN60 project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`} />
         <DocCard title="Codebase pass" text="A codebase passes when at least 2 of 3 replica runs pass." />
-        <DocCard title="Aggregated score" text="Passed codebases divided by total codebases in the round." />
+        <DocCard title="Aggregated score" text="Passed codebases divided by selected codebases in the round." />
         <DocCard title="Promotion order" text="Aggregated score, then codebases passed, then true positives." />
       </DocGrid>
       <h2>Screening</h2>
@@ -940,7 +940,7 @@ function DocBot() {
           ["Enqueue", "Webhook events become durable queue jobs keyed by repo, PR number, and head SHA."],
           ["Drain", "The resident validator continuously processes pending jobs."],
           ["Inspect", "Changed paths are checked before untrusted PR content is evaluated."],
-          ["Evaluate", "Kata runs candidate and king through the pinned Bitsec sandbox with repeated replicas."],
+          ["Evaluate", "Kata runs candidate and king through selected pinned Bitsec benchmark projects with repeated replicas."],
           ["Comment", "The bot posts a clear PR result with score deltas and reason."],
           ["Close", "Invalid and losing PRs are labeled and closed."],
           ["Rerun", "Stale results are rerun when the king or the pinned benchmark snapshot changed."],
@@ -1265,7 +1265,7 @@ function duelFormat(lane) {
   }
   const count =
     lane.projects?.length || lane.evaluatorState?.current?.projectKeys?.length || 0;
-  return `${count} SN60 project${count === 1 ? "" : "s"}`;
+  return `${count} selected SN60 project${count === 1 ? "" : "s"}`;
 }
 
 function laneActiveEvaluation(activeEvaluation, lane) {

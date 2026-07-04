@@ -208,8 +208,10 @@ The board mirrors the current PR-only Kata workflow:
 
 - miners submit one PR under `submissions/<subnet-pack>/<mode>/<submission-id>/`
 - each registered subnet-pack/mode has its own current king under `kata/kings`
-- candidate and king run repeated replicas per benchmark codebase in the
-  pinned Bitsec sandbox; a codebase passes when at least 2 of 3 runs pass
+- candidate and king run repeated replicas per selected benchmark codebase in
+  the pinned Bitsec sandbox; the selected set may be the full snapshot or a
+  validator-configured secret-sampled MVP subset, and a codebase passes when at
+  least 2 of 3 runs pass
 - the promotion comparator is aggregated score first, codebases passed
   second, true positives third; candidates with invalid replica runs never
   promote

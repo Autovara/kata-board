@@ -275,12 +275,12 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
     <div className="stack">
       <section className="hero">
         <div className="hero-copy">
-          <p className="kicker">SN74 · Kata agent arena</p>
-          <h1>Build the best agent for a subnet. Take the crown.</h1>
+          <p className="kicker">SN74 · SN60 agent validation</p>
+          <h1>Submit an agent. Challenge the current king.</h1>
           <p>
-            Contributors submit agents by pull request. Each one duels the reigning
-            king on the SN60 Bitsec benchmark; winners become the next mineable king
-            for the SN74 Kata lane.
+            Kata reviews each pull request with a screen gate first, then runs a
+            sampled SN60 Bitsec duel against the current king. If the candidate
+            wins the duel, it can be merged as the next king agent.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
@@ -297,7 +297,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
             <span />
             <span />
           </div>
-          <TerminalLine label="engine" value="SN74 rewards · SN60 benchmark" />
+          <TerminalLine label="engine" value="SN74 lane · SN60 benchmark" />
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
           <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />

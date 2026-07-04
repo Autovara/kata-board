@@ -86,6 +86,9 @@ function resolveRoots(env) {
     boardRoot,
     kataRoot: resolveExistingRoot(env.KATA_ROOT, path.join(boardRoot, "kata")),
     kataBotRoot,
+    sn60BenchmarkFile: env.KATA_SN60_BENCHMARK_FILE
+      ? path.resolve(env.KATA_SN60_BENCHMARK_FILE)
+      : null,
     workRoot: path.resolve(
       env.KATA_WORK_ROOT || path.join(kataBotRoot, "work")
     ),
@@ -440,10 +443,12 @@ async function computeLeaderboard(env) {
 async function loadValidatorStatus(env, roots) {
   const health = await loadValidatorHealth(env.KATA_VALIDATOR_HEALTH_URL);
   const queue = loadQueueStatus(roots.queueStatePath, health.payload?.queue || null);
+  const benchmarkExpectedCounts = loadSn60BenchmarkExpectedCounts(roots.sn60BenchmarkFile);
   const activeEvaluation = loadActiveEvaluationProgress(
     roots.liveStatusPath,
     roots.workRoot,
-    queue.activeJob
+    queue.activeJob,
+    benchmarkExpectedCounts
   );
   const activePullAuthor = await loadActivePullAuthor(env, queue.activeJob);
   return {
@@ -577,7 +582,12 @@ function queueStatusFromHealth(payload) {
   };
 }
 
-function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
+function loadActiveEvaluationProgress(
+  liveStatusPath,
+  workRoot,
+  activeJob,
+  benchmarkExpectedCounts = new Map()
+) {
   const base = {
     available: Boolean(activeJob),
     state: activeJob ? "queued" : "idle",
@@ -600,7 +610,12 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
   }
 
   const liveStatus = loadLiveEvaluationProgress(liveStatusPath, activeJob);
-  const workspace = findActiveWorkspaceProgress(workRoot, activeJob, liveStatus);
+  const workspace = findActiveWorkspaceProgress(
+    workRoot,
+    activeJob,
+    liveStatus,
+    benchmarkExpectedCounts
+  );
   const workspaceRoot = workspace?.workspaceRoot || null;
   const lane = workspace?.lane || null;
   const phaseProgress = workspace?.phaseProgress || null;
@@ -736,7 +751,12 @@ function normalizeLiveVariant(variant) {
   };
 }
 
-function findActiveWorkspaceProgress(workRoot, activeJob, liveStatus) {
+function findActiveWorkspaceProgress(
+  workRoot,
+  activeJob,
+  liveStatus,
+  benchmarkExpectedCounts = new Map()
+) {
   const workspaces = listActiveWorkspaces(workRoot);
   if (!workspaces.length) {
     return null;
@@ -749,13 +769,15 @@ function findActiveWorkspaceProgress(workRoot, activeJob, liveStatus) {
         path.join(workspaceRoot, "runs-confirm"),
         "confirm",
         liveStatus?.projectKeys || [],
-        liveStatus?.replicasPerProject
+        liveStatus?.replicasPerProject,
+        benchmarkExpectedCounts
       ) ||
       inspectChallengePhase(
         path.join(workspaceRoot, "runs-initial"),
         "initial",
         liveStatus?.projectKeys || [],
-        liveStatus?.replicasPerProject
+        liveStatus?.replicasPerProject,
+        benchmarkExpectedCounts
       );
     return {
       workspaceRoot,
@@ -852,7 +874,8 @@ function inspectChallengePhase(
   phaseRoot,
   phase,
   selectedProjectKeys = [],
-  replicasPerProject = null
+  replicasPerProject = null,
+  benchmarkExpectedCounts = new Map()
 ) {
   if (!fs.existsSync(phaseRoot)) {
     return null;
@@ -878,7 +901,8 @@ function inspectChallengePhase(
     challengeRoot,
     summary,
     selectedProjectKeys,
-    replicasPerProject
+    replicasPerProject,
+    benchmarkExpectedCounts
   );
   if (sn60Progress) {
     return {
@@ -909,7 +933,8 @@ function inspectSn60Progress(
   runRoot,
   summary,
   selectedProjectKeys = [],
-  replicasPerProject = null
+  replicasPerProject = null,
+  benchmarkExpectedCounts = new Map()
 ) {
   const runId = path.basename(runRoot);
   if (runId.startsWith("sn60-screening-")) {
@@ -964,7 +989,12 @@ function inspectSn60Progress(
   if (summary?.primary) {
     return summarizeSn60SummaryPrimary(summary, runRoot);
   }
-  return summarizeRunningSn60Duel(runRoot, selectedProjectKeys, replicasPerProject);
+  return summarizeRunningSn60Duel(
+    runRoot,
+    selectedProjectKeys,
+    replicasPerProject,
+    benchmarkExpectedCounts
+  );
 }
 
 function summarizeSn60SummaryPrimary(summary, runRoot) {
@@ -1013,18 +1043,21 @@ function summarizeSn60SummaryPrimary(summary, runRoot) {
 function summarizeRunningSn60Duel(
   runRoot,
   selectedProjectKeys = [],
-  replicasPerProject = null
+  replicasPerProject = null,
+  benchmarkExpectedCounts = new Map()
 ) {
   const expectedReplicas = positiveIntegerOrNull(replicasPerProject);
   const king = summarizeSn60VariantProgress(
     path.join(runRoot, "king"),
     selectedProjectKeys,
-    expectedReplicas
+    expectedReplicas,
+    benchmarkExpectedCounts
   );
   const candidate = summarizeSn60VariantProgress(
     path.join(runRoot, "candidate"),
     selectedProjectKeys,
-    expectedReplicas
+    expectedReplicas,
+    benchmarkExpectedCounts
   );
   const projectKeys = [
     ...new Set([...selectedProjectKeys, ...king.projectKeys, ...candidate.projectKeys])
@@ -1142,7 +1175,8 @@ function summarizeRunningSn60Duel(
 function summarizeSn60VariantProgress(
   variantRoot,
   selectedProjectKeys = [],
-  expectedReplicas = null
+  expectedReplicas = null,
+  benchmarkExpectedCounts = new Map()
 ) {
   const projects = new Map();
   for (const projectKey of selectedProjectKeys) {
@@ -1151,7 +1185,8 @@ function summarizeSn60VariantProgress(
       summarizeSn60ProjectProgress(
         path.join(variantRoot, projectKey),
         projectKey,
-        expectedReplicas
+        expectedReplicas,
+        benchmarkExpectedCounts
       )
     );
   }
@@ -1175,7 +1210,8 @@ function summarizeSn60VariantProgress(
     const project = summarizeSn60ProjectProgress(
       path.join(variantRoot, projectKey),
       projectKey,
-      expectedReplicas
+      expectedReplicas,
+      benchmarkExpectedCounts
     );
     projects.set(projectKey, project);
   }
@@ -1204,13 +1240,18 @@ function summarizeSn60VariantProgress(
   };
 }
 
-function summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas = null) {
+function summarizeSn60ProjectProgress(
+  projectRoot,
+  projectKey,
+  expectedReplicas = null,
+  benchmarkExpectedCounts = new Map()
+) {
   const replicaRoots = listDirectories(projectRoot)
     .filter((name) => name.startsWith("replica-"))
     .map((name) => path.join(projectRoot, name))
     .sort();
   const replicas = replicaRoots.map((replicaRoot) =>
-    summarizeSn60ReplicaProgress(replicaRoot, projectKey)
+    summarizeSn60ReplicaProgress(replicaRoot, projectKey, benchmarkExpectedCounts)
   );
   const completedReplicas = replicas.filter((replica) => replica.finished).length;
   const passCount = replicas.filter((replica) => replica.result === "PASS").length;
@@ -1249,7 +1290,11 @@ function summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas 
   };
 }
 
-function summarizeSn60ReplicaProgress(replicaRoot, projectKey) {
+function summarizeSn60ReplicaProgress(
+  replicaRoot,
+  projectKey,
+  benchmarkExpectedCounts = new Map()
+) {
   const reportPath = findFirstExistingFile([
     path.join(replicaRoot, "reports", projectKey, "report.json"),
     path.join(replicaRoot, "report.json")
@@ -1264,6 +1309,7 @@ function summarizeSn60ReplicaProgress(replicaRoot, projectKey) {
     ? evaluation.result
     : {};
   const valid = !evaluation || status === "success";
+  const fallbackExpected = Number(benchmarkExpectedCounts.get(projectKey) || 0);
   return {
     started: Boolean(reportPath || evaluationPath || fs.existsSync(replicaRoot)),
     finished: Boolean(evaluation),
@@ -1273,7 +1319,9 @@ function summarizeSn60ReplicaProgress(replicaRoot, projectKey) {
     truePositives:
       status === "success" ? Number(result.true_positives || 0) || 0 : 0,
     totalExpected:
-      status === "success" ? Number(result.total_expected || 0) || 0 : 0,
+      status === "success"
+        ? Number(result.total_expected || 0) || 0
+        : fallbackExpected,
     totalFound:
       status === "success" ? Number(result.total_found || 0) || 0 : 0
   };
@@ -1820,6 +1868,9 @@ function walk(rootPath, visitor) {
 }
 
 function readJson(filePath) {
+  if (!filePath) {
+    return null;
+  }
   if (!fs.existsSync(filePath)) {
     return null;
   }
@@ -1832,6 +1883,28 @@ function readJsonSafe(filePath) {
   } catch {
     return null;
   }
+}
+
+function loadSn60BenchmarkExpectedCounts(filePath) {
+  const payload = readJsonSafe(filePath);
+  const counts = new Map();
+  if (!Array.isArray(payload)) {
+    return counts;
+  }
+  for (const entry of payload) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const projectKey = String(entry.project_id || entry.id || "").trim();
+    if (!projectKey) {
+      continue;
+    }
+    counts.set(
+      projectKey,
+      Array.isArray(entry.vulnerabilities) ? entry.vulnerabilities.length : 0
+    );
+  }
+  return counts;
 }
 
 function readText(filePath) {

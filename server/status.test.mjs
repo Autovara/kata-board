@@ -285,6 +285,20 @@ test("merges live status with active SN60 worktree progress", async () => {
     "submissions/sn60__bitsec/miner/carol-20260702-01/agent.py\n"
   );
   const runRoot = path.join(workspace, "runs-initial", "sn60-duel-active");
+  const benchmarkPath = path.join(root, "curated-highs-only-2025-08-08.json");
+  fs.writeFileSync(
+    benchmarkPath,
+    JSON.stringify(
+      [
+        {
+          project_id: "project-alpha",
+          vulnerabilities: [{}, {}, {}, {}, {}]
+        }
+      ],
+      null,
+      2
+    ) + "\n"
+  );
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
     result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 }
@@ -294,8 +308,8 @@ test("merges live status with active SN60 worktree progress", async () => {
     result: { result: "PASS", true_positives: 2, total_expected: 2, total_found: 2 }
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-03", {
-    status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 5, total_found: 0 }
+    status: "error",
+    result: {}
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
     status: "success",
@@ -319,7 +333,8 @@ test("merges live status with active SN60 worktree progress", async () => {
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
     KATA_LIVE_STATUS_PATH: liveStatusPath,
-    KATA_WORK_ROOT: workRoot
+    KATA_WORK_ROOT: workRoot,
+    KATA_SN60_BENCHMARK_FILE: benchmarkPath
   });
 
   const active = status.validator.activeEvaluation;
@@ -331,6 +346,7 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.passCounts.king, 0);
   assert.equal(active.primary.scores.candidate, 0.5);
   assert.equal(active.primary.truePositives.candidate, 5);
+  assert.equal(active.primary.invalidRuns.candidate, 1);
   assert.deepEqual(active.primary.replicaProgress.candidate, {
     completed: 4,
     total: 6

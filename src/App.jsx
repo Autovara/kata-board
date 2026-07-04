@@ -275,12 +275,12 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
     <div className="stack">
       <section className="hero">
         <div className="hero-copy">
-          <p className="kicker">King of the hill · AI agents</p>
+          <p className="kicker">SN74 · Kata agent arena</p>
           <h1>Build the best agent for a subnet. Take the crown.</h1>
           <p>
             Contributors submit agents by pull request. Each one duels the reigning
-            king on a fixed benchmark — win, and your agent becomes the new king
-            anyone can mine with.
+            king on the SN60 Bitsec benchmark; winners become the next mineable king
+            for the SN74 Kata lane.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
@@ -297,7 +297,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
             <span />
             <span />
           </div>
-          <TerminalLine label="engine" value="SN60 · king vs candidate" />
+          <TerminalLine label="engine" value="SN74 rewards · SN60 benchmark" />
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
           <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
@@ -324,9 +324,9 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           sub="visible completed run artifacts"
         />
         <Stat
-          label="gittensor score"
+          label="winner score"
           value={formatNumber(overview.totalGittensorScore || 0)}
-          sub="winner score after local time decay"
+          sub="merged winner score after local time decay"
         />
       </section>
 
@@ -578,14 +578,6 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <ScreeningWaitNotice state={state} />
 
-      {state.screeningReasons?.length ? (
-        <div className="lane-notes">
-          {state.screeningReasons.slice(0, 3).map((reason) => (
-            <span key={reason}>{reason}</span>
-          ))}
-        </div>
-      ) : null}
-
       <LiveTaskProgress state={state} />
     </section>
   );
@@ -608,12 +600,12 @@ function LatestDuelResult({ state, activeEvaluation }) {
   return (
     <div className="duel-result-card">
       <div className="duel-result-lead">
-        <span>latest duel result</span>
+        <span>duel decision</span>
         <strong>{resultLabel}</strong>
         <p>{duelOutcomeMessage(state)}</p>
       </div>
       <div className="duel-result-score">
-        <span>score gap</span>
+        <span>candidate gap</span>
         <strong className={Number(scoreDelta || 0) > 0 ? "positive" : Number(scoreDelta || 0) < 0 ? "negative" : ""}>
           {formatSignedPoints(scoreDelta)}
         </strong>
@@ -822,7 +814,7 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Top challengers"
-        text="Ranked by Gittensor winner score. A trusted kata:winner PR earns 1.0 before Gittensor time decay; non-winner PRs stay visible but score zero."
+        text="Track miners, crowned kings, submissions, and the current ranking across Kata challenges."
       />
 
       <section className="table-section">
@@ -832,7 +824,7 @@ function Leaderboard({ leaderboard }) {
           <span>kings</span>
           <span>submissions</span>
           <span>open</span>
-          <span>gittensor score</span>
+          <span>score</span>
         </div>
         {rows.length ? (
           rows.slice(0, 20).map((row, index) => (
@@ -852,7 +844,7 @@ function Leaderboard({ leaderboard }) {
               <span className="lb-num">{row.wins}</span>
               <span className="lb-num">{row.totalSubmissions}</span>
               <span className="lb-num">{row.openSubmissions}</span>
-              <strong className="lb-score" title={`base winner score ${formatNumber(row.gittensorBaseScore ?? row.wins)}`}>
+              <strong className="lb-score">
                 {formatNumber(row.gittensorScore ?? row.score)}
               </strong>
             </div>
@@ -866,7 +858,7 @@ function Leaderboard({ leaderboard }) {
 }
 
 function rankBadge(index) {
-  return `#${index + 1}`;
+  return ["🥇", "🥈", "🥉"][index] || String(index + 1);
 }
 
 function Docs({ selectedLane, kataRepoSlug }) {
@@ -1763,10 +1755,7 @@ function readablePhase(value) {
 
 function duelOutcomeMessage(state) {
   if (state.screeningStatus === "failed") {
-    const reason = state.screeningReasons?.[0];
-    return reason
-      ? `Screening failed: ${reason}`
-      : "Screening failed, so the full duel did not run.";
+    return screeningFailureMessage(state.screeningReasons?.[0]);
   }
   if (state.live) {
     if (state.screeningStatus === "running") {
@@ -1792,6 +1781,18 @@ function duelOutcomeMessage(state) {
     return "King held the lane. The candidate did not beat the promotion gate.";
   }
   return "Waiting for enough results to decide the duel.";
+}
+
+function screeningFailureMessage(reason) {
+  const text = String(reason || "").trim();
+  const normalized = text.toLowerCase();
+  if (!text) {
+    return "Screening stopped this PR before the full duel.";
+  }
+  if (normalized.includes("at least one candidate vulnerability") || normalized.includes("empty reports")) {
+    return "Screening stopped this PR because the agent returned no useful candidate vulnerability.";
+  }
+  return `Screening stopped this PR: ${text}`;
 }
 
 function formatSignedPoints(value) {

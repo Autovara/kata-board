@@ -3572,3 +3572,169 @@ html { scroll-behavior: smooth; }
     grid-template-columns: 1fr;
   }
 }
+
+/* Production board refresh: clear dashboard metrics, result summary, and Gittensor score table. */
+.stat {
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+}
+
+.stat small {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.duel-result-card {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(180px, 0.55fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.duel-result-lead,
+.duel-result-score,
+.result-tile {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(185, 255, 93, 0.08), transparent 34%),
+    rgba(8, 9, 8, 0.35);
+}
+
+.duel-result-lead {
+  padding: 20px;
+}
+
+.duel-result-lead span,
+.duel-result-score span,
+.result-tile span,
+.result-tile small {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.duel-result-lead strong {
+  display: block;
+  margin-top: 10px;
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 0.98;
+}
+
+.duel-result-lead p {
+  max-width: 700px;
+  margin: 14px 0 0;
+  color: var(--soft);
+  line-height: 1.55;
+}
+
+.duel-result-score {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 20px;
+}
+
+.duel-result-score strong {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.duel-result-score strong.positive {
+  color: var(--green);
+}
+
+.duel-result-score strong.negative {
+  color: var(--red);
+}
+
+.duel-result-score small {
+  color: var(--muted);
+}
+
+.duel-result-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.result-tile {
+  min-height: 118px;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+  padding: 15px;
+}
+
+.result-tile strong {
+  min-width: 0;
+  font-size: 18px;
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
+.result-tile-ok {
+  border-color: rgba(185, 255, 93, 0.28);
+}
+
+.result-tile-bad {
+  border-color: rgba(255, 95, 90, 0.35);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 95, 90, 0.08), transparent 34%),
+    rgba(8, 9, 8, 0.35);
+}
+
+.table-head,
+.table-row {
+  grid-template-columns: 72px minmax(190px, 1fr) 90px 120px 90px 150px;
+}
+
+.lb-rank {
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 700;
+}
+
+.lb-score {
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+@media (max-width: 980px) {
+  .duel-result-card,
+  .duel-result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .duel-result-lead {
+    grid-column: 1 / -1;
+  }
+
+  .table-head,
+  .table-row {
+    grid-template-columns: 56px minmax(160px, 1fr) 70px 96px 70px 118px;
+  }
+}
+
+@media (max-width: 680px) {
+  .duel-result-card,
+  .duel-result-grid,
+  .table-head,
+  .table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .table-head {
+    display: none;
+  }
+
+  .table-row {
+    padding: 16px;
+  }
+}

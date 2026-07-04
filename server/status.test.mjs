@@ -228,6 +228,12 @@ test("loads recent activity from challenge summaries", async () => {
   const status = await loadBoardStatus(boardEnv(root));
 
   assert.equal(status.activity.length, 1);
+  assert.equal(status.overview.selectedCodebases, 2);
+  assert.equal(status.overview.uniqueChallengers, 1);
+  assert.equal(status.overview.totalSubmissions, 1);
+  assert.equal(status.overview.recentDuels, 1);
+  assert.ok(status.overview.totalGittensorScore > 0);
+  assert.ok(status.overview.totalGittensorScore <= 1);
   const entry = status.activity[0];
   assert.equal(entry.runId, "sn60-duel-1");
   assert.equal(entry.laneId, "sn60__bitsec:miner");
@@ -750,6 +756,7 @@ test("leaderboard includes losing candidates from run artifacts", async () => {
   assert.equal(dave.wins, 0);
   assert.equal(dave.totalSubmissions, 1);
   assert.equal(dave.closedSubmissions, 1);
+  assert.equal(dave.gittensorScore, 0);
 });
 
 test("degrades gracefully when the kata root is empty", async () => {
@@ -826,6 +833,8 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
   assert.ok(row);
   assert.equal(row.author, "alice");
   assert.equal(row.wins, 1);
+  assert.ok(row.gittensorScore > 0);
+  assert.ok(row.gittensorScore <= 1);
 });
 
 test("survives a wrong-typed selected_project_keys without a 500", async () => {
@@ -978,6 +987,9 @@ test("accepts subnet_pack in event log leaderboard entries", async () => {
     KATA_LEADERBOARD_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.leaderboard.rows[0].author, "alice");
-  assert.equal(status.leaderboard.rows[0].wins, 1);
+  const alice = status.leaderboard.rows.find((row) => row.author === "alice");
+  assert.ok(alice);
+  assert.equal(alice.wins, 1);
+  assert.ok(alice.gittensorScore > 0);
+  assert.ok(alice.gittensorScore <= 1);
 });

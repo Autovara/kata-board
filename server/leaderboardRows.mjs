@@ -11,6 +11,9 @@ export function createAuthorRow(author) {
     closedSubmissions: 0,
     currentKings: 0,
     score: 0,
+    gittensorBaseScore: 0,
+    gittensorScore: 0,
+    winnerPulls: [],
     lastActivityAt: null,
     recentPulls: []
   };
@@ -27,13 +30,16 @@ export function maxDate(left, right) {
 }
 
 export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
+  const now = new Date();
   return [...byAuthor.values()]
     .map((entry) => ({
       ...entry,
       currentKings: [...latestLaneWinners.values()].filter(
         (winner) => winner.author === entry.author
       ).length,
-      score: entry.wins * 100 + entry.openSubmissions * 5
+      gittensorBaseScore: entry.wins,
+      gittensorScore: calculateGittensorWinnerScore(entry.winnerPulls, now),
+      score: calculateGittensorWinnerScore(entry.winnerPulls, now)
     }))
     .sort(
       (left, right) =>
@@ -41,4 +47,32 @@ export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
         right.wins - left.wins ||
         right.totalSubmissions - left.totalSubmissions
     );
+}
+
+function calculateGittensorWinnerScore(winnerPulls, now) {
+  const pulls = Array.isArray(winnerPulls) ? winnerPulls : [];
+  return Number(
+    pulls
+      .reduce((total, pull) => total + calculateTimeDecayMultiplier(pull.mergedAt, now), 0)
+      .toFixed(4)
+  );
+}
+
+function calculateTimeDecayMultiplier(mergedAt, now) {
+  const mergedTime = new Date(mergedAt || 0).getTime();
+  if (!Number.isFinite(mergedTime) || mergedTime <= 0) {
+    return 1;
+  }
+  const hoursSinceMerge = Math.max(0, (now.getTime() - mergedTime) / 3_600_000);
+  const gracePeriodHours = 12;
+  if (hoursSinceMerge < gracePeriodHours) {
+    return 1;
+  }
+  const daysSinceMerge = hoursSinceMerge / 24;
+  const sigmoidMidpointDays = 10;
+  const sigmoidSteepness = 0.4;
+  const minMultiplier = 0.05;
+  const sigmoid =
+    1 / (1 + Math.exp(sigmoidSteepness * (daysSinceMerge - sigmoidMidpointDays)));
+  return Math.max(sigmoid, minMultiplier);
 }

@@ -268,11 +268,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
   const activeEvaluation = validator?.activeEvaluation || null;
   const recentActivity = payload.activity || [];
   const latestChallenge = recentActivity[0] || null;
+  const latestStatus = buildDashboardLatestStatus(activeEvaluation, latestChallenge);
   const topMiner = payload.leaderboard?.rows?.[0] || null;
-  const totalKings = payload.leaderboard?.rows?.reduce(
-    (total, row) => total + Number(row.wins || 0),
-    0
-  );
 
   return (
     <div className="stack">
@@ -303,17 +300,34 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <TerminalLine label="engine" value="SN60 · king vs candidate" />
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
-          <TerminalLine label="selected set" value={`${overview.benchmarkProjects ?? 0} smart-contract codebases`} />
-          <TerminalLine label="promotions" value={`${totalKings || 0} king${totalKings === 1 ? "" : "s"} crowned`} />
+          <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
+          <TerminalLine label="gittensor" value={`${formatNumber(overview.totalGittensorScore || 0)} winner score`} />
           <TerminalLine label="goal" value="one-click mining" />
         </div>
       </section>
 
       <section className="stat-row">
         <Stat label="live subnets" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
-        <Stat label="selected codebases" value={overview.benchmarkProjects ?? 0} />
-        <Stat label="challengers seen" value={overview.leaderboardEntries ?? 0} />
-        <Stat label="recent duels" value={overview.recentChallenges ?? 0} />
+        <Stat
+          label="eval codebases"
+          value={overview.selectedCodebases ?? overview.benchmarkProjects ?? 0}
+          sub="sampled SN60 projects in the current lane"
+        />
+        <Stat
+          label="challengers"
+          value={overview.uniqueChallengers ?? overview.leaderboardEntries ?? 0}
+          sub={`${overview.totalSubmissions ?? 0} submission PRs seen`}
+        />
+        <Stat
+          label="recent duels"
+          value={overview.recentDuels ?? overview.recentChallenges ?? 0}
+          sub="visible completed run artifacts"
+        />
+        <Stat
+          label="gittensor score"
+          value={formatNumber(overview.totalGittensorScore || 0)}
+          sub="winner score after local time decay"
+        />
       </section>
 
       <section className="section-block how-block">
@@ -340,10 +354,11 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
         </div>
         <div className="section-block">
           <SectionTitle title="Latest challenge" />
-          <KeyValue label="challenger" value={latestChallenge?.candidateAuthor || latestChallenge?.candidateSubmissionId || "none yet"} />
-          <KeyValue label="result" value={latestChallenge ? duelStatus(latestChallenge) : "no duel yet"} />
+          <KeyValue label="challenger" value={latestStatus.challenger} />
+          <KeyValue label="status" value={latestStatus.status} />
+          <KeyValue label="source" value={latestStatus.source} />
           <KeyValue label="top miner" value={topMiner?.author || "not ranked yet"} />
-          <KeyValue label="updated" value={formatDateTime(payload.generatedAt)} />
+          <KeyValue label="updated" value={formatDateTime(latestStatus.updatedAt || payload.generatedAt)} />
         </div>
       </section>
     </div>
@@ -559,7 +574,7 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
         />
       </div>
 
-      <DuelInsights state={state} />
+      <LatestDuelResult state={state} activeEvaluation={activeEvaluation} />
 
       <ScreeningWaitNotice state={state} />
 
@@ -573,6 +588,76 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <LiveTaskProgress state={state} />
     </section>
+  );
+}
+
+function LatestDuelResult({ state, activeEvaluation }) {
+  const taskProgress = taskCompletion(state);
+  const winner = state.finalWinner;
+  const resultLabel =
+    state.screeningStatus === "failed"
+      ? "Screen gate failed"
+      : state.live
+        ? readablePhase(activeEvaluation?.phase || state.liveProgress?.phase || "running")
+        : winner === "candidate"
+          ? "Candidate won"
+          : winner === "king"
+            ? "King held"
+            : "No decision yet";
+  const scoreDelta = state.scores?.delta;
+  return (
+    <div className="duel-result-card">
+      <div className="duel-result-lead">
+        <span>latest duel result</span>
+        <strong>{resultLabel}</strong>
+        <p>{duelOutcomeMessage(state)}</p>
+      </div>
+      <div className="duel-result-score">
+        <span>score gap</span>
+        <strong className={Number(scoreDelta || 0) > 0 ? "positive" : Number(scoreDelta || 0) < 0 ? "negative" : ""}>
+          {formatSignedPoints(scoreDelta)}
+        </strong>
+        <small>candidate minus king</small>
+      </div>
+      <div className="duel-result-grid">
+        <ResultTile
+          label="codebases"
+          value={`${taskProgress.completed}/${taskProgress.total}`}
+          sub="completed selected projects"
+        />
+        <ResultTile
+          label="detection"
+          value={`C ${percentMetric(state.scores?.candidate)} · K ${percentMetric(state.scores?.king)}`}
+          sub="true positives / expected"
+        />
+        <ResultTile
+          label="true positives"
+          value={`C ${formatNumber(state.truePositives?.candidate)} · K ${formatNumber(state.truePositives?.king)}`}
+          sub={`expected C ${formatNumber(state.totalExpected?.candidate)} · K ${formatNumber(state.totalExpected?.king)}`}
+        />
+        <ResultTile
+          label="precision / f1"
+          value={`C ${percentMetric(state.precision?.candidate)} / ${percentMetric(state.f1Scores?.candidate)}`}
+          sub={`K ${percentMetric(state.precision?.king)} / ${percentMetric(state.f1Scores?.king)}`}
+        />
+        <ResultTile
+          label="invalid runs"
+          value={`C ${formatNumber(state.invalidRuns?.candidate || 0)} · K ${formatNumber(state.invalidRuns?.king || 0)}`}
+          sub="candidate invalid stops promotion"
+          tone={Number(state.invalidRuns?.candidate || 0) > 0 ? "bad" : "ok"}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ResultTile({ label, value, sub, tone = "neutral" }) {
+  return (
+    <div className={`result-tile result-tile-${tone}`}>
+      <span>{label}</span>
+      <strong>{value ?? "-"}</strong>
+      <small>{sub}</small>
+    </div>
   );
 }
 
@@ -611,121 +696,6 @@ function ScreeningWaitNotice({ state }) {
         </small>
       </div>
     </div>
-  );
-}
-
-function DuelInsights({ state }) {
-  const taskProgress = taskCompletion(state);
-  const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
-  return (
-    <div className="duel-insights" aria-label="Duel summary">
-      <div className="duel-insights-main">
-        <div className="duel-ring-card">
-          <div className="duel-ring" style={{ "--progress": `${clampPercent(taskProgress.percent)}%` }}>
-            <strong>{taskProgress.completed}</strong>
-            <span>/{taskProgress.total}</span>
-          </div>
-          <div>
-            <span>Codebase progress</span>
-            <strong>{taskProgress.completed}/{taskProgress.total} complete</strong>
-            <small>updates after both candidate and king finish a problem</small>
-          </div>
-        </div>
-        <div className={`duel-health-card ${invalidCandidate > 0 ? "duel-health-card-bad" : ""}`}>
-          <span>Invalid runs</span>
-          <strong>{invalidCandidate > 0 ? `${invalidCandidate} candidate` : "clean"}</strong>
-          <small>
-            {invalidCandidate > 0
-              ? "error projects score 0 and hurt ties"
-              : `king ${state.invalidRuns?.king ?? 0} · candidate 0`}
-          </small>
-        </div>
-      </div>
-      <div className="duel-comparison-stack">
-        <ComparisonRail
-          label="Detection score"
-          candidate={state.scores?.candidate}
-          king={state.scores?.king}
-          formatValue={percentMetric}
-        />
-        <ComparisonRail
-          label="True positives"
-          candidate={state.truePositives?.candidate}
-          king={state.truePositives?.king}
-          candidateDetail={expectedDetail(state.totalExpected?.candidate)}
-          kingDetail={expectedDetail(state.totalExpected?.king)}
-          tone="cyan"
-        />
-        <ComparisonRail
-          label="Precision"
-          candidate={state.precision?.candidate}
-          king={state.precision?.king}
-          tone="cyan"
-          formatValue={percentMetric}
-        />
-        <ComparisonRail
-          label="F1 score"
-          candidate={state.f1Scores?.candidate}
-          king={state.f1Scores?.king}
-          formatValue={percentMetric}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ComparisonRail({
-  label,
-  candidate,
-  king,
-  tone = "green",
-  formatValue = formatNumber,
-  candidateDetail = null,
-  kingDetail = null
-}) {
-  const candidateHasValue = isFiniteNumber(candidate);
-  const kingHasValue = isFiniteNumber(king);
-  const candidateValue = candidateHasValue ? Number(candidate) : 0;
-  const kingValue = kingHasValue ? Number(king) : 0;
-  const maxValue = Math.max(candidateValue, kingValue, 1);
-  return (
-    <div className={`comparison-rail comparison-rail-${tone}`}>
-      <div className="comparison-rail-head">
-        <div>
-          <span>{label}</span>
-          {candidateDetail || kingDetail ? (
-            <small>C {candidateDetail || "-"} · K {kingDetail || "-"}</small>
-          ) : null}
-        </div>
-        <strong>
-          C {candidateHasValue ? formatValue(candidateValue) : "-"} · K{" "}
-          {kingHasValue ? formatValue(kingValue) : "-"}
-        </strong>
-      </div>
-      <div className="comparison-bars">
-        <i style={{ width: `${candidateHasValue ? clampPercent((candidateValue / maxValue) * 100) : 0}%` }}>
-          candidate
-        </i>
-        <b style={{ width: `${kingHasValue ? clampPercent((kingValue / maxValue) * 100) : 0}%` }}>
-          king
-        </b>
-      </div>
-    </div>
-  );
-}
-
-function ArenaInsight({ label, value, sub, progress, tone = "neutral" }) {
-  return (
-    <article className={`arena-insight arena-insight-${tone}`}>
-      <span>{label}</span>
-      <strong>{value ?? "-"}</strong>
-      <small>{sub}</small>
-      {typeof progress === "number" ? (
-        <div className="arena-insight-progress">
-          <i style={{ width: `${clampPercent(progress)}%` }} />
-        </div>
-      ) : null}
-    </article>
   );
 }
 
@@ -796,46 +766,6 @@ function LiveTaskRow({ task }) {
   );
 }
 
-function LaneMetric({ label, value, sub, tone = "neutral" }) {
-  return (
-    <div className={`lane-metric lane-metric-${tone}`}>
-      <span>{label}</span>
-      <strong>{value ?? "-"}</strong>
-      {sub ? <small>{sub}</small> : null}
-    </div>
-  );
-}
-
-function Sn60Metric({ label, value, sub }) {
-  return (
-    <div className="sn60-metric">
-      <span>{label}</span>
-      <strong>{value ?? "-"}</strong>
-      <small>{sub}</small>
-    </div>
-  );
-}
-
-function ReplicaStrip({ label, values }) {
-  const normalized = Array.isArray(values) ? values : [];
-  return (
-    <div className="replica-strip">
-      <span>{label}</span>
-      <div>
-        {normalized.length ? (
-          normalized.map((value, index) => (
-            <i key={`${label}-${index}`} style={{ "--replica-score": `${clampPercent(Number(value) * 100)}%` }}>
-              {formatNumber(Number(value) * 100)}
-            </i>
-          ))
-        ) : (
-          <em>no replica scores</em>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function Winners({ lanes, kataRepoSlug }) {
   return (
     <div className="stack">
@@ -892,7 +822,7 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Top challengers"
-        text="Ranked by crowns won. Kings are verified merged wins; submissions counts every candidate PR seen."
+        text="Ranked by Gittensor winner score. A trusted kata:winner PR earns 1.0 before Gittensor time decay; non-winner PRs stay visible but score zero."
       />
 
       <section className="table-section">
@@ -902,7 +832,7 @@ function Leaderboard({ leaderboard }) {
           <span>kings</span>
           <span>submissions</span>
           <span>open</span>
-          <span>score</span>
+          <span>gittensor score</span>
         </div>
         {rows.length ? (
           rows.slice(0, 20).map((row, index) => (
@@ -922,7 +852,9 @@ function Leaderboard({ leaderboard }) {
               <span className="lb-num">{row.wins}</span>
               <span className="lb-num">{row.totalSubmissions}</span>
               <span className="lb-num">{row.openSubmissions}</span>
-              <strong className="lb-score">{row.score}</strong>
+              <strong className="lb-score" title={`base winner score ${formatNumber(row.gittensorBaseScore ?? row.wins)}`}>
+                {formatNumber(row.gittensorScore ?? row.score)}
+              </strong>
             </div>
           ))
         ) : (
@@ -934,7 +866,7 @@ function Leaderboard({ leaderboard }) {
 }
 
 function rankBadge(index) {
-  return ["🥇", "🥈", "🥉"][index] || index + 1;
+  return `#${index + 1}`;
 }
 
 function Docs({ selectedLane, kataRepoSlug }) {
@@ -1403,28 +1335,6 @@ function SectionTitle({ title }) {
   return <h2 className="section-title">{title}</h2>;
 }
 
-function ProcessItem({ step, title, text }) {
-  return (
-    <div className="process-item">
-      <span>{step}</span>
-      <div>
-        <strong>{title}</strong>
-        <p>{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function ArenaMetaCard({ label, value, sub, tone = "neutral" }) {
-  return (
-    <article className={`arena-meta-card arena-meta-card-${tone}`}>
-      <span>{label}</span>
-      <strong>{value ?? "-"}</strong>
-      <small>{sub}</small>
-    </article>
-  );
-}
-
 function Avatar({ name, avatarName, avatarUrl: explicitAvatarUrl }) {
   const src = explicitAvatarUrl || avatarUrl(avatarName || name);
   if (src) {
@@ -1445,11 +1355,12 @@ function MinerIdentity({ name, sub, size = "compact" }) {
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, sub = null }) {
   return (
     <div className="stat">
       <span>{label}</span>
       <strong>{value ?? "-"}</strong>
+      {sub ? <small>{sub}</small> : null}
     </div>
   );
 }
@@ -1639,6 +1550,38 @@ function duelStatus(duel) {
   return duel.promotionReady ? "winner" : "completed";
 }
 
+function buildDashboardLatestStatus(activeEvaluation, latestChallenge) {
+  if (activeEvaluation?.available && activeEvaluation.state !== "idle") {
+    return {
+      challenger:
+        activeEvaluation.candidateGithubLogin ||
+        activeEvaluation.candidateAuthor ||
+        activeEvaluation.candidateSubmissionId ||
+        "active challenger",
+      status: activeEvaluationStatus(activeEvaluation),
+      source: activeEvaluation.pullNumber ? `PR #${activeEvaluation.pullNumber}` : "validator queue",
+      updatedAt: activeEvaluation.updatedAt || activeEvaluation.startedAt
+    };
+  }
+  if (latestChallenge) {
+    return {
+      challenger:
+        latestChallenge.candidateAuthor ||
+        latestChallenge.candidateSubmissionId ||
+        "completed challenger",
+      status: duelStatus(latestChallenge),
+      source: latestChallenge.runId || "run artifact",
+      updatedAt: latestChallenge.createdAt
+    };
+  }
+  return {
+    challenger: "none yet",
+    status: "no duel yet",
+    source: "waiting",
+    updatedAt: null
+  };
+}
+
 function promotionGate(lane) {
   if (!lane) {
     return "not configured";
@@ -1670,42 +1613,6 @@ function initials(value) {
     .join("");
 }
 
-function leaderboardSource(source) {
-  if (source === "github") {
-    return "GitHub PR history";
-  }
-  if (source === "events") {
-    return "event log";
-  }
-  if (source === "events+runs") {
-    return "event log + run artifacts";
-  }
-  if (source === "github+runs") {
-    return "GitHub PR history + run artifacts";
-  }
-  if (source === "github-not-configured+runs" || source === "unavailable+runs") {
-    return "run artifacts";
-  }
-  if (source === "github-not-configured") {
-    return "not configured";
-  }
-  return source || "unknown";
-}
-
-function shortHash(value) {
-  if (!value) {
-    return "-";
-  }
-  return `${value.slice(0, 8)}...${value.slice(-6)}`;
-}
-
-function shortRunId(value) {
-  if (!value) {
-    return "unknown";
-  }
-  return value.replace(/^challenge-/, "").slice(0, 28);
-}
-
 function percentScore(value) {
   if (value === null || value === undefined) {
     return "-";
@@ -1718,26 +1625,6 @@ function percentMetric(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)}%`;
-}
-
-function isFiniteNumber(value) {
-  return value !== null && value !== undefined && Number.isFinite(Number(value));
-}
-
-function expectedDetail(value) {
-  return isFiniteNumber(value) ? `/${formatNumber(Number(value))} expected` : null;
-}
-
-function formatReplicaProgress(progress) {
-  const candidate = progress?.candidate || {};
-  const king = progress?.king || {};
-  const candidateText =
-    candidate.total > 0 ? `${candidate.completed}/${candidate.total}` : "-";
-  const kingText = king.total > 0 ? `${king.completed}/${king.total}` : "-";
-  return {
-    value: `${candidateText} vs ${kingText}`,
-    sub: "challenger vs king"
-  };
 }
 
 function formatReplicaSide(progress) {
@@ -1934,22 +1821,6 @@ function taskStatusTone(status) {
   }
   if (normalized.includes("running")) {
     return "active";
-  }
-  return "neutral";
-}
-
-function sn60Pair(value) {
-  const candidate = value?.candidate ?? "-";
-  const king = value?.king ?? "-";
-  return `${candidate} / ${king}`;
-}
-
-function screeningTone(status) {
-  if (status === "passed" || status === "pass" || status === true) {
-    return "ok";
-  }
-  if (status === "failed" || status === "fail" || status === false) {
-    return "bad";
   }
   return "neutral";
 }

@@ -1788,6 +1788,10 @@ function loadEventLeaderboard(eventLogPath) {
     entry.totalSubmissions += 1;
     if (item.final_action === "merge") {
       entry.wins += 1;
+      entry.winnerPulls.push({
+        pullNumber: item.pull_number || null,
+        mergedAt: item.created_at
+      });
       latestLaneWinners.set(laneKey, {
         author,
         mergedAt: item.created_at,
@@ -1827,6 +1831,10 @@ function augmentLeaderboardWithActivity(leaderboard, activity) {
     entry.totalSubmissions += 1;
     if (item.promotionReady) {
       entry.wins += 1;
+      entry.winnerPulls.push({
+        pullNumber: null,
+        mergedAt: item.createdAt
+      });
     } else {
       entry.closedSubmissions += 1;
     }
@@ -1853,6 +1861,17 @@ function augmentLeaderboardWithActivity(leaderboard, activity) {
       activityEntry.totalSubmissions
     );
     entry.wins = Math.max(entry.wins || 0, activityEntry.wins);
+    const mergedWinnerKeys = new Set(
+      (entry.winnerPulls || []).map((pull) => `${pull.pullNumber || "run"}:${pull.mergedAt}`)
+    );
+    entry.winnerPulls = [...(entry.winnerPulls || [])];
+    for (const pull of activityEntry.winnerPulls || []) {
+      const key = `${pull.pullNumber || "run"}:${pull.mergedAt}`;
+      if (!mergedWinnerKeys.has(key)) {
+        entry.winnerPulls.push(pull);
+        mergedWinnerKeys.add(key);
+      }
+    }
     entry.closedSubmissions = Math.max(
       entry.closedSubmissions || 0,
       activityEntry.closedSubmissions
@@ -1874,14 +1893,28 @@ function buildOverview(lanes, activity, leaderboard, validator) {
     (accumulator, lane) => accumulator + (lane.projects?.length || 0),
     0
   );
+  const rows = Array.isArray(leaderboard?.rows) ? leaderboard.rows : [];
+  const totalSubmissions = rows.reduce(
+    (total, row) => total + Number(row.totalSubmissions || 0),
+    0
+  );
+  const totalGittensorScore = rows.reduce(
+    (total, row) => total + Number(row.gittensorScore || row.score || 0),
+    0
+  );
 
   return {
     activeSubnetPacks: new Set(lanes.map((lane) => lane.subnetPack || lane.repoPack)).size,
     activeRepoPacks: new Set(lanes.map((lane) => lane.subnetPack || lane.repoPack)).size,
     activeLanes: lanes.length,
     benchmarkProjects: projectCount,
+    selectedCodebases: projectCount,
     recentChallenges: activity.length,
-    leaderboardEntries: leaderboard.rows.length,
+    recentDuels: activity.length,
+    leaderboardEntries: rows.length,
+    uniqueChallengers: rows.length,
+    totalSubmissions,
+    totalGittensorScore: Number(totalGittensorScore.toFixed(4)),
     validatorPendingJobs: validator.queue.counts.pending,
     validatorRunningJobs: validator.queue.counts.running,
     validatorCompletedJobs: validator.queue.counts.completed,

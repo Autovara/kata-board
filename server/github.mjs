@@ -56,6 +56,7 @@ export async function loadGithubLeaderboard({
       updatedAt: pull.updated_at,
       htmlUrl: pull.html_url,
       author: pull.user?.login || "unknown",
+      winnerEligible: isKataWinnerPull(pull),
       laneKeys,
       submissionPaths: touchedSubmissions
     });
@@ -69,8 +70,12 @@ export async function loadGithubLeaderboard({
     entry.totalSubmissions += 1;
     if (pull.state === "open") {
       entry.openSubmissions += 1;
-    } else if (pull.mergedAt) {
+    } else if (pull.mergedAt && pull.winnerEligible) {
       entry.wins += 1;
+      entry.winnerPulls.push({
+        pullNumber: pull.number,
+        mergedAt: pull.mergedAt
+      });
     } else {
       entry.closedSubmissions += 1;
     }
@@ -88,7 +93,7 @@ export async function loadGithubLeaderboard({
     }
     byAuthor.set(pull.author, entry);
 
-    if (pull.mergedAt) {
+    if (pull.mergedAt && pull.winnerEligible) {
       for (const laneKey of pull.laneKeys) {
         const current = latestLaneWinners.get(laneKey);
         if (!current || new Date(pull.mergedAt) > new Date(current.mergedAt)) {
@@ -107,6 +112,11 @@ export async function loadGithubLeaderboard({
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners)
   };
+}
+
+function isKataWinnerPull(pull) {
+  const labels = Array.isArray(pull?.labels) ? pull.labels : [];
+  return labels.some((label) => String(label?.name || "").startsWith("kata:winner:"));
 }
 
 function emptyLeaderboard(source) {

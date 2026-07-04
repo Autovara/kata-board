@@ -307,7 +307,11 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
       </section>
 
       <section className="stat-row">
-        <Stat label="live subnets" value={overview.activeSubnetPacks ?? overview.activeRepoPacks} />
+        <Stat
+          label="live subnets"
+          value={overview.activeSubnetPacks ?? overview.activeRepoPacks}
+          sub="active Kata lanes connected to this board"
+        />
         <Stat
           label="eval codebases"
           value={overview.selectedCodebases ?? overview.benchmarkProjects ?? 0}
@@ -586,6 +590,7 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 function LatestDuelResult({ state, activeEvaluation }) {
   const taskProgress = taskCompletion(state);
   const winner = state.finalWinner;
+  const progress = taskProgress.total > 0 ? taskProgress.completed / taskProgress.total : 0;
   const resultLabel =
     state.screeningStatus === "failed"
       ? "Screen gate failed"
@@ -611,44 +616,82 @@ function LatestDuelResult({ state, activeEvaluation }) {
         </strong>
         <small>candidate minus king</small>
       </div>
-      <div className="duel-result-grid">
-        <ResultTile
-          label="codebases"
-          value={`${taskProgress.completed}/${taskProgress.total}`}
-          sub="completed selected projects"
-        />
-        <ResultTile
-          label="detection"
-          value={`C ${percentMetric(state.scores?.candidate)} · K ${percentMetric(state.scores?.king)}`}
-          sub="true positives / expected"
-        />
-        <ResultTile
-          label="true positives"
-          value={`C ${formatNumber(state.truePositives?.candidate)} · K ${formatNumber(state.truePositives?.king)}`}
-          sub={`expected C ${formatNumber(state.totalExpected?.candidate)} · K ${formatNumber(state.totalExpected?.king)}`}
-        />
-        <ResultTile
-          label="precision / f1"
-          value={`C ${percentMetric(state.precision?.candidate)} / ${percentMetric(state.f1Scores?.candidate)}`}
-          sub={`K ${percentMetric(state.precision?.king)} / ${percentMetric(state.f1Scores?.king)}`}
-        />
-        <ResultTile
-          label="invalid runs"
-          value={`C ${formatNumber(state.invalidRuns?.candidate || 0)} · K ${formatNumber(state.invalidRuns?.king || 0)}`}
-          sub="candidate invalid stops promotion"
-          tone={Number(state.invalidRuns?.candidate || 0) > 0 ? "bad" : "ok"}
-        />
+      <div className="duel-visual-grid">
+        <div className="duel-progress-figure">
+          <div
+            className="duel-progress-ring"
+            style={{ "--progress": `${clampPercent(progress * 100)}%` }}
+            aria-label={`${taskProgress.completed} of ${taskProgress.total} codebases completed`}
+          >
+            <strong>{taskProgress.completed}</strong>
+            <span>of {taskProgress.total}</span>
+          </div>
+          <div>
+            <span>codebase progress</span>
+            <p>Selected problems completed in this run.</p>
+          </div>
+        </div>
+
+        <div className="duel-bars-card">
+          <span>score shape</span>
+          <div className="comparison-legend">
+            <small><i className="legend-candidate" />Candidate</small>
+            <small><i className="legend-king" />King</small>
+          </div>
+          <ComparisonBar
+            label="detection"
+            candidate={state.scores?.candidate}
+            king={state.scores?.king}
+          />
+          <ComparisonBar
+            label="precision"
+            candidate={state.precision?.candidate}
+            king={state.precision?.king}
+          />
+          <ComparisonBar
+            label="f1 score"
+            candidate={state.f1Scores?.candidate}
+            king={state.f1Scores?.king}
+          />
+        </div>
+
+        <div className="duel-health-card">
+          <span>run health</span>
+          <div className="duel-health-row">
+            <small>true positives</small>
+            <strong>C {formatNumber(state.truePositives?.candidate)} · K {formatNumber(state.truePositives?.king)}</strong>
+          </div>
+          <div className="duel-health-row">
+            <small>expected vulns</small>
+            <strong>C {formatNumber(state.totalExpected?.candidate)} · K {formatNumber(state.totalExpected?.king)}</strong>
+          </div>
+          <div className={`duel-health-row ${Number(state.invalidRuns?.candidate || 0) > 0 ? "duel-health-bad" : "duel-health-ok"}`}>
+            <small>invalid runs</small>
+            <strong>C {formatNumber(state.invalidRuns?.candidate || 0)} · K {formatNumber(state.invalidRuns?.king || 0)}</strong>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function ResultTile({ label, value, sub, tone = "neutral" }) {
+function ComparisonBar({ label, candidate, king }) {
   return (
-    <div className={`result-tile result-tile-${tone}`}>
-      <span>{label}</span>
-      <strong>{value ?? "-"}</strong>
-      <small>{sub}</small>
+    <div className="comparison-bar">
+      <div className="comparison-bar-head">
+        <strong>{label}</strong>
+        <span>C {percentMetric(candidate)} · K {percentMetric(king)}</span>
+      </div>
+      <div className="comparison-track">
+        <i
+          className="comparison-fill comparison-fill-candidate"
+          style={{ width: `${ratioWidth(candidate)}%` }}
+        />
+        <i
+          className="comparison-fill comparison-fill-king"
+          style={{ width: `${ratioWidth(king)}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -1617,6 +1660,13 @@ function percentMetric(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)}%`;
+}
+
+function ratioWidth(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return 0;
+  }
+  return clampPercent(Number(value) * 100);
 }
 
 function formatReplicaSide(progress) {

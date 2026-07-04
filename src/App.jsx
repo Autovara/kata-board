@@ -606,6 +606,8 @@ function DuelInsights({ state }) {
           label="True positives"
           candidate={state.truePositives?.candidate}
           king={state.truePositives?.king}
+          candidateDetail={expectedDetail(state.totalExpected?.candidate)}
+          kingDetail={expectedDetail(state.totalExpected?.king)}
           tone="cyan"
         />
         <ComparisonRail
@@ -626,21 +628,39 @@ function DuelInsights({ state }) {
   );
 }
 
-function ComparisonRail({ label, candidate, king, tone = "green", formatValue = formatNumber }) {
-  const candidateValue = Number(candidate ?? 0);
-  const kingValue = Number(king ?? 0);
+function ComparisonRail({
+  label,
+  candidate,
+  king,
+  tone = "green",
+  formatValue = formatNumber,
+  candidateDetail = null,
+  kingDetail = null
+}) {
+  const candidateHasValue = isFiniteNumber(candidate);
+  const kingHasValue = isFiniteNumber(king);
+  const candidateValue = candidateHasValue ? Number(candidate) : 0;
+  const kingValue = kingHasValue ? Number(king) : 0;
   const maxValue = Math.max(candidateValue, kingValue, 1);
   return (
     <div className={`comparison-rail comparison-rail-${tone}`}>
       <div className="comparison-rail-head">
-        <span>{label}</span>
-        <strong>C {formatValue(candidateValue)} · K {formatValue(kingValue)}</strong>
+        <div>
+          <span>{label}</span>
+          {candidateDetail || kingDetail ? (
+            <small>C {candidateDetail || "-"} · K {kingDetail || "-"}</small>
+          ) : null}
+        </div>
+        <strong>
+          C {candidateHasValue ? formatValue(candidateValue) : "-"} · K{" "}
+          {kingHasValue ? formatValue(kingValue) : "-"}
+        </strong>
       </div>
       <div className="comparison-bars">
-        <i style={{ width: `${clampPercent((candidateValue / maxValue) * 100)}%` }}>
+        <i style={{ width: `${candidateHasValue ? clampPercent((candidateValue / maxValue) * 100) : 0}%` }}>
           candidate
         </i>
-        <b style={{ width: `${clampPercent((kingValue / maxValue) * 100)}%` }}>
+        <b style={{ width: `${kingHasValue ? clampPercent((kingValue / maxValue) * 100) : 0}%` }}>
           king
         </b>
       </div>
@@ -1502,6 +1522,7 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
         : current?.projectKeys || [],
     codebasesPassed: livePair(primary.passCounts, current?.codebasesPassed),
     truePositives: livePair(primary.truePositives, current?.truePositives),
+    totalExpected: livePair(primary.totalExpected, current?.totalExpected),
     precision: livePair(primary.precision, current?.precision),
     f1Scores: livePair(primary.f1Scores, current?.f1Scores),
     invalidRuns: livePair(primary.invalidRuns, current?.invalidRuns),
@@ -1618,6 +1639,14 @@ function percentMetric(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)}%`;
+}
+
+function isFiniteNumber(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value));
+}
+
+function expectedDetail(value) {
+  return isFiniteNumber(value) ? `/${formatNumber(Number(value))} expected` : null;
 }
 
 function formatReplicaProgress(progress) {

@@ -3333,10 +3333,18 @@ html { scroll-behavior: smooth; }
   gap: 12px;
 }
 
+.comparison-rail-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .comparison-rail-head strong {
   color: var(--soft);
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
+  text-align: right;
 }
 
 .comparison-bars {
@@ -3346,7 +3354,6 @@ html { scroll-behavior: smooth; }
 
 .comparison-bars i,
 .comparison-bars b {
-  min-width: 44px;
   height: 10px;
   display: block;
   overflow: hidden;

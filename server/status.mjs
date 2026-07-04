@@ -239,6 +239,14 @@ function buildEvaluatorCurrentState({
     projectKeys,
     codebasesPassed: promotionRecord?.pass_counts || {},
     truePositives: promotionRecord?.true_positives || {},
+    totalExpected: {
+      candidate: numberOrNull(finalMetrics.candidate_total_expected),
+      king: numberOrNull(finalMetrics.king_total_expected),
+      delta:
+        finalMetrics.candidate_total_expected === undefined || finalMetrics.king_total_expected === undefined
+          ? null
+          : numberOrNull(Number(finalMetrics.candidate_total_expected) - Number(finalMetrics.king_total_expected))
+    },
     precision: {
       candidate: numberOrNull(finalMetrics.candidate_precision),
       king: numberOrNull(finalMetrics.king_precision),
@@ -999,6 +1007,9 @@ function inspectSn60Progress(
 
 function summarizeSn60SummaryPrimary(summary, runRoot) {
   const primary = summary.primary || {};
+  const duel = readJsonSafe(resolveRunManifestPath(summary, runRoot));
+  const candidate = duel?.candidate || {};
+  const king = duel?.king || {};
   const candidateScore = numberOrNull(primary.variant_scores?.candidate);
   const kingScore = numberOrNull(primary.variant_scores?.king);
   const passCounts = primary.variant_successes || {};
@@ -1023,9 +1034,26 @@ function summarizeSn60SummaryPrimary(summary, runRoot) {
       candidate: numberOrNull(passCounts.candidate),
       delta: null
     },
-    truePositives: { king: null, candidate: null, delta: null },
-    precision: { king: null, candidate: null, delta: null },
-    f1Scores: { king: null, candidate: null, delta: null },
+    truePositives: {
+      king: numberOrNull(king.true_positives),
+      candidate: numberOrNull(candidate.true_positives),
+      delta: numberDelta(candidate.true_positives, king.true_positives)
+    },
+    totalExpected: {
+      king: numberOrNull(king.total_expected),
+      candidate: numberOrNull(candidate.total_expected),
+      delta: numberDelta(candidate.total_expected, king.total_expected)
+    },
+    precision: {
+      king: numberOrNull(king.precision),
+      candidate: numberOrNull(candidate.precision),
+      delta: numberDelta(candidate.precision, king.precision)
+    },
+    f1Scores: {
+      king: numberOrNull(king.f1_score),
+      candidate: numberOrNull(candidate.f1_score),
+      delta: numberDelta(candidate.f1_score, king.f1_score)
+    },
     invalidRuns: {
       king: numberOrNull(invalidRuns.king),
       candidate: numberOrNull(invalidRuns.candidate),
@@ -1556,6 +1584,22 @@ function newestMtimeIso(rootPath) {
 function numberOrNull(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function numberDelta(left, right) {
+  const leftNumber = numberOrNull(left);
+  const rightNumber = numberOrNull(right);
+  return leftNumber === null || rightNumber === null ? null : leftNumber - rightNumber;
+}
+
+function resolveRunManifestPath(summary, runRoot) {
+  const manifestPath = String(summary?.manifest_path || "");
+  if (!manifestPath) {
+    return path.join(runRoot, "duel_summary.json");
+  }
+  return path.isAbsolute(manifestPath)
+    ? manifestPath
+    : path.join(runRoot, manifestPath);
 }
 
 async function loadValidatorHealth(healthUrl) {

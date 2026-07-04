@@ -86,6 +86,12 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
       candidate_aggregated_score: 0.75,
       king_aggregated_score: 0.5,
       candidate_aggregated_score_delta: 0.25,
+      candidate_total_expected: 16,
+      king_total_expected: 12,
+      candidate_precision: 0.8,
+      king_precision: 0.6,
+      candidate_f1_score: 0.7741935484,
+      king_f1_score: 0.5454545455,
       sandbox_commit: "b462a1e8e10b0000000000000000000000000000",
       benchmark_sha256: "benchmark-sha",
       scorer_version: "ScaBenchScorerV2"
@@ -168,6 +174,9 @@ test("renders the SN60 duel state from lane state files", async () => {
   assert.equal(current.screeningStage, "execution");
   assert.deepEqual(current.codebasesPassed, { king: 1, candidate: 2 });
   assert.deepEqual(current.truePositives, { king: 6, candidate: 12 });
+  assert.deepEqual(current.totalExpected, { king: 12, candidate: 16, delta: 4 });
+  assert.equal(current.precision.candidate, 0.8);
+  assert.equal(current.f1Scores.king, 0.5454545455);
   assert.deepEqual(current.invalidRuns, { king: 0, candidate: 0 });
   assert.equal(current.finalWinner, "candidate");
 
@@ -346,6 +355,9 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.passCounts.king, 0);
   assert.equal(active.primary.scores.candidate, 0.5);
   assert.equal(active.primary.truePositives.candidate, 5);
+  assert.equal(active.primary.totalExpected.candidate, 10);
+  assert.equal(active.primary.precision.candidate, 1);
+  assert.equal(active.primary.f1Scores.candidate, 2 / 3);
   assert.equal(active.primary.invalidRuns.candidate, 1);
   assert.deepEqual(active.primary.replicaProgress.candidate, {
     completed: 4,

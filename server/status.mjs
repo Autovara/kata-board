@@ -534,7 +534,9 @@ function loadQueueStatus(queueStatePath, healthQueuePayload = null) {
   if (!queuePayload) {
     return queueStatusFromHealth(healthQueuePayload);
   }
-  const jobs = Array.isArray(queuePayload?.jobs) ? queuePayload.jobs : [];
+  const jobs = Array.isArray(queuePayload?.jobs)
+    ? queuePayload.jobs.filter((job) => job && typeof job === "object")
+    : [];
   const counts = {
     total: jobs.length,
     pending: 0,
@@ -691,7 +693,13 @@ function evaluationJobState(job) {
 
 function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
   const payload = readJsonSafe(liveStatusPath);
-  if (!payload?.job || payload.job.job_id !== activeJob.jobId) {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !payload.job ||
+    typeof payload.job !== "object" ||
+    payload.job.job_id !== activeJob.jobId
+  ) {
     return null;
   }
   const primary = normalizeLivePool(payload.pools?.primary, true);
@@ -742,13 +750,15 @@ function normalizeLivePool(pool, revealTaskIds) {
     return null;
   }
   const rawTasks = Array.isArray(pool.task_statuses) ? pool.task_statuses : [];
-  const taskStatuses = rawTasks.map((task) => ({
-    taskId: revealTaskIds ? task.task_id || null : null,
-    status: task.status || "queued",
-    completed: Boolean(task.completed),
-    candidate: normalizeLiveVariant(task.candidate),
-    king: normalizeLiveVariant(task.king)
-  }));
+  const taskStatuses = rawTasks
+    .filter((task) => task && typeof task === "object")
+    .map((task) => ({
+      taskId: revealTaskIds ? task.task_id || null : null,
+      status: task.status || "queued",
+      completed: Boolean(task.completed),
+      candidate: normalizeLiveVariant(task.candidate),
+      king: normalizeLiveVariant(task.king)
+    }));
   return {
     live: pool.state !== "completed",
     totalTasks: Number(pool.total_tasks ?? taskStatuses.length ?? 0),
@@ -1681,7 +1691,7 @@ async function loadValidatorHealth(healthUrl) {
       configured: true,
       ok: Boolean(response.ok && payload?.status === "ok"),
       checkedAt: new Date().toISOString(),
-      payload,
+      payload: sanitizeValidatorHealthPayload(payload),
       error: null
     };
   } catch (error) {
@@ -1695,6 +1705,26 @@ async function loadValidatorHealth(healthUrl) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function sanitizeValidatorHealthPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const queue = payload.queue && typeof payload.queue === "object" ? payload.queue : null;
+  return {
+    status: typeof payload.status === "string" ? payload.status : null,
+    service: typeof payload.service === "string" ? payload.service : null,
+    queue: queue
+      ? {
+          total_jobs: numberOrNull(queue.total_jobs) ?? 0,
+          pending_jobs: numberOrNull(queue.pending_jobs) ?? 0,
+          running_jobs: numberOrNull(queue.running_jobs) ?? 0,
+          completed_jobs: numberOrNull(queue.completed_jobs) ?? 0,
+          failed_jobs: numberOrNull(queue.failed_jobs) ?? 0
+        }
+      : null
+  };
 }
 
 function jobSortDate(job) {

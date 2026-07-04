@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -371,6 +372,67 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.taskStatuses[0].candidate.totalReplicas, 3);
   assert.equal(active.primary.taskStatuses[1].candidate.completedReplicas, 1);
   assert.equal(active.primary.taskStatuses[1].candidate.totalReplicas, 3);
+});
+
+test("ignores malformed queue and live-status elements", async () => {
+  const root = makeKataRoot();
+  const botRoot = path.join(root, "bot");
+  const queuePath = path.join(botRoot, "state", "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const jobId = "job-malformed";
+  writeJson(path.dirname(queuePath), "queue.json", {
+    schema_version: 1,
+    jobs: [
+      null,
+      {
+        schema_version: 1,
+        job_id: jobId,
+        kata_repo: "owner/kata",
+        pull_number: 42,
+        status: "running",
+        attempts: 1,
+        enqueued_at: "2026-07-02T02:00:00+00:00",
+        started_at: "2026-07-02T02:01:00+00:00"
+      }
+    ]
+  });
+  writeJson(path.dirname(liveStatusPath), "live-status.json", {
+    schema_version: 1,
+    state: "evaluating",
+    phase: "sn60-duel",
+    lane_id: "sn60__bitsec",
+    candidate_submission_id: "carol-20260702-01",
+    job: { job_id: jobId, pull_number: 42, attempts: 1 },
+    pools: {
+      primary: {
+        state: "running",
+        total_tasks: 2,
+        task_statuses: [
+          null,
+          {
+            task_id: "project-alpha",
+            status: "running",
+            candidate: { started: true },
+            king: {}
+          }
+        ]
+      }
+    }
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOT_ROOT: botRoot,
+    KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_LIVE_STATUS_PATH: liveStatusPath
+  });
+
+  assert.equal(status.validator.queue.counts.total, 1);
+  assert.equal(status.validator.activeEvaluation.primary.taskStatuses.length, 1);
+  assert.equal(
+    status.validator.activeEvaluation.primary.taskStatuses[0].taskId,
+    "project-alpha"
+  );
 });
 
 test("keeps latest completed SN60 duel visible after queue finishes", async () => {
@@ -821,6 +883,47 @@ test("projects only derived evaluator state to clients", async () => {
   assert.equal(evaluatorState.benchmarkSnapshot, undefined);
   assert.equal(evaluatorState.promotionRecord, undefined);
   assert.equal(evaluatorState.challengeState, undefined);
+});
+
+test("sanitizes validator health payload before exposing status", async () => {
+  const root = makeKataRoot();
+  const server = http.createServer((_request, response) => {
+    response.setHeader("Content-Type", "application/json");
+    response.end(
+      JSON.stringify({
+        status: "ok",
+        service: "kata-validator",
+        secret_path: "/srv/kata-bot/state/queue.json",
+        token: "should-not-leak",
+        queue: {
+          total_jobs: 3,
+          pending_jobs: 1,
+          running_jobs: 1,
+          completed_jobs: 1,
+          failed_jobs: 0,
+          internal_path: "/srv/private"
+        }
+      })
+    );
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+
+  try {
+    const status = await loadBoardStatus({
+      ...boardEnv(root),
+      KATA_VALIDATOR_HEALTH_URL: `http://127.0.0.1:${port}/healthz`
+    });
+
+    assert.equal(status.validator.health.ok, true);
+    assert.equal(status.validator.health.payload.status, "ok");
+    assert.equal(status.validator.health.payload.token, undefined);
+    assert.equal(status.validator.health.payload.secret_path, undefined);
+    assert.equal(status.validator.health.payload.queue.running_jobs, 1);
+    assert.equal(status.validator.health.payload.queue.internal_path, undefined);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("lane state wins over PR history for the current holder", async () => {

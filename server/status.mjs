@@ -236,6 +236,22 @@ function buildEvaluatorCurrentState({
     projectKeys,
     codebasesPassed: promotionRecord?.pass_counts || {},
     truePositives: promotionRecord?.true_positives || {},
+    precision: {
+      candidate: numberOrNull(finalMetrics.candidate_precision),
+      king: numberOrNull(finalMetrics.king_precision),
+      delta:
+        finalMetrics.candidate_precision === undefined || finalMetrics.king_precision === undefined
+          ? null
+          : numberOrNull(Number(finalMetrics.candidate_precision) - Number(finalMetrics.king_precision))
+    },
+    f1Scores: {
+      candidate: numberOrNull(finalMetrics.candidate_f1_score),
+      king: numberOrNull(finalMetrics.king_f1_score),
+      delta:
+        finalMetrics.candidate_f1_score === undefined || finalMetrics.king_f1_score === undefined
+          ? null
+          : numberOrNull(Number(finalMetrics.candidate_f1_score) - Number(finalMetrics.king_f1_score))
+    },
     invalidRuns: promotionRecord?.invalid_runs || {},
     localReplicaScores: promotionRecord?.local_replica_scores || {},
     finalWinner: promotionRecord?.final_winner || null,
@@ -352,6 +368,14 @@ function loadSn60ActivityMetrics(summary) {
     truePositives: {
       candidate: numberOrNull(duel?.candidate?.true_positives),
       king: numberOrNull(duel?.king?.true_positives)
+    },
+    precision: {
+      candidate: numberOrNull(duel?.candidate?.precision),
+      king: numberOrNull(duel?.king?.precision)
+    },
+    f1Scores: {
+      candidate: numberOrNull(duel?.candidate?.f1_score),
+      king: numberOrNull(duel?.king?.f1_score)
     },
     replicaScores: {
       candidate: Array.isArray(duel?.candidate?.replica_results)
@@ -970,6 +994,8 @@ function summarizeSn60SummaryPrimary(summary, runRoot) {
       delta: null
     },
     truePositives: { king: null, candidate: null, delta: null },
+    precision: { king: null, candidate: null, delta: null },
+    f1Scores: { king: null, candidate: null, delta: null },
     invalidRuns: {
       king: numberOrNull(invalidRuns.king),
       candidate: numberOrNull(invalidRuns.candidate),
@@ -1030,6 +1056,36 @@ function summarizeRunningSn60Duel(
     (total, task) => total + Number(task.king.truePositives || 0),
     0
   );
+  const completedCandidateExpected = completedTasks.reduce(
+    (total, task) => total + Number(task.candidate.totalExpected || 0),
+    0
+  );
+  const completedKingExpected = completedTasks.reduce(
+    (total, task) => total + Number(task.king.totalExpected || 0),
+    0
+  );
+  const completedCandidateFound = completedTasks.reduce(
+    (total, task) => total + Number(task.candidate.totalFound || 0),
+    0
+  );
+  const completedKingFound = completedTasks.reduce(
+    (total, task) => total + Number(task.king.totalFound || 0),
+    0
+  );
+  const candidateScore = completedCandidateExpected
+    ? completedCandidateTruePositives / completedCandidateExpected
+    : 0;
+  const kingScore = completedKingExpected
+    ? completedKingTruePositives / completedKingExpected
+    : 0;
+  const candidatePrecision = completedCandidateFound
+    ? completedCandidateTruePositives / completedCandidateFound
+    : 0;
+  const kingPrecision = completedKingFound
+    ? completedKingTruePositives / completedKingFound
+    : 0;
+  const candidateF1 = f1Score(candidateScore, candidatePrecision);
+  const kingF1 = f1Score(kingScore, kingPrecision);
   return {
     live: true,
     totalTasks: totalProjects,
@@ -1037,9 +1093,9 @@ function summarizeRunningSn60Duel(
     taskStatuses,
     counts: summarizeTaskStatusCounts(taskStatuses),
     scores: {
-      king: completedKingPasses / totalProjects,
-      candidate: completedCandidatePasses / totalProjects,
-      delta: (completedCandidatePasses - completedKingPasses) / totalProjects
+      king: kingScore,
+      candidate: candidateScore,
+      delta: candidateScore - kingScore
     },
     passCounts: {
       king: completedKingPasses,
@@ -1050,6 +1106,21 @@ function summarizeRunningSn60Duel(
       king: completedKingTruePositives,
       candidate: completedCandidateTruePositives,
       delta: completedCandidateTruePositives - completedKingTruePositives
+    },
+    totalExpected: {
+      king: completedKingExpected,
+      candidate: completedCandidateExpected,
+      delta: completedCandidateExpected - completedKingExpected
+    },
+    precision: {
+      king: kingPrecision,
+      candidate: candidatePrecision,
+      delta: candidatePrecision - kingPrecision
+    },
+    f1Scores: {
+      king: kingF1,
+      candidate: candidateF1,
+      delta: candidateF1 - kingF1
     },
     invalidRuns: {
       king: king.invalidRuns,
@@ -1144,6 +1215,20 @@ function summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas 
   const completedReplicas = replicas.filter((replica) => replica.finished).length;
   const passCount = replicas.filter((replica) => replica.result === "PASS").length;
   const totalReplicas = expectedReplicas || replicas.length;
+  const truePositives = replicas.reduce(
+    (total, replica) => total + replica.truePositives,
+    0
+  );
+  const totalExpected = replicas.reduce(
+    (total, replica) => total + replica.totalExpected,
+    0
+  );
+  const totalFound = replicas.reduce(
+    (total, replica) => total + replica.totalFound,
+    0
+  );
+  const detectionRate = totalExpected ? truePositives / totalExpected : 0;
+  const precision = totalFound ? truePositives / totalFound : 0;
   return {
     projectKey,
     started: replicas.some((replica) => replica.started),
@@ -1151,12 +1236,13 @@ function summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas 
     solved: projectPasses(passCount, totalReplicas),
     valid: replicas.every((replica) => replica.valid),
     success: replicas.some((replica) => replica.success),
-    verifierScore: totalReplicas ? passCount / totalReplicas : null,
-    weightedTaskScore: totalReplicas ? passCount / totalReplicas : null,
-    truePositives: replicas.reduce(
-      (total, replica) => total + replica.truePositives,
-      0
-    ),
+    verifierScore: totalExpected ? detectionRate : null,
+    weightedTaskScore: totalExpected ? detectionRate : null,
+    truePositives,
+    totalExpected,
+    totalFound,
+    precision,
+    f1Score: f1Score(detectionRate, precision),
     invalidRuns: replicas.filter((replica) => replica.finished && !replica.valid).length,
     completedReplicas,
     totalReplicas
@@ -1185,7 +1271,11 @@ function summarizeSn60ReplicaProgress(replicaRoot, projectKey) {
     success: status === "success",
     result: status === "success" ? String(result.result || "") : null,
     truePositives:
-      status === "success" ? Number(result.true_positives || 0) || 0 : 0
+      status === "success" ? Number(result.true_positives || 0) || 0 : 0,
+    totalExpected:
+      status === "success" ? Number(result.total_expected || 0) || 0 : 0,
+    totalFound:
+      status === "success" ? Number(result.total_found || 0) || 0 : 0
   };
 }
 
@@ -1200,6 +1290,10 @@ function emptySn60ProjectProgress(projectKey) {
     verifierScore: null,
     weightedTaskScore: null,
     truePositives: 0,
+    totalExpected: 0,
+    totalFound: 0,
+    precision: 0,
+    f1Score: 0,
     invalidRuns: 0,
     completedReplicas: 0,
     totalReplicas: 0
@@ -1216,6 +1310,10 @@ function sn60ProjectToLiveVariant(project) {
     verifierScore: numberOrNull(project.verifierScore),
     weightedTaskScore: numberOrNull(project.weightedTaskScore),
     truePositives: Number(project.truePositives || 0),
+    totalExpected: Number(project.totalExpected || 0),
+    totalFound: Number(project.totalFound || 0),
+    precision: numberOrNull(project.precision),
+    f1Score: numberOrNull(project.f1Score),
     completedReplicas: Number(project.completedReplicas || 0),
     totalReplicas: Number(project.totalReplicas || 0)
   };
@@ -1231,6 +1329,12 @@ function projectPasses(passCount, replicaCount) {
     return false;
   }
   return passCount * 3 >= replicaCount * 2;
+}
+
+function f1Score(detectionRate, precision) {
+  const recall = Number(detectionRate || 0);
+  const precise = Number(precision || 0);
+  return recall + precise > 0 ? (2 * recall * precise) / (recall + precise) : 0;
 }
 
 function normalizeEvaluationStatus(value) {

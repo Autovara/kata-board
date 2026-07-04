@@ -497,7 +497,7 @@ function BattleSide({ role, name, sub, score, avatarUrl, crown, won, actions = [
       <p>{sub}</p>
       <div className="battle-score">
         <strong>{score}</strong>
-        <small>aggregated score</small>
+        <small>detection score</small>
       </div>
       {actions.length ? (
         <div className="battle-actions">
@@ -590,29 +590,43 @@ function DuelInsights({ state }) {
           <strong>{invalidCandidate > 0 ? `${invalidCandidate} candidate` : "clean"}</strong>
           <small>
             {invalidCandidate > 0
-              ? "candidate cannot promote"
+              ? "error projects score 0 and hurt ties"
               : `king ${state.invalidRuns?.king ?? 0} · candidate 0`}
           </small>
         </div>
       </div>
       <div className="duel-comparison-stack">
         <ComparisonRail
-          label="Codebases passed"
-          candidate={state.codebasesPassed?.candidate}
-          king={state.codebasesPassed?.king}
+          label="Detection score"
+          candidate={state.scores?.candidate}
+          king={state.scores?.king}
+          formatValue={percentMetric}
         />
         <ComparisonRail
-          label="Vulnerabilities found"
+          label="True positives"
           candidate={state.truePositives?.candidate}
           king={state.truePositives?.king}
           tone="cyan"
+        />
+        <ComparisonRail
+          label="Precision"
+          candidate={state.precision?.candidate}
+          king={state.precision?.king}
+          tone="cyan"
+          formatValue={percentMetric}
+        />
+        <ComparisonRail
+          label="F1 score"
+          candidate={state.f1Scores?.candidate}
+          king={state.f1Scores?.king}
+          formatValue={percentMetric}
         />
       </div>
     </div>
   );
 }
 
-function ComparisonRail({ label, candidate, king, tone = "green" }) {
+function ComparisonRail({ label, candidate, king, tone = "green", formatValue = formatNumber }) {
   const candidateValue = Number(candidate ?? 0);
   const kingValue = Number(king ?? 0);
   const maxValue = Math.max(candidateValue, kingValue, 1);
@@ -620,7 +634,7 @@ function ComparisonRail({ label, candidate, king, tone = "green" }) {
     <div className={`comparison-rail comparison-rail-${tone}`}>
       <div className="comparison-rail-head">
         <span>{label}</span>
-        <strong>C {formatNumber(candidateValue)} · K {formatNumber(kingValue)}</strong>
+        <strong>C {formatValue(candidateValue)} · K {formatValue(kingValue)}</strong>
       </div>
       <div className="comparison-bars">
         <i style={{ width: `${clampPercent((candidateValue / maxValue) * 100)}%` }}>
@@ -919,7 +933,7 @@ function DocOverview({ selectedLane, links }) {
       />
       <DocCallout
         title="Mental model"
-        text="Each subnet pack has one current king. A candidate PR wins only if its agent beats that king in the SN60 sandbox duel on aggregated score, codebases passed, and true positives."
+        text="Each subnet pack has one current king. A candidate PR wins only if its agent beats that king on SN60-style detection score, true positives, precision, F1, and invalid/error evaluations."
       />
       <DocGrid>
         <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
@@ -931,8 +945,8 @@ function DocOverview({ selectedLane, links }) {
         <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
         <KeyValue label="subnet pack" value={selectedLane?.subnetPack || selectedLane?.repoPack || "-"} />
         <KeyValue label="mode" value={selectedLane?.mode || "-"} />
-        <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "SN60 sandbox replicas"} />
-        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "score, passes, true positives"} />
+        <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "SN60 sampled validation"} />
+        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "detection, true positives, precision"} />
       </div>
       <DocLinks
         links={[
@@ -957,7 +971,7 @@ function DocWorkflow({ links }) {
       </p>
       <DocGrid>
         <DocCard title="Input" text="One PR with one agent bundle under submissions/." />
-        <DocCard title="Evaluator" text="Kata runs candidate and king through the same selected Bitsec benchmark projects with repeated replica runs." />
+        <DocCard title="Evaluator" text="Kata runs candidate and king through the same selected Bitsec benchmark projects using SN60 scorer metrics." />
         <DocCard title="Decision" text="kata-bot turns the result into close-invalid, close-losing, rerun-stale, hold, or merge." />
         <DocCard title="Output" text="A verified winner is merged, copied into kings/, and recorded as the new lane king." />
       </DocGrid>
@@ -970,7 +984,7 @@ function DocWorkflow({ links }) {
           ["Validate shape", "The bot checks changed paths before trusting PR contents."],
           ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
           ["Screening", "Static checks and one screener sandbox run must pass before the full duel."],
-          ["Sandbox duel", "Candidate and king run repeated replicas per selected benchmark codebase in the Bitsec sandbox."],
+          ["Sandbox duel", "Candidate and king run once per selected benchmark codebase in the Bitsec sandbox."],
           ["Verify freshness", "Kata rejects stale wins if the king or the pinned benchmark snapshot changed."],
           ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
         ]}
@@ -1074,25 +1088,29 @@ function DocScoring({ selectedLane }) {
       <h1>How a candidate wins</h1>
       <p>
         Candidate and king run through the same selected projects from the
-        pinned Bitsec benchmark snapshot with repeated replicas per codebase.
-        A codebase passes only if at least 2 of 3 runs pass; the aggregated
-        score is passed codebases divided by selected codebases.
+        pinned Bitsec benchmark snapshot. Kata uses the SN60 scorer's detection
+        metrics: true positives, precision, F1, and invalid/error evaluations.
       </p>
       <DocGrid>
         <DocCard title="Benchmark" text={`${projectCount} selected SN60 project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`} />
-        <DocCard title="Codebase pass" text="A codebase passes when at least 2 of 3 replica runs pass." />
-        <DocCard title="Aggregated score" text="Passed codebases divided by selected codebases in the round." />
-        <DocCard title="Promotion order" text="Aggregated score, then codebases passed, then true positives." />
+        <DocCard title="Detection score" text="True positives divided by expected benchmark vulnerabilities." />
+        <DocCard title="Precision" text="True positives divided by all reported findings; noisy reports lower it." />
+        <DocCard title="Promotion order" text="Detection score, true positives, precision, F1, then fewer invalid/error evaluations." />
+      </DocGrid>
+      <DocGrid>
+        <DocCard title="True positive" text="An expected benchmark vulnerability that the scorer matched to one of the agent's findings." />
+        <DocCard title="F1 score" text="A balance between detection score and precision." />
+        <DocCard title="Invalid/error" text="A run or scorer result that did not complete successfully; it scores zero for that project." />
+        <DocCard title="PASS project" text="The sandbox marks PASS only when the run finds every expected vulnerability for that project." />
       </DocGrid>
       <h2>Screening</h2>
       <p>
         Every candidate is screened before the duel. Static checks reject
         no-op agents, helper files, leaked benchmark-answer hints, and secret
         references. The screener run must return at least one useful finding
-        with a title and description. Candidates with invalid replica runs are
-        never promoted.
+        with a title and description.
       </p>
-      <CodeBlock value={`aggregated_score = passed_codebases / total_codebases\n\npromote only if:\n  screening passed\n  no invalid replica runs\n  candidate outranks king on (score, passes, true positives)`} />
+      <CodeBlock value={`detection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  screening passed\n  candidate strictly outranks king on:\n    detection score\n    true positives\n    precision\n    f1 score\n    fewer invalid/error evaluations`} />
     </section>
   );
 }
@@ -1111,7 +1129,7 @@ function DocBot() {
           ["Enqueue", "Webhook events become durable queue jobs keyed by repo, PR number, and head SHA."],
           ["Drain", "The resident validator continuously processes pending jobs."],
           ["Inspect", "Changed paths are checked before untrusted PR content is evaluated."],
-          ["Evaluate", "Kata runs candidate and king through selected pinned Bitsec benchmark projects with repeated replicas."],
+          ["Evaluate", "Kata runs candidate and king through selected pinned Bitsec benchmark projects with the SN60 scorer."],
           ["Comment", "The bot posts a clear PR result with score deltas and reason."],
           ["Close", "Invalid and losing PRs are labeled and closed."],
           ["Rerun", "Stale results are rerun when the king or the pinned benchmark snapshot changed."],
@@ -1484,6 +1502,8 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
         : current?.projectKeys || [],
     codebasesPassed: livePair(primary.passCounts, current?.codebasesPassed),
     truePositives: livePair(primary.truePositives, current?.truePositives),
+    precision: livePair(primary.precision, current?.precision),
+    f1Scores: livePair(primary.f1Scores, current?.f1Scores),
     invalidRuns: livePair(primary.invalidRuns, current?.invalidRuns),
     scores: liveScores(primary.scores, current?.scores),
     replicaProgress: primary.replicaProgress || current?.replicaProgress || null,
@@ -1591,6 +1611,13 @@ function percentScore(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)} pts`;
+}
+
+function percentMetric(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "-";
+  }
+  return `${formatNumber(Number(value) * 100)}%`;
 }
 
 function formatReplicaProgress(progress) {
@@ -1743,16 +1770,16 @@ function duelOutcomeMessage(state) {
   if (state.live) {
     const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
     if (invalidCandidate > 0) {
-      return "Candidate has an invalid run. The validator should stop this duel and close the PR as invalid.";
+      return "Candidate has invalid/error evaluations. They score zero and hurt tie-breaks.";
     }
     const delta = Number(state.scores?.delta || 0);
     if (delta > 0) {
       return "Candidate is currently ahead. Final promotion still depends on all selected codebases finishing cleanly.";
     }
     if (delta < 0) {
-      return "King is currently ahead. Candidate needs more passed codebases or true positives to recover.";
+      return "King is currently ahead. Candidate needs more true positives or better precision to recover.";
     }
-    return "Duel is running. Early numbers can change until all replicas finish.";
+    return "Duel is running. Early numbers can change until all selected projects finish.";
   }
   if (state.finalWinner === "candidate") {
     return "Candidate beat the king and is ready for promotion.";

@@ -287,27 +287,27 @@ test("merges live status with active SN60 worktree progress", async () => {
   const runRoot = path.join(workspace, "runs-initial", "sn60-duel-active");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "PASS", true_positives: 3 }
+    result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 }
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "PASS", true_positives: 2 }
+    result: { result: "PASS", true_positives: 2, total_expected: 2, total_found: 2 }
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-03", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 5, total_found: 0 }
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 }
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 }
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-03", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 }
   });
   writeSn60Evaluation(runRoot, "candidate", "project-beta", "replica-01", {
     status: "success",

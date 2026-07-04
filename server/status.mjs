@@ -443,10 +443,15 @@ async function loadActivePullAuthor(env, activeJob) {
       env.KATA_GITHUB_TOKEN
     );
     const user = pull?.user || {};
+    const head = pull?.head || {};
+    const headRepo = head.repo || {};
     return {
       login: typeof user.login === "string" ? user.login : null,
       avatarUrl: typeof user.avatar_url === "string" ? user.avatar_url : null,
-      htmlUrl: typeof user.html_url === "string" ? user.html_url : null
+      htmlUrl: typeof user.html_url === "string" ? user.html_url : null,
+      pullUrl: typeof pull.html_url === "string" ? pull.html_url : null,
+      headRepo: typeof headRepo.full_name === "string" ? headRepo.full_name : null,
+      headSha: typeof head.sha === "string" ? head.sha : null
     };
   } catch {
     return null;
@@ -462,8 +467,28 @@ function enrichActiveEvaluationWithPullAuthor(activeEvaluation, pullAuthor) {
     candidateGithubLogin: pullAuthor.login,
     candidateAvatarUrl: pullAuthor.avatarUrl,
     candidateGithubUrl: pullAuthor.htmlUrl,
+    candidatePullUrl: pullAuthor.pullUrl,
+    candidateAgentUrl: buildCandidateAgentUrl(activeEvaluation, pullAuthor),
     candidateAuthor: pullAuthor.login
   };
+}
+
+function buildCandidateAgentUrl(activeEvaluation, pullAuthor) {
+  if (
+    !pullAuthor?.headRepo ||
+    !pullAuthor?.headSha ||
+    !activeEvaluation?.candidateSubmissionId
+  ) {
+    return null;
+  }
+  const agentPath = [
+    "submissions",
+    activeEvaluation.subnetPack || activeEvaluation.repoPack || "sn60__bitsec",
+    activeEvaluation.mode || "miner",
+    activeEvaluation.candidateSubmissionId,
+    "agent.py"
+  ].join("/");
+  return `https://github.com/${pullAuthor.headRepo}/blob/${pullAuthor.headSha}/${agentPath}`;
 }
 
 function loadQueueStatus(queueStatePath, healthQueuePayload = null) {

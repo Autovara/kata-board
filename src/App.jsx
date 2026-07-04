@@ -428,6 +428,7 @@ function Battle({ state, activeEvaluation, activeJob }) {
     activeJob?.pullNumber
       ? `PR #${activeJob.pullNumber} · ${state?.candidateSubmissionId || "candidate"}`
       : state?.candidateSubmissionId || "candidate";
+  const candidateLinks = candidateActionLinks(activeJob, activeEvaluation);
   const kingSub = state?.kingSubmissionId || "current king";
 
   return (
@@ -461,6 +462,7 @@ function Battle({ state, activeEvaluation, activeJob }) {
           sub={candidateSub}
           avatarUrl={activeEvaluation?.candidateAvatarUrl}
           score={candidateScore}
+          actions={candidateLinks}
           won={winner === "candidate"}
         />
       </div>
@@ -472,7 +474,7 @@ function Battle({ state, activeEvaluation, activeJob }) {
   );
 }
 
-function BattleSide({ role, name, sub, score, avatarUrl, crown, won }) {
+function BattleSide({ role, name, sub, score, avatarUrl, crown, won, actions = [] }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -488,6 +490,15 @@ function BattleSide({ role, name, sub, score, avatarUrl, crown, won }) {
         <strong>{score}</strong>
         <small>aggregated score</small>
       </div>
+      {actions.length ? (
+        <div className="battle-actions">
+          {actions.map((action) => (
+            <a key={action.href} href={action.href} target="_blank" rel="noreferrer">
+              {action.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1661,6 +1672,22 @@ function currentTask(state) {
     tasks.find((task) => !task.completed) ||
     null
   );
+}
+
+function candidateActionLinks(activeJob, activeEvaluation) {
+  if (!activeJob?.kataRepo || !activeJob?.pullNumber) {
+    return [];
+  }
+  const pullUrl =
+    activeEvaluation?.candidatePullUrl ||
+    `https://github.com/${activeJob.kataRepo}/pull/${activeJob.pullNumber}`;
+  return [
+    { label: "Open PR", href: pullUrl },
+    {
+      label: "Agent code",
+      href: activeEvaluation?.candidateAgentUrl || `${pullUrl}/files`
+    }
+  ];
 }
 
 function scoreLeadLabel(value) {

@@ -373,6 +373,116 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.taskStatuses[1].candidate.totalReplicas, 3);
 });
 
+test("keeps latest completed SN60 duel visible after queue finishes", async () => {
+  const root = makeKataRoot();
+  const botRoot = path.join(root, "bot");
+  const queuePath = path.join(botRoot, "state", "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const workRoot = path.join(botRoot, "work");
+  const jobId = "job-completed";
+  writeJson(path.dirname(queuePath), "queue.json", {
+    schema_version: 1,
+    jobs: [
+      {
+        schema_version: 1,
+        job_id: jobId,
+        kata_repo: "owner/kata",
+        pull_number: 77,
+        head_sha: "b".repeat(40),
+        status: "completed",
+        attempts: 1,
+        enqueued_at: "2026-07-02T04:00:00+00:00",
+        started_at: "2026-07-02T04:01:00+00:00",
+        finished_at: "2026-07-02T04:20:00+00:00",
+        final_action: "close-losing"
+      }
+    ]
+  });
+  writeJson(path.dirname(liveStatusPath), "live-status.json", {
+    schema_version: 1,
+    state: "completed",
+    phase: "completed",
+    lane_id: "sn60__bitsec",
+    candidate_submission_id: "erin-20260702-01",
+    project_keys: ["project-alpha"],
+    replicas_per_project: 1,
+    final_action: "close-losing",
+    final_reason: "candidate did not beat king",
+    job: {
+      job_id: jobId,
+      kata_repo: "owner/kata",
+      pull_number: 77,
+      attempts: 1,
+      enqueued_at: "2026-07-02T04:00:00+00:00",
+      started_at: "2026-07-02T04:01:00+00:00"
+    }
+  });
+
+  const workspace = path.join(workRoot, "kata-bot-job-completed");
+  fs.mkdirSync(workspace, { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, "changed-paths.txt"),
+    "submissions/sn60__bitsec/miner/erin-20260702-01/agent.py\n"
+  );
+  const runRoot = path.join(workspace, "runs-initial", "sn60-duel-completed");
+  writeJson(runRoot, "duel_summary.json", {
+    candidate: {
+      true_positives: 1,
+      total_expected: 4,
+      total_found: 2,
+      precision: 0.5,
+      f1_score: 1 / 3
+    },
+    king: {
+      true_positives: 2,
+      total_expected: 4,
+      total_found: 2,
+      precision: 1,
+      f1_score: 2 / 3
+    }
+  });
+  writeJson(runRoot, "challenge_summary.json", {
+    schema_version: 5,
+    run_id: "sn60-duel-completed",
+    manifest_path: path.join(runRoot, "duel_summary.json"),
+    mode: "miner",
+    created_at: "2026-07-02T04:20:00+00:00",
+    primary: {
+      project_keys: ["project-alpha"],
+      run_summary_path: "duel_summary.json",
+      variant_successes: { king: 0, candidate: 0 },
+      variant_invalid_runs: { king: 0, candidate: 0 },
+      variant_scores: { king: 50, candidate: 25 },
+      candidate_beats_king: false,
+      candidate_score_delta: -25
+    },
+    promotion_ready: false,
+    promotion_reason: "sn60__bitsec: candidate did not beat the current SN60 king"
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOT_ROOT: botRoot,
+    KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_LIVE_STATUS_PATH: liveStatusPath,
+    KATA_WORK_ROOT: workRoot
+  });
+
+  const active = status.validator.activeEvaluation;
+  assert.equal(status.validator.queue.activeJob, null);
+  assert.equal(active.available, true);
+  assert.equal(active.state, "completed");
+  assert.equal(active.phase, "completed");
+  assert.equal(active.pullNumber, 77);
+  assert.equal(active.finalAction, "close-losing");
+  assert.equal(active.candidateSubmissionId, "erin-20260702-01");
+  assert.equal(active.primary.scores.candidate, 0.25);
+  assert.equal(active.primary.scores.king, 0.5);
+  assert.equal(active.primary.truePositives.candidate, 1);
+  assert.equal(active.primary.totalExpected.candidate, 4);
+  assert.equal(active.primary.precision.king, 1);
+});
+
 test("leaderboard includes losing candidates from run artifacts", async () => {
   const root = makeKataRoot();
   const losingRunRoot = path.join(root, "runs", "sn60-duel-loser");

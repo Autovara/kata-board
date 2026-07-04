@@ -452,13 +452,14 @@ async function loadValidatorStatus(env, roots) {
   const health = await loadValidatorHealth(env.KATA_VALIDATOR_HEALTH_URL);
   const queue = loadQueueStatus(roots.queueStatePath, health.payload?.queue || null);
   const benchmarkExpectedCounts = loadSn60BenchmarkExpectedCounts(roots.sn60BenchmarkFile);
+  const visibleJob = queue.activeJob || queue.latestJob;
   const activeEvaluation = loadActiveEvaluationProgress(
     roots.liveStatusPath,
     roots.workRoot,
-    queue.activeJob,
+    visibleJob,
     benchmarkExpectedCounts
   );
-  const activePullAuthor = await loadActivePullAuthor(env, queue.activeJob);
+  const activePullAuthor = await loadActivePullAuthor(env, visibleJob);
   return {
     mode: "resident",
     queue,
@@ -596,10 +597,11 @@ function loadActiveEvaluationProgress(
   activeJob,
   benchmarkExpectedCounts = new Map()
 ) {
+  const baseState = evaluationJobState(activeJob);
   const base = {
     available: Boolean(activeJob),
-    state: activeJob ? "queued" : "idle",
-    phase: activeJob ? "queued" : "idle",
+    state: baseState,
+    phase: baseState,
     workspacePath: null,
     updatedAt: null,
     subnetPack: null,
@@ -607,10 +609,13 @@ function loadActiveEvaluationProgress(
     mode: null,
     candidateSubmissionId: null,
     candidateAuthor: null,
+    kataRepo: activeJob?.kataRepo || null,
     pullNumber: activeJob?.pullNumber || null,
     startedAt: activeJob?.startedAt || null,
+    finishedAt: activeJob?.finishedAt || null,
     enqueuedAt: activeJob?.enqueuedAt || null,
     attempts: activeJob?.attempts || 0,
+    finalAction: activeJob?.finalAction || null,
     primary: null
   };
   if (!activeJob) {
@@ -654,6 +659,22 @@ function loadActiveEvaluationProgress(
   return base;
 }
 
+function evaluationJobState(job) {
+  if (!job) {
+    return "idle";
+  }
+  if (job.status === "completed") {
+    return "completed";
+  }
+  if (job.status === "failed") {
+    return "failed";
+  }
+  if (job.status === "pending") {
+    return "queued";
+  }
+  return "running";
+}
+
 function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
   const payload = readJsonSafe(liveStatusPath);
   if (!payload?.job || payload.job.job_id !== activeJob.jobId) {
@@ -681,8 +702,12 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
       inferSubmissionAuthorFromId(payload.candidate_submission_id),
     projectKeys: Array.isArray(payload.project_keys) ? payload.project_keys : [],
     replicasPerProject: Number(payload.replicas_per_project || 0) || null,
+    finalAction: payload.final_action || activeJob.finalAction || null,
+    finalReason: payload.final_reason || null,
+    kataRepo: payload.job.kata_repo || activeJob.kataRepo || null,
     pullNumber: payload.job.pull_number || activeJob.pullNumber || null,
     startedAt: payload.job.started_at || activeJob.startedAt || null,
+    finishedAt: payload.job.finished_at || activeJob.finishedAt || null,
     enqueuedAt: payload.job.enqueued_at || activeJob.enqueuedAt || null,
     attempts: payload.job.attempts ?? activeJob.attempts ?? 0,
     primary

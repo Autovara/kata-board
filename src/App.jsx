@@ -364,6 +364,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, set
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
   const activeJob = validator?.queue?.activeJob || null;
+  const displayJob = activeJob || (activeEvaluation?.available ? validator?.queue?.latestJob || null : null);
   const current = selectedLane?.evaluatorState?.current || null;
   const displayState = mergeActiveEvaluationState(current, activeEvaluation, selectedLane);
   const phase = activeEvaluation
@@ -393,7 +394,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, set
           <div className="arena-hero-status">
             <Status label={phase} tone={tone} />
             <span>{selectedLane?.repoName || "SN60 Bitsec"}</span>
-            {activeJob?.pullNumber ? <span>PR #{activeJob.pullNumber}</span> : null}
+            {displayJob?.pullNumber ? <span>PR #{displayJob.pullNumber}</span> : null}
             <span>updated {updatedLabel}</span>
           </div>
         </div>
@@ -401,7 +402,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, set
           <Battle
             state={displayState}
             activeEvaluation={activeEvaluation}
-            activeJob={activeJob}
+            activeJob={displayJob}
             selectedLane={selectedLane}
             kataRepoSlug={kataRepoSlug}
           />
@@ -411,7 +412,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, set
       </section>
 
       {displayState ? (
-        <Sn60LanePanel state={displayState} activeEvaluation={activeEvaluation} activeJob={activeJob} />
+        <Sn60LanePanel state={displayState} activeEvaluation={activeEvaluation} activeJob={displayJob} />
       ) : (
         <Empty text="No duel results yet for this subnet." />
       )}
@@ -1500,9 +1501,10 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
     return current;
   }
   const primary = activeEvaluation.primary || {};
+  const completed = activeEvaluation.state === "completed" || activeEvaluation.state === "failed";
   return {
     ...(current || {}),
-    live: true,
+    live: !completed,
     candidateSubmissionId:
       activeEvaluation.candidateSubmissionId || current?.candidateSubmissionId || null,
     candidateAuthor:
@@ -1528,7 +1530,11 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
     invalidRuns: livePair(primary.invalidRuns, current?.invalidRuns),
     scores: liveScores(primary.scores, current?.scores),
     replicaProgress: primary.replicaProgress || current?.replicaProgress || null,
-    finalWinner: null,
+    finalWinner: completed
+      ? finalWinnerFromAction(activeEvaluation.finalAction, current?.finalWinner)
+      : null,
+    finalAction: activeEvaluation.finalAction || current?.finalAction || null,
+    finalReason: activeEvaluation.finalReason || current?.finalReason || null,
     liveProgress: {
       phase: activeEvaluation.phase,
       state: activeEvaluation.state,
@@ -1539,6 +1545,16 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
       updatedAt: activeEvaluation.updatedAt || primary.updatedAt || null
     }
   };
+}
+
+function finalWinnerFromAction(finalAction, fallback = null) {
+  if (finalAction === "merge") {
+    return "candidate";
+  }
+  if (finalAction === "close-losing" || finalAction === "close-invalid") {
+    return "king";
+  }
+  return fallback;
 }
 
 function livePair(liveValue, fallback) {
@@ -1870,6 +1886,12 @@ function activeEvaluationStatus(activeEvaluation) {
   if (!activeEvaluation || activeEvaluation.state === "idle") {
     return "idle";
   }
+  if (activeEvaluation.state === "completed") {
+    return activeEvaluation.finalAction === "merge" ? "winner" : "completed";
+  }
+  if (activeEvaluation.state === "failed") {
+    return "failed";
+  }
   if (activeEvaluation.phase === "confirm") {
     return "confirming";
   }
@@ -1885,6 +1907,12 @@ function activeEvaluationStatus(activeEvaluation) {
 function activeEvaluationTone(activeEvaluation) {
   if (!activeEvaluation || activeEvaluation.state === "idle") {
     return "neutral";
+  }
+  if (activeEvaluation.state === "completed") {
+    return activeEvaluation.finalAction === "merge" ? "ok" : "neutral";
+  }
+  if (activeEvaluation.state === "failed") {
+    return "bad";
   }
   if (activeEvaluation.phase === "confirm" || activeEvaluation.state === "verifying") {
     return "ok";

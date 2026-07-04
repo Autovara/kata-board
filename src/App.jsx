@@ -276,7 +276,11 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
       <section className="hero">
         <div className="hero-copy">
           <p className="kicker">Kata · Gittensor SN74 supported</p>
-          <h1>Kata is the objective competition engine for subnet agents.</h1>
+          <h1 className="hero-title">
+            <span>Kata is the</span>{" "}
+            <span className="hero-title-mark">objective competition engine</span>{" "}
+            <span>for subnet agents.</span>
+          </h1>
           <p>
             Miners submit one candidate agent by pull request. Kata screens it
             cheaply, duels it against the current king on the active subnet benchmark,

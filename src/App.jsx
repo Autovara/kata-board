@@ -591,6 +591,7 @@ function LatestDuelResult({ state, activeEvaluation }) {
   const taskProgress = taskCompletion(state);
   const winner = state.finalWinner;
   const progress = taskProgress.total > 0 ? taskProgress.completed / taskProgress.total : 0;
+  const invalidCandidate = Number(state.invalidRuns?.candidate || 0);
   const resultLabel =
     state.screeningStatus === "failed"
       ? "Screen gate failed"
@@ -602,41 +603,49 @@ function LatestDuelResult({ state, activeEvaluation }) {
             ? "King held"
             : "No decision yet";
   const scoreDelta = state.scores?.delta;
+  const deltaTone = Number(scoreDelta || 0) > 0 ? "positive" : Number(scoreDelta || 0) < 0 ? "negative" : "neutral";
   return (
     <div className="duel-result-card">
-      <div className="duel-result-lead">
-        <span>duel decision</span>
-        <strong>{resultLabel}</strong>
-        <p>{duelOutcomeMessage(state)}</p>
+      <div className="duel-command-top">
+        <div className="duel-verdict">
+          <span>current state</span>
+          <strong>{resultLabel}</strong>
+          <p>{duelOutcomeMessage(state)}</p>
+        </div>
+        <div className={`duel-gap duel-gap-${deltaTone}`}>
+          <span>candidate gap</span>
+          <strong>{formatSignedPoints(scoreDelta)}</strong>
+          <small>candidate minus king</small>
+        </div>
       </div>
-      <div className="duel-result-score">
-        <span>candidate gap</span>
-        <strong className={Number(scoreDelta || 0) > 0 ? "positive" : Number(scoreDelta || 0) < 0 ? "negative" : ""}>
-          {formatSignedPoints(scoreDelta)}
-        </strong>
-        <small>candidate minus king</small>
-      </div>
-      <div className="duel-visual-grid">
-        <div className="duel-progress-figure">
-          <div
-            className="duel-progress-ring"
-            style={{ "--progress": `${clampPercent(progress * 100)}%` }}
-            aria-label={`${taskProgress.completed} of ${taskProgress.total} codebases completed`}
-          >
-            <strong>{taskProgress.completed}</strong>
-            <span>of {taskProgress.total}</span>
-          </div>
+
+      <div className="duel-snapshot">
+        <div className="duel-progress-chip">
           <div>
-            <span>codebase progress</span>
-            <p>Selected problems completed in this run.</p>
+            <span>codebases</span>
+            <strong>{taskProgress.completed}/{taskProgress.total}</strong>
+          </div>
+          <div className="duel-progress-line" aria-hidden="true">
+            <i style={{ width: `${clampPercent(progress * 100)}%` }} />
           </div>
         </div>
+        <MetricChip label="candidate TP" value={formatNumber(state.truePositives?.candidate)} />
+        <MetricChip label="king TP" value={formatNumber(state.truePositives?.king)} />
+        <MetricChip
+          label="invalid"
+          value={`C ${formatNumber(invalidCandidate)} · K ${formatNumber(state.invalidRuns?.king || 0)}`}
+          tone={invalidCandidate > 0 ? "bad" : "ok"}
+        />
+      </div>
 
-        <div className="duel-bars-card">
-          <span>score shape</span>
-          <div className="comparison-legend">
-            <small><i className="legend-candidate" />Candidate</small>
-            <small><i className="legend-king" />King</small>
+      <div className="duel-main-grid">
+        <div className="duel-compare-panel">
+          <div className="duel-panel-head">
+            <span>candidate vs king</span>
+            <div className="comparison-legend">
+              <small><i className="legend-candidate" />Candidate</small>
+              <small><i className="legend-king" />King</small>
+            </div>
           </div>
           <ComparisonBar
             label="detection"
@@ -655,22 +664,23 @@ function LatestDuelResult({ state, activeEvaluation }) {
           />
         </div>
 
-        <div className="duel-health-card">
-          <span>run health</span>
-          <div className="duel-health-row">
-            <small>true positives</small>
-            <strong>C {formatNumber(state.truePositives?.candidate)} · K {formatNumber(state.truePositives?.king)}</strong>
-          </div>
-          <div className="duel-health-row">
-            <small>expected vulns</small>
-            <strong>C {formatNumber(state.totalExpected?.candidate)} · K {formatNumber(state.totalExpected?.king)}</strong>
-          </div>
-          <div className={`duel-health-row ${Number(state.invalidRuns?.candidate || 0) > 0 ? "duel-health-bad" : "duel-health-ok"}`}>
-            <small>invalid runs</small>
-            <strong>C {formatNumber(state.invalidRuns?.candidate || 0)} · K {formatNumber(state.invalidRuns?.king || 0)}</strong>
-          </div>
+        <div className="duel-next-panel">
+          <span>what matters now</span>
+          <strong>{decisionCue(state)}</strong>
+          <p>
+            Expected vulnerabilities: candidate {formatNumber(state.totalExpected?.candidate)} · king {formatNumber(state.totalExpected?.king)}
+          </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricChip({ label, value, tone = "neutral" }) {
+  return (
+    <div className={`metric-chip metric-chip-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -683,17 +693,43 @@ function ComparisonBar({ label, candidate, king }) {
         <span>C {percentMetric(candidate)} · K {percentMetric(king)}</span>
       </div>
       <div className="comparison-track">
-        <i
-          className="comparison-fill comparison-fill-candidate"
-          style={{ width: `${ratioWidth(candidate)}%` }}
-        />
-        <i
-          className="comparison-fill comparison-fill-king"
-          style={{ width: `${ratioWidth(king)}%` }}
-        />
+        <div className="comparison-lane">
+          <span>C</span>
+          <b><i className="comparison-fill-candidate" style={{ width: `${ratioWidth(candidate)}%` }} /></b>
+        </div>
+        <div className="comparison-lane">
+          <span>K</span>
+          <b><i className="comparison-fill-king" style={{ width: `${ratioWidth(king)}%` }} /></b>
+        </div>
       </div>
     </div>
   );
+}
+
+function decisionCue(state) {
+  if (state.screeningStatus === "failed") {
+    return "Fix the screen gate first.";
+  }
+  if (Number(state.invalidRuns?.candidate || 0) > 0) {
+    return "Candidate has an invalid run.";
+  }
+  if (state.live) {
+    const delta = Number(state.scores?.delta || 0);
+    if (delta > 0) {
+      return "Candidate is ahead right now.";
+    }
+    if (delta < 0) {
+      return "King is ahead right now.";
+    }
+    return "Duel is still even.";
+  }
+  if (state.finalWinner === "candidate") {
+    return "Candidate is promotion-ready.";
+  }
+  if (state.finalWinner === "king") {
+    return "King kept the crown.";
+  }
+  return "Waiting for validator results.";
 }
 
 function ScreeningWaitNotice({ state }) {

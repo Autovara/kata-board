@@ -2511,3 +2511,117 @@ html { scroll-behavior: smooth; }
   .battle-compare > :nth-child(1),
   .battle-compare > :nth-child(2) { grid-column: auto; }
 }
+
+/* ============================================================================ */
+/*  Arena live task progress                                                    */
+/* ============================================================================ */
+.live-task-progress {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.live-task-progress-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.live-task-progress-head span,
+.live-task-side span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live-task-progress-head strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.live-task-list {
+  display: grid;
+  gap: 8px;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.live-task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px 118px;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(244, 247, 239, 0.04), transparent),
+    rgba(8, 9, 8, 0.28);
+}
+
+.live-task-row-active {
+  border-color: rgba(37, 208, 171, 0.34);
+  background:
+    linear-gradient(90deg, rgba(37, 208, 171, 0.09), transparent),
+    rgba(8, 9, 8, 0.28);
+}
+
+.live-task-row-ok {
+  border-color: rgba(185, 255, 93, 0.32);
+}
+
+.live-task-row-bad {
+  border-color: rgba(255, 95, 90, 0.42);
+}
+
+.live-task-main {
+  min-width: 0;
+}
+
+.live-task-main strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-task-main span {
+  display: inline-flex;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.live-task-side {
+  display: grid;
+  gap: 3px;
+  justify-items: end;
+}
+
+.live-task-side strong {
+  color: var(--soft);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .live-task-progress-head,
+  .live-task-row {
+    grid-template-columns: 1fr;
+  }
+
+  .live-task-side {
+    display: flex;
+    justify-content: space-between;
+  }
+}

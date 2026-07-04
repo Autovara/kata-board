@@ -266,6 +266,18 @@ test("merges live status with active SN60 worktree progress", async () => {
     }
   });
 
+  const staleWorkspace = path.join(workRoot, "kata-bot-job-stale");
+  fs.mkdirSync(staleWorkspace, { recursive: true });
+  fs.writeFileSync(
+    path.join(staleWorkspace, "changed-paths.txt"),
+    "submissions/sn60__bitsec/miner/other-20260702-01/agent.py\n"
+  );
+  const staleRunRoot = path.join(staleWorkspace, "runs-initial", "sn60-duel-stale");
+  writeSn60Evaluation(staleRunRoot, "candidate", "project-alpha", "replica-01", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 0 }
+  });
+
   const workspace = path.join(workRoot, "kata-bot-job-active");
   fs.mkdirSync(workspace, { recursive: true });
   fs.writeFileSync(
@@ -305,8 +317,16 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.truePositives.candidate, 5);
   assert.deepEqual(active.primary.replicaProgress.candidate, {
     completed: 2,
-    total: 2
+    total: 6
   });
+  assert.deepEqual(active.primary.replicaProgress.king, {
+    completed: 1,
+    total: 6
+  });
+  assert.equal(active.primary.taskStatuses[0].candidate.completedReplicas, 2);
+  assert.equal(active.primary.taskStatuses[0].candidate.totalReplicas, 3);
+  assert.equal(active.primary.taskStatuses[1].candidate.completedReplicas, 0);
+  assert.equal(active.primary.taskStatuses[1].candidate.totalReplicas, 3);
 });
 
 test("leaderboard includes losing candidates from run artifacts", async () => {

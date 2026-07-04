@@ -551,20 +551,10 @@ function loadActiveEvaluationProgress(liveStatusPath, workRoot, activeJob) {
   }
 
   const liveStatus = loadLiveEvaluationProgress(liveStatusPath, activeJob);
-  const workspaceRoot = findLatestActiveWorkspace(workRoot);
-  const lane = workspaceRoot ? inferLaneFromWorkspace(workspaceRoot) : null;
-  const phaseProgress = workspaceRoot
-    ? inspectChallengePhase(
-        path.join(workspaceRoot, "runs-confirm"),
-        "confirm",
-        liveStatus?.projectKeys || []
-      ) ||
-      inspectChallengePhase(
-        path.join(workspaceRoot, "runs-initial"),
-        "initial",
-        liveStatus?.projectKeys || []
-      )
-    : null;
+  const workspace = findActiveWorkspaceProgress(workRoot, activeJob, liveStatus);
+  const workspaceRoot = workspace?.workspaceRoot || null;
+  const lane = workspace?.lane || null;
+  const phaseProgress = workspace?.phaseProgress || null;
   if (liveStatus || phaseProgress || lane) {
     return {
       ...base,
@@ -691,33 +681,100 @@ function normalizeLiveVariant(variant) {
     valid: Boolean(variant?.valid),
     success: Boolean(variant?.success),
     verifierScore: numberOrNull(variant?.verifier_score),
-    weightedTaskScore: numberOrNull(variant?.weighted_task_score)
+    weightedTaskScore: numberOrNull(variant?.weighted_task_score),
+    completedReplicas: Number(variant?.completed_replicas ?? variant?.completedReplicas ?? 0),
+    totalReplicas: Number(variant?.total_replicas ?? variant?.totalReplicas ?? 0)
   };
 }
 
-function findLatestActiveWorkspace(workRoot) {
-  if (!fs.existsSync(workRoot)) {
+function findActiveWorkspaceProgress(workRoot, activeJob, liveStatus) {
+  const workspaces = listActiveWorkspaces(workRoot);
+  if (!workspaces.length) {
     return null;
   }
-  let candidates = [];
+
+  const candidates = workspaces.map((workspaceRoot) => {
+    const lane = inferLaneFromWorkspace(workspaceRoot);
+    const phaseProgress =
+      inspectChallengePhase(
+        path.join(workspaceRoot, "runs-confirm"),
+        "confirm",
+        liveStatus?.projectKeys || [],
+        liveStatus?.replicasPerProject
+      ) ||
+      inspectChallengePhase(
+        path.join(workspaceRoot, "runs-initial"),
+        "initial",
+        liveStatus?.projectKeys || [],
+        liveStatus?.replicasPerProject
+      );
+    return {
+      workspaceRoot,
+      lane,
+      phaseProgress,
+      score: activeWorkspaceScore({ workspaceRoot, lane, phaseProgress, activeJob, liveStatus }),
+      updatedAt:
+        phaseProgress?.updatedAt ||
+        newestMtimeIso(workspaceRoot) ||
+        statMtimeIso(workspaceRoot)
+    };
+  });
+
+  candidates.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+    return new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0);
+  });
+  return candidates[0] || null;
+}
+
+function listActiveWorkspaces(workRoot) {
+  if (!fs.existsSync(workRoot)) {
+    return [];
+  }
   try {
-    candidates = fs
+    return fs
       .readdirSync(workRoot, { withFileTypes: true })
       .filter(
         (entry) => entry.isDirectory() && entry.name.startsWith("kata-bot-job-")
       )
       .map((entry) => path.join(workRoot, entry.name));
   } catch {
-    return null;
+    return [];
   }
-  if (!candidates.length) {
-    return null;
+}
+
+function activeWorkspaceScore({ workspaceRoot, lane, phaseProgress, activeJob, liveStatus }) {
+  let score = 0;
+  if (phaseProgress?.primary) {
+    score += 100;
   }
-  candidates.sort(
-    (left, right) =>
-      new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
-  );
-  return candidates[0];
+  if (phaseProgress) {
+    score += 25;
+  }
+  if (
+    liveStatus?.candidateSubmissionId &&
+    lane?.submissionId === liveStatus.candidateSubmissionId
+  ) {
+    score += 1000;
+  }
+  if (
+    liveStatus?.subnetPack &&
+    lane?.subnetPack === liveStatus.subnetPack &&
+    (!liveStatus.mode || lane?.mode === liveStatus.mode)
+  ) {
+    score += 200;
+  }
+  const latest = newestMtimeIso(workspaceRoot) || statMtimeIso(workspaceRoot);
+  if (
+    activeJob?.startedAt &&
+    latest &&
+    new Date(latest).getTime() >= new Date(activeJob.startedAt).getTime() - 60_000
+  ) {
+    score += 10;
+  }
+  return score;
 }
 
 function inferLaneFromWorkspace(workspaceRoot) {
@@ -742,7 +799,12 @@ function inferLaneFromWorkspace(workspaceRoot) {
   return null;
 }
 
-function inspectChallengePhase(phaseRoot, phase, selectedProjectKeys = []) {
+function inspectChallengePhase(
+  phaseRoot,
+  phase,
+  selectedProjectKeys = [],
+  replicasPerProject = null
+) {
   if (!fs.existsSync(phaseRoot)) {
     return null;
   }
@@ -763,7 +825,12 @@ function inspectChallengePhase(phaseRoot, phase, selectedProjectKeys = []) {
   const challengeRoot = challengeRoots[0];
   const summaryPath = path.join(challengeRoot, "challenge_summary.json");
   const summary = readJsonSafe(summaryPath);
-  const sn60Progress = inspectSn60Progress(challengeRoot, summary, selectedProjectKeys);
+  const sn60Progress = inspectSn60Progress(
+    challengeRoot,
+    summary,
+    selectedProjectKeys,
+    replicasPerProject
+  );
   if (sn60Progress) {
     return {
       state: summary ? "verifying" : "running",
@@ -789,7 +856,12 @@ function inspectChallengePhase(phaseRoot, phase, selectedProjectKeys = []) {
   };
 }
 
-function inspectSn60Progress(runRoot, summary, selectedProjectKeys = []) {
+function inspectSn60Progress(
+  runRoot,
+  summary,
+  selectedProjectKeys = [],
+  replicasPerProject = null
+) {
   const runId = path.basename(runRoot);
   if (runId.startsWith("sn60-screening-")) {
     const screening = readJsonSafe(path.join(runRoot, "screening_result.json"));
@@ -843,7 +915,7 @@ function inspectSn60Progress(runRoot, summary, selectedProjectKeys = []) {
   if (summary?.primary) {
     return summarizeSn60SummaryPrimary(summary, runRoot);
   }
-  return summarizeRunningSn60Duel(runRoot, selectedProjectKeys);
+  return summarizeRunningSn60Duel(runRoot, selectedProjectKeys, replicasPerProject);
 }
 
 function summarizeSn60SummaryPrimary(summary, runRoot) {
@@ -887,9 +959,22 @@ function summarizeSn60SummaryPrimary(summary, runRoot) {
   };
 }
 
-function summarizeRunningSn60Duel(runRoot, selectedProjectKeys = []) {
-  const king = summarizeSn60VariantProgress(path.join(runRoot, "king"));
-  const candidate = summarizeSn60VariantProgress(path.join(runRoot, "candidate"));
+function summarizeRunningSn60Duel(
+  runRoot,
+  selectedProjectKeys = [],
+  replicasPerProject = null
+) {
+  const expectedReplicas = positiveIntegerOrNull(replicasPerProject);
+  const king = summarizeSn60VariantProgress(
+    path.join(runRoot, "king"),
+    selectedProjectKeys,
+    expectedReplicas
+  );
+  const candidate = summarizeSn60VariantProgress(
+    path.join(runRoot, "candidate"),
+    selectedProjectKeys,
+    expectedReplicas
+  );
   const projectKeys = [
     ...new Set([...selectedProjectKeys, ...king.projectKeys, ...candidate.projectKeys])
   ].sort();
@@ -943,28 +1028,47 @@ function summarizeRunningSn60Duel(runRoot, selectedProjectKeys = []) {
       }
     },
     projectKeys,
-    updatedAt: statMtimeIso(runRoot)
+    updatedAt: newestMtimeIso(runRoot) || statMtimeIso(runRoot)
   };
 }
 
-function summarizeSn60VariantProgress(variantRoot) {
+function summarizeSn60VariantProgress(
+  variantRoot,
+  selectedProjectKeys = [],
+  expectedReplicas = null
+) {
   const projects = new Map();
+  for (const projectKey of selectedProjectKeys) {
+    projects.set(
+      projectKey,
+      summarizeSn60ProjectProgress(
+        path.join(variantRoot, projectKey),
+        projectKey,
+        expectedReplicas
+      )
+    );
+  }
   if (!fs.existsSync(variantRoot)) {
+    const projectList = [...projects.values()];
     return {
-      projectKeys: [],
-      projectCount: 0,
+      projectKeys: projectList.map((project) => project.projectKey),
+      projectCount: projectList.length,
       projects,
       codebasesPassed: 0,
       truePositives: 0,
       invalidRuns: 0,
       completedReplicas: 0,
-      totalReplicas: 0
+      totalReplicas: projectList.reduce(
+        (total, project) => total + project.totalReplicas,
+        0
+      )
     };
   }
   for (const projectKey of listDirectories(variantRoot).sort()) {
     const project = summarizeSn60ProjectProgress(
       path.join(variantRoot, projectKey),
-      projectKey
+      projectKey,
+      expectedReplicas
     );
     projects.set(projectKey, project);
   }
@@ -993,7 +1097,7 @@ function summarizeSn60VariantProgress(variantRoot) {
   };
 }
 
-function summarizeSn60ProjectProgress(projectRoot, projectKey) {
+function summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas = null) {
   const replicaRoots = listDirectories(projectRoot)
     .filter((name) => name.startsWith("replica-"))
     .map((name) => path.join(projectRoot, name))
@@ -1003,22 +1107,23 @@ function summarizeSn60ProjectProgress(projectRoot, projectKey) {
   );
   const completedReplicas = replicas.filter((replica) => replica.finished).length;
   const passCount = replicas.filter((replica) => replica.result === "PASS").length;
+  const totalReplicas = expectedReplicas || replicas.length;
   return {
     projectKey,
     started: replicas.some((replica) => replica.started),
-    finished: replicas.length > 0 && completedReplicas === replicas.length,
-    solved: projectPasses(passCount, replicas.length),
+    finished: totalReplicas > 0 && completedReplicas >= totalReplicas,
+    solved: projectPasses(passCount, totalReplicas),
     valid: replicas.every((replica) => replica.valid),
     success: replicas.some((replica) => replica.success),
-    verifierScore: replicas.length ? passCount / replicas.length : null,
-    weightedTaskScore: replicas.length ? passCount / replicas.length : null,
+    verifierScore: totalReplicas ? passCount / totalReplicas : null,
+    weightedTaskScore: totalReplicas ? passCount / totalReplicas : null,
     truePositives: replicas.reduce(
       (total, replica) => total + replica.truePositives,
       0
     ),
     invalidRuns: replicas.filter((replica) => replica.finished && !replica.valid).length,
     completedReplicas,
-    totalReplicas: replicas.length
+    totalReplicas
   };
 }
 
@@ -1073,8 +1178,15 @@ function sn60ProjectToLiveVariant(project) {
     valid: Boolean(project.valid),
     success: Boolean(project.success),
     verifierScore: numberOrNull(project.verifierScore),
-    weightedTaskScore: numberOrNull(project.weightedTaskScore)
+    weightedTaskScore: numberOrNull(project.weightedTaskScore),
+    completedReplicas: Number(project.completedReplicas || 0),
+    totalReplicas: Number(project.totalReplicas || 0)
   };
+}
+
+function positiveIntegerOrNull(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
 }
 
 function projectPasses(passCount, replicaCount) {
@@ -1236,6 +1348,20 @@ function summarizeTaskStatusCounts(taskStatuses) {
 function statMtimeIso(targetPath) {
   const stat = fs.statSync(targetPath, { throwIfNoEntry: false });
   return stat?.mtime?.toISOString?.() || null;
+}
+
+function newestMtimeIso(rootPath) {
+  if (!fs.existsSync(rootPath)) {
+    return null;
+  }
+  let newest = fs.statSync(rootPath, { throwIfNoEntry: false })?.mtimeMs || 0;
+  walk(rootPath, (absolutePath) => {
+    const stat = fs.statSync(absolutePath, { throwIfNoEntry: false });
+    if (stat?.mtimeMs && stat.mtimeMs > newest) {
+      newest = stat.mtimeMs;
+    }
+  });
+  return newest ? new Date(newest).toISOString() : null;
 }
 
 function numberOrNull(value) {

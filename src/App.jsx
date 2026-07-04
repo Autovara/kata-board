@@ -390,7 +390,7 @@ function Arena({ lanes, selectedLane, laneActivity, validator, setSelectedLaneId
         <div className="arena-hero-head">
           <p className="kicker">Live Arena · SN60</p>
           <h1>
-            King <em>vs</em> Can
+            King <em>vs</em> Candidate
           </h1>
           <div className="arena-hero-status">
             <Status label={phase} tone={tone} />
@@ -556,7 +556,66 @@ function Sn60LanePanel({ state }) {
           ))}
         </div>
       ) : null}
+
+      <LiveTaskProgress state={state} />
     </section>
+  );
+}
+
+function LiveTaskProgress({ state }) {
+  const tasks = Array.isArray(state.liveProgress?.taskStatuses)
+    ? state.liveProgress.taskStatuses
+    : [];
+  if (!tasks.length) {
+    return null;
+  }
+  const totalTasks = state.liveProgress?.totalTasks ?? tasks.length;
+  const completedTasks =
+    state.liveProgress?.completedTasks ?? tasks.filter((task) => task.completed).length;
+  const candidateReplicas = state.replicaProgress?.candidate || {};
+  const kingReplicas = state.replicaProgress?.king || {};
+
+  return (
+    <div className="live-task-progress">
+      <div className="live-task-progress-head">
+        <div>
+          <span>Live task progress</span>
+          <strong>
+            {completedTasks}/{totalTasks} codebases complete
+          </strong>
+        </div>
+        <div>
+          <span>Replica runs</span>
+          <strong>
+            candidate {formatReplicaSide(candidateReplicas)} · king {formatReplicaSide(kingReplicas)}
+          </strong>
+        </div>
+      </div>
+      <div className="live-task-list">
+        {tasks.map((task) => (
+          <LiveTaskRow key={task.taskId || task.status} task={task} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveTaskRow({ task }) {
+  return (
+    <div className={`live-task-row live-task-row-${taskStatusTone(task.status)}`}>
+      <div className="live-task-main">
+        <strong>{task.taskId || "hidden task"}</strong>
+        <span>{task.status || "queued"}</span>
+      </div>
+      <div className="live-task-side">
+        <span>candidate</span>
+        <strong>{formatVariantReplicas(task.candidate)}</strong>
+      </div>
+      <div className="live-task-side">
+        <span>king</span>
+        <strong>{formatVariantReplicas(task.king)}</strong>
+      </div>
+    </div>
   );
 }
 
@@ -1337,6 +1396,8 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
       state: activeEvaluation.state,
       totalTasks: primary.totalTasks ?? null,
       completedTasks: primary.completedTasks ?? null,
+      taskStatuses: primary.taskStatuses || [],
+      counts: primary.counts || {},
       updatedAt: activeEvaluation.updatedAt || primary.updatedAt || null
     }
   };
@@ -1445,6 +1506,34 @@ function formatReplicaProgress(progress) {
     value: `${candidateText} vs ${kingText}`,
     sub: "challenger vs king"
   };
+}
+
+function formatReplicaSide(progress) {
+  const completed = Number(progress?.completed || 0);
+  const total = Number(progress?.total || 0);
+  return total > 0 ? `${completed}/${total}` : "-";
+}
+
+function formatVariantReplicas(variant) {
+  const completed = Number(variant?.completedReplicas || 0);
+  const total = Number(variant?.totalReplicas || 0);
+  const solved = variant?.solved ? "pass" : variant?.finished ? "fail" : "";
+  const suffix = solved ? ` · ${solved}` : "";
+  return total > 0 ? `${completed}/${total}${suffix}` : "-";
+}
+
+function taskStatusTone(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized.includes("invalid")) {
+    return "bad";
+  }
+  if (normalized.includes("candidate ahead") || normalized.includes("both solved")) {
+    return "ok";
+  }
+  if (normalized.includes("running")) {
+    return "active";
+  }
+  return "neutral";
 }
 
 function sn60Pair(value) {

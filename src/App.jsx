@@ -422,8 +422,8 @@ function Battle({ state, activeEvaluation, activeJob }) {
   const candidateScore = percentScore(state?.scores?.candidate);
   const kingScore = percentScore(state?.scores?.king);
   const winner = state?.finalWinner || null;
-  const candidateProgress = progressPercent(state?.replicaProgress?.candidate);
-  const kingProgress = progressPercent(state?.replicaProgress?.king);
+  const candidatePct = clampPercent(Number(state?.scores?.candidate ?? 0) * 100);
+  const kingPct = clampPercent(Number(state?.scores?.king ?? 0) * 100);
   const scoreDelta = Number(state?.scores?.delta ?? 0);
   const activeTask = currentTask(state);
   const candidateSub =
@@ -441,8 +441,6 @@ function Battle({ state, activeEvaluation, activeJob }) {
           name={kingName}
           sub={kingSub}
           score={kingScore}
-          progress={kingProgress}
-          progressLabel={formatReplicaSide(state?.replicaProgress?.king)}
           won={winner === "king"}
         />
         <div className="battle-mid">
@@ -465,20 +463,20 @@ function Battle({ state, activeEvaluation, activeJob }) {
           sub={candidateSub}
           avatarUrl={activeEvaluation?.candidateAvatarUrl}
           score={candidateScore}
-          progress={candidateProgress}
-          progressLabel={formatReplicaSide(state?.replicaProgress?.candidate)}
           won={winner === "candidate"}
         />
       </div>
       <div className="battle-compare">
         <BattleReplicaBar label="king replicas" progress={state?.replicaProgress?.king} tone="king" />
         <BattleReplicaBar label="candidate replicas" progress={state?.replicaProgress?.candidate} tone="candidate" />
+        <BattleBar label="king score" pct={kingPct} value={kingScore} tone="king" />
+        <BattleBar label="candidate score" pct={candidatePct} value={candidateScore} tone="candidate" />
       </div>
     </div>
   );
 }
 
-function BattleSide({ role, name, sub, score, progress, progressLabel, avatarUrl, crown, won }) {
+function BattleSide({ role, name, sub, score, avatarUrl, crown, won }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -493,15 +491,6 @@ function BattleSide({ role, name, sub, score, progress, progressLabel, avatarUrl
       <div className="battle-score">
         <strong>{score}</strong>
         <small>aggregated score</small>
-      </div>
-      <div className="battle-progress">
-        <div>
-          <span>replicas done</span>
-          <strong>{progressLabel}</strong>
-        </div>
-        <div className="battle-progress-track">
-          <i style={{ width: `${progress}%` }} />
-        </div>
       </div>
     </div>
   );

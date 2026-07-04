@@ -2818,6 +2818,14 @@ html { scroll-behavior: smooth; }
   grid-column: 3;
 }
 
+.battle-compare > :nth-child(3) {
+  grid-column: 1;
+}
+
+.battle-compare > :nth-child(4) {
+  grid-column: 3;
+}
+
 .lane-card {
   gap: 20px;
   border-radius: 22px;
@@ -2981,7 +2989,9 @@ html { scroll-behavior: smooth; }
   }
 
   .battle-compare > :nth-child(1),
-  .battle-compare > :nth-child(2) {
+  .battle-compare > :nth-child(2),
+  .battle-compare > :nth-child(3),
+  .battle-compare > :nth-child(4) {
     grid-column: auto;
   }
 

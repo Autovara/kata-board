@@ -483,6 +483,77 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
   assert.equal(active.primary.precision.king, 1);
 });
 
+test("shows live SN60 screening project and timeout before result exists", async () => {
+  const root = makeKataRoot();
+  const botRoot = path.join(root, "bot");
+  const queuePath = path.join(botRoot, "state", "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const workRoot = path.join(botRoot, "work");
+  const jobId = "job-screening";
+  writeJson(path.dirname(queuePath), "queue.json", {
+    schema_version: 1,
+    jobs: [
+      {
+        schema_version: 1,
+        job_id: jobId,
+        kata_repo: "owner/kata",
+        pull_number: 42,
+        head_sha: "c".repeat(40),
+        status: "running",
+        attempts: 1,
+        enqueued_at: "2026-07-02T02:00:00+00:00",
+        started_at: "2026-07-02T02:01:00+00:00"
+      }
+    ]
+  });
+  writeJson(path.dirname(liveStatusPath), "live-status.json", {
+    schema_version: 1,
+    state: "screening",
+    phase: "sn60-screening",
+    lane_id: "sn60__bitsec",
+    candidate_submission_id: "dana-20260702-01",
+    project_keys: ["project-alpha", "project-beta"],
+    screening_project_key: "project-alpha",
+    screening_started_at: "2026-07-02T02:01:05+00:00",
+    screening_timeout_seconds: 300,
+    screening_timeout_at: "2026-07-02T02:06:05+00:00",
+    job: {
+      job_id: jobId,
+      kata_repo: "owner/kata",
+      pull_number: 42,
+      attempts: 1,
+      enqueued_at: "2026-07-02T02:00:00+00:00",
+      started_at: "2026-07-02T02:01:00+00:00"
+    }
+  });
+  const workspace = path.join(workRoot, "kata-bot-job-screening");
+  fs.mkdirSync(
+    path.join(workspace, "runs-initial", "sn60-screening-live", "reports", "project-alpha"),
+    { recursive: true }
+  );
+  fs.writeFileSync(
+    path.join(workspace, "changed-paths.txt"),
+    "submissions/sn60__bitsec/miner/dana-20260702-01/agent.py\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOT_ROOT: botRoot,
+    KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_LIVE_STATUS_PATH: liveStatusPath,
+    KATA_WORK_ROOT: workRoot
+  });
+
+  const active = status.validator.activeEvaluation;
+  assert.equal(active.state, "screening");
+  assert.equal(active.phase, "sn60-screening");
+  assert.equal(active.screening.projectKey, "project-alpha");
+  assert.equal(active.screening.timeoutSeconds, 300);
+  assert.equal(active.primary.completedTasks, 0);
+  assert.equal(active.primary.taskStatuses[0].taskId, "project-alpha");
+  assert.equal(active.primary.taskStatuses[0].status, "screening running");
+});
+
 test("leaderboard includes losing candidates from run artifacts", async () => {
   const root = makeKataRoot();
   const losingRunRoot = path.join(root, "runs", "sn60-duel-loser");

@@ -2270,8 +2270,45 @@ html { scroll-behavior: smooth; }
   font-size: 12px;
 }
 
+.screening-wait {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 197, 92, 0.28);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 197, 92, 0.12), rgba(37, 208, 171, 0.05)),
+    rgba(8, 9, 8, 0.32);
+}
+
+.screening-wait div {
+  display: grid;
+  gap: 4px;
+}
+
+.screening-wait span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.screening-wait strong {
+  color: var(--text);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.screening-wait small {
+  color: var(--soft);
+  font-size: 12px;
+}
+
 @media (max-width: 760px) {
   .lane-metrics { grid-template-columns: repeat(2, 1fr); }
+  .screening-wait { grid-template-columns: 1fr; }
 }
 
 /* ============================================================================ */

@@ -696,6 +696,12 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     candidateGithubLogin: payload.candidate_github_login || null,
     candidateAvatarUrl: payload.candidate_avatar_url || null,
     candidateGithubUrl: payload.candidate_github_url || null,
+    screening: {
+      projectKey: payload.screening_project_key || null,
+      startedAt: payload.screening_started_at || null,
+      timeoutSeconds: numberOrNull(payload.screening_timeout_seconds),
+      timeoutAt: payload.screening_timeout_at || null
+    },
     candidateAuthor:
       payload.candidate_github_login ||
       payload.candidate_author ||
@@ -972,14 +978,20 @@ function inspectSn60Progress(
   const runId = path.basename(runRoot);
   if (runId.startsWith("sn60-screening-")) {
     const screening = readJsonSafe(path.join(runRoot, "screening_result.json"));
+    const screeningProjectKey = screening?.project_key || selectedProjectKeys[0] || "screening";
+    const screeningStatus = screening
+      ? screening.status === "passed"
+        ? "screening passed"
+        : "screening failed"
+      : "screening running";
     return {
       live: !summary,
       totalTasks: 1,
       completedTasks: screening ? 1 : 0,
       taskStatuses: [
         {
-          taskId: screening?.project_key || "screening",
-          status: screening?.status === "passed" ? "screening passed" : screening ? "screening failed" : "screening",
+          taskId: screeningProjectKey,
+          status: screeningStatus,
           completed: Boolean(screening),
           candidate: {
             started: true,
@@ -1012,7 +1024,7 @@ function inspectSn60Progress(
         king: { completed: 0, total: 0 },
         candidate: { completed: screening ? 1 : 0, total: 1 }
       },
-      projectKeys: screening?.project_key ? [screening.project_key] : [],
+      projectKeys: screeningProjectKey === "screening" ? [] : [screeningProjectKey],
       updatedAt: statMtimeIso(path.join(runRoot, "screening_result.json")) || statMtimeIso(runRoot)
     };
   }

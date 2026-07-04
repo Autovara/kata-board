@@ -556,6 +556,8 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <DuelInsights state={state} />
 
+      <ScreeningWaitNotice state={state} />
+
       {state.screeningReasons?.length ? (
         <div className="lane-notes">
           {state.screeningReasons.slice(0, 3).map((reason) => (
@@ -566,6 +568,44 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <LiveTaskProgress state={state} />
     </section>
+  );
+}
+
+function ScreeningWaitNotice({ state }) {
+  if (state.screeningStatus !== "running") {
+    return null;
+  }
+  const meta = state.screeningMeta || {};
+  const task = currentTask(state);
+  const projectKey = meta.projectKey || task?.taskId || state.projectKeys?.[0] || "screening project";
+  const startedAt = meta.startedAt || state.liveProgress?.updatedAt;
+  const timeoutAt = meta.timeoutAt || null;
+  const timeoutSeconds = Number(meta.timeoutSeconds || 0);
+  const elapsedMs = startedAt ? Date.now() - new Date(startedAt).getTime() : null;
+  const remainingMs = timeoutAt ? new Date(timeoutAt).getTime() - Date.now() : null;
+  return (
+    <div className="screening-wait">
+      <div>
+        <span>Screening gate</span>
+        <strong>{formatTaskName(projectKey)}</strong>
+        <small>
+          Candidate is running one cheap sandbox check before the full duel.
+        </small>
+      </div>
+      <div>
+        <span>Elapsed</span>
+        <strong>{elapsedMs === null ? "-" : formatDuration(elapsedMs)}</strong>
+        <small>
+          {remainingMs === null
+            ? timeoutSeconds > 0
+              ? `timeout ${formatDuration(timeoutSeconds * 1000)}`
+              : "waiting for report"
+            : remainingMs > 0
+              ? `auto-fails in ${formatDuration(remainingMs)}`
+              : "timeout reached; waiting for validator cleanup"}
+        </small>
+      </div>
+    </div>
   );
 }
 
@@ -1502,6 +1542,7 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
   }
   const primary = activeEvaluation.primary || {};
   const completed = activeEvaluation.state === "completed" || activeEvaluation.state === "failed";
+  const activeScreening = !completed && activeEvaluation.phase === "sn60-screening";
   return {
     ...(current || {}),
     live: !completed,
@@ -1514,9 +1555,10 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
       null,
     kingSubmissionId: current?.kingSubmissionId || lane?.king?.submissionId || null,
     kingAuthor: current?.kingAuthor || lane?.king?.author || lane?.currentHolder || null,
-    screeningStatus: current?.screeningStatus || (activeEvaluation.phase === "sn60-screening" ? "running" : null),
-    screeningStage: current?.screeningStage || (activeEvaluation.phase === "sn60-screening" ? "screening" : null),
-    screeningReasons: current?.screeningReasons || [],
+    screeningStatus: activeScreening ? "running" : current?.screeningStatus || null,
+    screeningStage: activeScreening ? "screening" : current?.screeningStage || null,
+    screeningReasons: activeScreening ? [] : current?.screeningReasons || [],
+    screeningMeta: activeEvaluation.screening || current?.screeningMeta || null,
     projectKeys: primary.projectKeys?.length
       ? primary.projectKeys
       : activeEvaluation.projectKeys?.length
@@ -1947,4 +1989,22 @@ function formatDateTime(value) {
   } catch {
     return value;
   }
+}
+
+function formatDuration(valueMs) {
+  if (!Number.isFinite(Number(valueMs))) {
+    return "-";
+  }
+  const totalSeconds = Math.max(0, Math.round(Number(valueMs) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours}h ${restMinutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+  }
+  return `${seconds}s`;
 }

@@ -566,17 +566,12 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
         : winner === "king"
           ? "King holds"
           : "In progress";
-  const outcome = duelOutcomeMessage(state);
-
   return (
     <section className="lane-card">
       <div className="lane-card-head">
         <div>
           <p className="kicker">SN60 · Bitsec security</p>
           <h2>{state.live ? "Live validator run" : "Latest validator result"}</h2>
-          <p className="lane-card-sub">
-            {outcome}
-          </p>
         </div>
         <Status
           label={result}

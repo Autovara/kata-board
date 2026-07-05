@@ -684,7 +684,14 @@ function LatestDuelResult({ state, activeEvaluation }) {
           <span>what matters now</span>
           <strong>{decisionCue(state)}</strong>
           <p>
-            Expected vulnerabilities: candidate {formatNumber(state.totalExpected?.candidate)} · king {formatNumber(state.totalExpected?.king)}
+            {formatNumber(
+              Math.max(
+                Number(state.totalExpected?.candidate || 0),
+                Number(state.totalExpected?.king || 0)
+              )
+            )}{" "}
+            known vulnerabilities to find across the {taskProgress.completed} scored
+            problem{taskProgress.completed === 1 ? "" : "s"} so far.
           </p>
         </div>
       </div>

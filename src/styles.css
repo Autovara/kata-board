@@ -31,11 +31,39 @@ body {
   min-height: 100vh;
   color: var(--text);
   font-family: "Manrope", sans-serif;
+  background: var(--bg);
+}
+
+/* Subtle animated grid field, fixed behind every page. It is one tile larger
+   than the viewport on each side and drifts by exactly one 48px cell, so the
+   loop is seamless. transform is GPU-accelerated, so the motion stays smooth. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -48px;
+  z-index: -1;
+  pointer-events: none;
   background:
     linear-gradient(rgba(244, 247, 239, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(244, 247, 239, 0.026) 1px, transparent 1px),
-    var(--bg);
+    linear-gradient(90deg, rgba(244, 247, 239, 0.026) 1px, transparent 1px);
   background-size: 48px 48px;
+  will-change: transform;
+  animation: grid-drift 26s linear infinite;
+}
+
+@keyframes grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(48px, 48px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
 }
 
 @keyframes page-rise {

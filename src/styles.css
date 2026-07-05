@@ -31,35 +31,41 @@ body {
   min-height: 100vh;
   color: var(--text);
   font-family: "Manrope", sans-serif;
-  /* Original static grid, kept exactly as before. The two gradient layers draw
-     the 48px grid; the solid color sits underneath. */
+  /* Transparent so the fixed grid overlay below (drawn by body::before, above
+     the html canvas color) shows through the gaps between panels. */
+  background: transparent;
+}
+
+/* Animated grid field. It is fixed to the viewport and one tile larger than it
+   on every side, and it drifts by exactly one 48px cell — so the loop is
+   seamless. It uses transform (GPU-accelerated) rather than background-position,
+   which browsers animate smoothly. z-index: -1 keeps it behind all page content
+   but above the html background color, so the grid stays visible. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -60px;
+  z-index: -1;
+  pointer-events: none;
   background:
     linear-gradient(rgba(244, 247, 239, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(244, 247, 239, 0.026) 1px, transparent 1px),
-    var(--bg);
+    linear-gradient(90deg, rgba(244, 247, 239, 0.026) 1px, transparent 1px);
   background-size: 48px 48px;
-  /* Subtle drift: both grid layers slide by exactly one 48px cell over 26s, so
-     the loop is seamless. The solid color layer stays fixed at 0 0. */
-  animation: grid-drift 26s linear infinite;
+  will-change: transform;
+  animation: grid-drift 18s linear infinite;
 }
 
 @keyframes grid-drift {
   from {
-    background-position:
-      0 0,
-      0 0,
-      0 0;
+    transform: translate3d(0, 0, 0);
   }
   to {
-    background-position:
-      48px 48px,
-      48px 48px,
-      0 0;
+    transform: translate3d(48px, 48px, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body {
+  body::before {
     animation: none;
   }
 }

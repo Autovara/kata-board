@@ -952,11 +952,9 @@ function Docs({ selectedLane, kataRepoSlug }) {
   const links = sourceLinks(kataRepoSlug);
   const tabs = [
     { id: "overview", label: "Overview" },
-    { id: "workflow", label: "Workflow" },
-    { id: "submit", label: "Submit" },
-    { id: "agent", label: "Agent" },
+    { id: "miner", label: "For Miners" },
+    { id: "validator", label: "For Validators" },
     { id: "scoring", label: "Scoring" },
-    { id: "bot", label: "Bot" },
     { id: "milestones", label: "Milestones" },
     { id: "privacy", label: "Privacy" }
   ];
@@ -980,11 +978,11 @@ function Docs({ selectedLane, kataRepoSlug }) {
         {activeTab === "overview" ? (
           <DocOverview selectedLane={selectedLane} links={links} />
         ) : null}
-        {activeTab === "workflow" ? <DocWorkflow links={links} /> : null}
-        {activeTab === "submit" ? <DocSubmit links={links} /> : null}
-        {activeTab === "agent" ? <DocAgent links={links} /> : null}
+        {activeTab === "miner" ? <DocMiner links={links} /> : null}
+        {activeTab === "validator" ? (
+          <DocValidator links={links} selectedLane={selectedLane} />
+        ) : null}
         {activeTab === "scoring" ? <DocScoring selectedLane={selectedLane} /> : null}
-        {activeTab === "bot" ? <DocBot /> : null}
         {activeTab === "milestones" ? <DocMilestones /> : null}
         {activeTab === "privacy" ? <DocPrivacy /> : null}
       </article>
@@ -1047,128 +1045,91 @@ function DocOverview({ selectedLane, links }) {
   );
 }
 
-function DocWorkflow({ links }) {
+function DocMiner({ links }) {
   return (
     <section>
-      <p className="kicker">End-to-end Flow</p>
-      <h1>From PR to king</h1>
+      <p className="kicker">For Miners</p>
+      <h1>Compete: submit one agent, beat the king</h1>
       <p>
-        Kata is PR-only. The validator does not create issues for miners. It
-        only accepts candidate agent PRs, evaluates them, and promotes verified
-        winners.
+        You never edit engine code. You add exactly one agent bundle under{" "}
+        <code>submissions/</code>, open a pull request, and the validator duels
+        your agent against the current king on the SN60 / Bitsec benchmark.
+        Out-detect the king and your PR is merged — your agent becomes the new
+        king. You compete purely on detection quality.
       </p>
-      <DocGrid>
-        <DocCard title="Input" text="One PR with one agent bundle under submissions/." />
-        <DocCard title="Evaluator" text="Kata runs candidate and king through the same selected Bitsec benchmark projects using SN60 scorer metrics." />
-        <DocCard title="Decision" text="kata-bot turns the result into close-invalid, close-losing, rerun-stale, hold, or merge." />
-        <DocCard title="Output" text="A verified winner is merged, copied into kings/, and recorded as the new lane king." />
-      </DocGrid>
+
+      <h2>// the miner lifecycle</h2>
       <DocSteps
         items={[
-          ["Register the pack", "Maintainers register the subnet pack in the central registry and pin its benchmark snapshot."],
-          ["Seed the lane", "The first king agent is seeded under kings/<pack>/<mode>/."],
-          ["Open PR", "A miner opens one PR that touches exactly one submission directory."],
-          ["Queue job", "kata-bot receives the GitHub webhook and writes a durable queue job."],
-          ["Validate shape", "The bot checks changed paths before trusting PR contents."],
-          ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
-          ["Static screening", "Cheap source-only anti-cheat checks run BEFORE the duel. They are the only thing that can close a PR early — and no duel cost is spent if they fail."],
-          ["Sandbox duel", "Candidate and king run once per selected benchmark codebase in the Bitsec sandbox. The duel is resilient: every selected codebase is scored, and a bad or empty result on one is simply a 0 for that codebase, never a rejection."],
-          ["Verify freshness", "Kata rejects stale wins if the king or the pinned benchmark snapshot changed."],
-          ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
+          ["Create a branch", "Work in the public Kata repo on a normal branch. You only ever touch submissions/."],
+          ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<id>/ with agent.py, agent_manifest.json, and submission.json."],
+          ["Validate locally", "Run `kata submission validate` to catch shape and contract errors before you open the PR."],
+          ["Open the PR", "Target the default competition branch and touch only your one submission directory."],
+          ["Queue", "kata-bot receives the webhook and stores a durable job keyed by repo, PR number, and head SHA."],
+          ["Static screening", "Cheap source-only anti-cheat checks run before any model call. This is the ONLY gate that can close your PR early — and no duel cost is spent if it fails."],
+          ["Duel", "Your agent and the king both run on every sampled Bitsec project. The duel is resilient: a bad, empty, or slow problem is just a 0 for that problem, never a rejection."],
+          ["Decide & promote", "Strictly out-rank the king and the PR is merged, your bundle is published under kings/, and you are the new king."]
         ]}
       />
+
+      <h2>1. Bundle layout</h2>
+      <p>
+        A submission PR must be narrow: add or update exactly one directory under{" "}
+        <code>submissions/</code>. Do not edit lane state, king files, validator
+        code, workflows, or unrelated docs.
+      </p>
+      <CodeBlock value={`submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # which pack/mode you compete in`} />
+      <CodeBlock value={`{\n  "schema_version": 2,\n  "subnet_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
+
+      <h2>2. Your agent (agent.py)</h2>
+      <p>
+        Expose one synchronous function. The validator owns the sandbox, the
+        pinned benchmark snapshot, replica counts, timeouts, and scoring. You
+        compete on vulnerability-hunting behavior: prompting, context selection,
+        and robustness.
+      </p>
+      <CodeBlock value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # Bitsec-compatible findings for the target project\n        ]\n    }`} />
+      <DocGrid>
+        <DocCard title="project_dir" text="The target smart-contract project checkout mounted inside the sandbox container." />
+        <DocCard title="inference_api" text="The sandbox inference endpoint. Authenticate with the INFERENCE_API_KEY env var injected for your run." />
+        <DocCard title="Sync only" text="agent_main must be synchronous and callable with no arguments; the runner does not await coroutines." />
+        <DocCard title="Self-contained" text="SN60 V1 bundles must stay self-contained in agent.py. Helper modules and symlinks are rejected." />
+      </DocGrid>
+
+      <h2>3. Talking to the model</h2>
+      <DocCallout
+        title="The model is pinned — qwen3.6"
+        text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the validator relay and proxy, so you compete on strategy, not on private API access or a bigger budget. Do not send a `model` field or sampling knobs (temperature, top_p, seed); they are stripped. qwen3.6 is a reasoning model, so the validator raises your max_tokens to a safe ceiling automatically — you do not need a large value. Read the final answer from choices[0].message.content."
+      />
+      <CodeBlock value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`} />
+
+      <h2>4. What closes a PR — and what does not</h2>
       <DocCallout
         title="Only two ways a PR ends without merging"
-        text="1) Static screening fails before the duel (a cheating or no-op agent) — closed early with a clear reason. 2) The duel runs fully and your agent does not out-detect the king (close-losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and the duel continues."
+        text="1) Static screening fails before the duel (a cheating or no-op agent) — closed early with a clear reason and no duel cost. 2) The duel runs fully and your agent does not out-detect the king (close-losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and the duel continues."
       />
-      <DocCallout
-        title="Why stale results matter"
-        text="A candidate only beats the current king if it was evaluated against the current king and current benchmark fingerprints. If either changed during evaluation, the PR must rerun."
-      />
-      <DocLinks links={[["Full workflow doc", links.systemWorkflow], ["GitHub automation", links.githubAutomation]]} />
-    </section>
-  );
-}
-
-function DocSubmit({ links }) {
-  return (
-    <section>
-      <p className="kicker">Miner Submission</p>
-      <h1>Submit one candidate agent</h1>
-      <p>
-        A submission PR must be narrow. It should add or update exactly one
-        directory under `submissions/`. Do not edit lane state, current
-        king files, validator code, workflows, or unrelated docs.
-      </p>
-      <h2>// quick start</h2>
-      <CodeBlock value={`mkdir -p submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01\ncd submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01\n\n# add these files (SN60 miner bundle is self-contained)\nagent.py\nagent_manifest.json\nsubmission.json`} />
-      <CodeBlock value={`submissions/<subnet-pack>/<mode>/<submission-id>/\n  agent.py\n  agent_manifest.json\n  submission.json`} />
-      <h2>Required metadata</h2>
-      <CodeBlock value={`{\n  "schema_version": 2,\n  "subnet_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
       <RequirementList
         title="Validation rules"
         items={[
-          "The PR targets the default competition branch.",
-          "The PR touches exactly one submission directory.",
-          "The lane is registered and active in the central pack registry.",
-          "The bundle contains valid Python and a valid agent manifest.",
-          "The candidate is not an exact copy of the current king.",
-          "The bundle contains no symlinks, hardcoded secrets, or direct validator secret env reads."
+          "agent.py is valid Python and defines a synchronous agent_main callable with no arguments.",
+          "agent_main returns a dict with a top-level `vulnerabilities` list — not a stub that returns an empty list without any analysis.",
+          "agent_manifest.json uses schema_version 1, runtime python, entrypoint agent.py.",
+          "submission.json uses schema_version 2, subnet_pack sn60__bitsec, mode miner, and a unique submission_id.",
+          "The PR targets the default branch and touches exactly one submission directory."
         ]}
       />
-      <DocGrid>
-        <DocCard title="Good PR" text="Small, single submission directory, clear metadata, valid Python, and a self-contained agent_main that finds real vulnerabilities." />
-        <DocCard title="Bad PR" text="Touches kings/, lane state, workflow files, multiple submissions, or copies the current king exactly." />
-      </DocGrid>
-      <DocLinks links={[["Detailed submission docs", links.submissions]]} />
-    </section>
-  );
-}
-
-function DocAgent({ links }) {
-  return (
-    <section>
-      <p className="kicker">Agent Contract</p>
-      <h1>What your agent receives</h1>
-      <p>
-        Your `agent.py` must expose one synchronous function. The validator owns
-        the sandbox, the pinned benchmark snapshot, replica counts, timeouts,
-        and scoring. Miners compete on vulnerability-hunting behavior,
-        prompting, context selection, and robustness.
-      </p>
-      <CodeBlock value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # Bitsec-compatible findings for the target project\n        ]\n    }`} />
-      <h2>// recommended agent loop</h2>
-      <DocSteps
-        items={[
-          ["Read the project", "Walk the smart-contract project mounted in the sandbox and pick the high-risk contracts."],
-          ["Ask the model", "Use the sandbox inference API with the injected INFERENCE_API_KEY. Do not hardcode your own provider."],
-          ["Hunt critical/high issues", "Focus on critical and high severity vulnerabilities; noisy findings hurt your detection rate."],
-          ["Normalize the report", "Return a JSON dict with a top-level `vulnerabilities` list in the Bitsec report schema."],
-          ["Self-check", "Make sure agent_main() works with no arguments and returns JSON-serializable data before opening the PR."]
-        ]}
-      />
-      <DocGrid>
-        <DocCard title="project_dir" text="The target smart-contract project checkout inside the sandbox container." />
-        <DocCard title="inference_api" text="The sandbox inference endpoint. Authenticate with the INFERENCE_API_KEY env var injected for your run." />
-        <DocCard title="Sync only" text="agent_main must be a synchronous function callable with no arguments; the sandbox runner does not await coroutines." />
-        <DocCard title="Self-contained" text="V1 miner bundles must stay self-contained in agent.py. Helper modules are rejected." />
-      </DocGrid>
       <RequirementList
-        title="Runtime boundaries and red lines"
+        title="Red lines (rejected at static screening)"
         items={[
-          "Do not reference validator scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
-          "Do not hardcode provider endpoints or secret tokens.",
-          "Do not set model sampling parameters (temperature, top_p, seed, ...).",
-          "Do not embed benchmark-answer maps or dataset leakage tokens.",
-          "Return a dict with a top-level `vulnerabilities` list, not prose-only output. A stub that directly returns an empty list (no analysis) is rejected at static screening; a real agent that happens to find nothing is not rejected — it just scores 0 and cannot out-detect the king.",
-          "Do not copy the current king bundle; exact copies are rejected."
+          "No validator scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
+          "No hardcoded provider endpoints, API keys, or secret tokens (sk-..., ghp_..., cpk_...).",
+          "No model or sampling overrides (model, temperature, top_p, seed); the validator pins and strips them.",
+          "No benchmark answers or dataset leakage tokens (expected_findings, ground_truth, scabench, curated-highs-only).",
+          "No helper files or symlinks; SN60 V1 bundles must be self-contained in agent.py.",
+          "No exact copy of the current king bundle."
         ]}
       />
-      <DocCallout
-        title="The model is pinned — and it reasons"
-        text="Every agent, king and candidate alike, is forced onto the same pinned model through the validator proxy, so you compete on strategy, not on private API access. Do not send a `model` field or sampling knobs; they are stripped. The pinned model is a reasoning model and the validator raises your max_tokens to a safe ceiling automatically, so you do not need a large value. Read the final answer from choices[0].message.content."
-      />
-      <DocLinks links={[["Submission contract", links.submissions], ["Benchmark contract", links.benchmarkEvaluation]]} />
+      <DocLinks links={[["Full submission contract", links.submissions], ["End-to-end workflow", links.systemWorkflow]]} />
     </section>
   );
 }
@@ -1225,37 +1186,86 @@ function DocScoring({ selectedLane }) {
   );
 }
 
-function DocBot() {
+function DocValidator({ links, selectedLane }) {
+  const projectCount =
+    selectedLane?.projects?.length ||
+    selectedLane?.evaluatorState?.current?.projectKeys?.length ||
+    0;
   return (
     <section>
-      <p className="kicker">Automation</p>
-      <h1>What kata-bot does</h1>
+      <p className="kicker">For Validators</p>
+      <h1>How a submission is judged</h1>
       <p>
-        kata-bot is intentionally thin. It does not own scoring. It receives PR
-        events, queues jobs, calls Kata commands, and applies the GitHub outcome.
+        The validator runs the resident engine end-to-end. kata-bot is
+        deliberately thin — it does not own scoring. It receives PR events,
+        queues jobs, calls Kata commands, and applies the GitHub outcome. Kata
+        does the validation, the duel, the scoring, and the promotion.
       </p>
+
+      <h2>// the validation pipeline</h2>
       <DocSteps
         items={[
-          ["Enqueue", "Webhook events become durable queue jobs keyed by repo, PR number, and head SHA."],
-          ["Drain", "The resident validator continuously processes pending jobs."],
-          ["Inspect", "Changed paths are checked before untrusted PR content is evaluated."],
-          ["Evaluate", "Kata runs candidate and king through selected pinned Bitsec benchmark projects with the SN60 scorer."],
-          ["Comment", "The bot posts a clear PR result with score deltas and reason."],
-          ["Close", "Invalid and losing PRs are labeled and closed."],
-          ["Rerun", "Stale results are rerun when the king or the pinned benchmark snapshot changed."],
-          ["Merge", "Only verified winners are labeled, merged, promoted, and cleaned from submissions/."]
+          ["Enqueue", "Webhook events become durable FIFO queue jobs keyed by repo, PR number, and head SHA. A newer commit on the same PR supersedes the older job."],
+          ["Single worker", "One resident worker drains the queue in order; jobs never run concurrently, so results stay reproducible."],
+          ["Inspect shape", "Changed paths are checked before any untrusted PR content is executed; off-scope edits are rejected."],
+          ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
+          ["Static screening", "Cheap source-only anti-cheat checks run BEFORE the duel — the only early PR-closer. No model calls, no duel cost."],
+          ["Duel", "Candidate and king run once per sampled project (one replica) in the pinned Bitsec sandbox. The duel is resilient: every sampled project is scored and one bad project never aborts the rest."],
+          ["Execution note", "The per-project findings quality is recorded informationally (e.g. 'findings on 2/6 problems') — it never closes a PR."],
+          ["Score & decide", "Kata reduces the SN60 metrics to one action: merge, close-losing, close-invalid, rerun-stale, or hold-merge."],
+          ["Verify freshness", "Before merging, Kata re-checks the candidate, king, and benchmark fingerprints; a stale result reruns instead of merging."],
+          ["Apply & promote", "The bot labels and comments. A verified winner is merged, published under kings/, recorded in lane state, and cleared from submissions/."]
         ]}
       />
+
+      <h2>Pinned model & isolation</h2>
+      <p>
+        Every agent — king and candidate — reaches the model only through the
+        validator's own path, so the competition is fair and the cost is
+        controlled.
+      </p>
       <DocGrid>
-        <DocCard title="kata:invalid" text="Submission shape or bundle contract failed." />
-        <DocCard title="kata:losing" text="Candidate did not beat the current king under the promotion rules." />
-        <DocCard title="kata:stale" text="Result is not current and must rerun." />
-        <DocCard title="kata:hold" text="Winner is verified but merge or promotion is held for operator attention." />
+        <DocCard title="Pinned model" text="qwen3.6 (qwen/qwen3.6-35b-a3b). The relay forces this exact model on every request so the king and every challenger are judged on identical footing." />
+        <DocCard title="Relay" text="Strips any model / sampling knobs the agent sends and raises max_tokens to a safe ceiling so the reasoning model has room to think and answer." />
+        <DocCard title="Proxy" text="Routes the pinned request to the provider and meters cost. It sits on a separate Docker network from the agents." />
+        <DocCard title="Network isolation" text="Agents run on an internet-blocked network and can only reach the relay — they cannot bypass it to hit a provider or a different model directly." />
       </DocGrid>
+
+      <h2>MVP sampling</h2>
+      <p>
+        To control cost, validators can score a secret-seeded subset instead of
+        the full benchmark. The selected keys are recorded in the challenge
+        summary and lane provenance for audit.
+      </p>
+      <CodeBlock value={`KATA_SN60_PROJECT_KEYS=            # explicit override; keep unset in prod\nKATA_SN60_PROJECT_SAMPLE_SIZE=6   # projects sampled per evaluation\nKATA_SN60_PROJECT_SAMPLE_SECRET=<private-validator-secret>\nKATA_SN60_REPLICAS_PER_PROJECT=1`} />
+      <p>
+        The current lane samples{" "}
+        <strong>
+          {projectCount ? `${projectCount} project${projectCount === 1 ? "" : "s"}` : "a secret-seeded subset"}
+        </strong>{" "}
+        per duel; both king and candidate run the same selected set.
+
+      </p>
+
+      <h2>Decisions & labels</h2>
+      <DocGrid>
+        <DocCard title="merge" text="Candidate strictly beat the king and passed freshness — promote it." />
+        <DocCard title="close-losing" text="Candidate evaluated correctly but did not out-rank the king." />
+        <DocCard title="close-invalid" text="Bundle or PR shape failed validation or static screening." />
+        <DocCard title="rerun-stale" text="King or benchmark changed during evaluation; the result must rerun." />
+      </DocGrid>
+      <DocGrid>
+        <DocCard title="kata:winner:sn60__bitsec" text="A verified king promotion — applied only after the duel and freshness checks pass. Gittensor/SN74 label rules recognize only this as a valid result." />
+        <DocCard title="kata:mode:miner" text="The competition mode for the lane." />
+        <DocCard title="kata:invalid / :losing / :stale / :hold" text="Non-winning outcomes, so a result can be read from the PR without re-running the evaluation." />
+        <DocCard title="Provenance" text="Every duel records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />
+      </DocGrid>
+
       <DocCallout
-        title="Important operator rule"
-        text="kata-bot should stay thin. If a rule changes, it should change in Kata first, then the bot should call the new Kata command or read the new Kata result."
+        title="Operator rule: keep the bot thin"
+        text="If a rule changes, change it in Kata first, then have the bot call the new Kata command or read the new Kata result. The bot applies outcomes; it never decides them."
       />
+      <DocLinks links={[["End-to-end workflow", links.systemWorkflow], ["GitHub automation", links.githubAutomation]]} />
     </section>
   );
 }

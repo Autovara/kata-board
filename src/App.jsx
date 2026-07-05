@@ -760,15 +760,15 @@ function LiveTaskProgress({ state }) {
   if (!tasks.length) {
     return null;
   }
-  const invalidStopTask = tasks.find((task) => taskHasCandidateInvalid(task));
-  const visibleTasks = [...(invalidStopTask
-    ? tasks.filter((task) => taskHasStarted(task) || taskHasCandidateInvalid(task))
-    : tasks
-  )].sort(compareLiveTasks);
-  const totalTasks = invalidStopTask ? visibleTasks.length : state.liveProgress?.totalTasks ?? tasks.length;
-  const completedTasks = invalidStopTask
-    ? visibleTasks.filter((task) => task.completed || taskHasCandidateInvalid(task)).length
-    : state.liveProgress?.completedTasks ?? tasks.filter((task) => task.completed).length;
+  // Always show every sampled problem in a stable order; the duel evaluates all
+  // of them (it never early-stops), so we only update each row's status as it
+  // finishes rather than hiding the ones that are still queued or running.
+  const visibleTasks = [...tasks].sort((left, right) =>
+    String(left?.taskId || "").localeCompare(String(right?.taskId || ""))
+  );
+  const totalTasks = state.liveProgress?.totalTasks ?? tasks.length;
+  const completedTasks =
+    state.liveProgress?.completedTasks ?? tasks.filter((task) => task.completed).length;
   const candidateReplicas = state.replicaProgress?.candidate || {};
   const kingReplicas = state.replicaProgress?.king || {};
 
@@ -781,9 +781,7 @@ function LiveTaskProgress({ state }) {
             {completedTasks}/{totalTasks} complete
           </strong>
           <small>
-            {invalidStopTask
-              ? "Stopped after the candidate produced an invalid evaluation."
-              : "Each row is one selected benchmark codebase. Pass means verified findings matched the benchmark."}
+            Each row is one selected benchmark codebase. Pass means verified findings matched the benchmark.
           </small>
         </div>
         <div>
@@ -793,13 +791,6 @@ function LiveTaskProgress({ state }) {
           </strong>
         </div>
       </div>
-      {invalidStopTask ? (
-        <div className="live-task-stop">
-          <span>Stopped</span>
-          <strong>Candidate invalid on {formatTaskName(invalidStopTask.taskId || "current problem")}</strong>
-          <small>The full duel should end here to avoid spending more validator API budget.</small>
-        </div>
-      ) : null}
       <div className="live-task-table-head" aria-hidden="true">
         <span>problem</span>
         <span>state</span>
@@ -813,39 +804,6 @@ function LiveTaskProgress({ state }) {
       </div>
     </div>
   );
-}
-
-function taskHasCandidateInvalid(task) {
-  return (
-    String(task?.status || "").toLowerCase().includes("candidate invalid") ||
-    Boolean(task?.candidate?.finished && !task?.candidate?.valid)
-  );
-}
-
-function taskHasStarted(task) {
-  return Boolean(task?.candidate?.started || task?.king?.started || task?.completed);
-}
-
-function compareLiveTasks(left, right) {
-  const weightDelta = liveTaskWeight(left) - liveTaskWeight(right);
-  if (weightDelta !== 0) {
-    return weightDelta;
-  }
-  return String(left?.taskId || "").localeCompare(String(right?.taskId || ""));
-}
-
-function liveTaskWeight(task) {
-  if (
-    (task?.candidate?.started && !task?.candidate?.finished) ||
-    (task?.king?.started && !task?.king?.finished) ||
-    String(task?.status || "").toLowerCase().includes("running")
-  ) {
-    return 0;
-  }
-  if (task?.completed || taskHasCandidateInvalid(task) || task?.candidate?.finished || task?.king?.finished) {
-    return 1;
-  }
-  return 2;
 }
 
 function LiveTaskRow({ task }) {

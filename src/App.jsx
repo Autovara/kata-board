@@ -645,8 +645,14 @@ function LatestDuelResult({ state, activeEvaluation }) {
             <i style={{ width: `${clampPercent(progress * 100)}%` }} />
           </div>
         </div>
-        <MetricChip label="candidate finds" value={formatNumber(state.truePositives?.candidate)} />
-        <MetricChip label="king finds" value={formatNumber(state.truePositives?.king)} />
+        <MetricChip
+          label="candidate matched / reported"
+          value={`${formatNumber(state.truePositives?.candidate)} / ${formatNumber(state.totalFound?.candidate)}`}
+        />
+        <MetricChip
+          label="king matched / reported"
+          value={`${formatNumber(state.truePositives?.king)} / ${formatNumber(state.totalFound?.king)}`}
+        />
         <MetricChip
           label="invalid"
           value={`C ${formatNumber(invalidCandidate)} · K ${formatNumber(state.invalidRuns?.king || 0)}`}
@@ -1570,6 +1576,7 @@ function mergeActiveEvaluationState(current, activeEvaluation, lane) {
         : current?.projectKeys || [],
     codebasesPassed: livePair(primary.passCounts, screeningMetricFallback || current?.codebasesPassed),
     truePositives: livePair(primary.truePositives, screeningMetricFallback || current?.truePositives),
+    totalFound: livePair(primary.totalFound, screeningMetricFallback || current?.totalFound),
     totalExpected: livePair(primary.totalExpected, screeningMetricFallback || current?.totalExpected),
     precision: livePair(primary.precision, screeningMetricFallback || current?.precision),
     f1Scores: livePair(primary.f1Scores, screeningMetricFallback || current?.f1Scores),

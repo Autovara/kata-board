@@ -239,6 +239,14 @@ function buildEvaluatorCurrentState({
     projectKeys,
     codebasesPassed: promotionRecord?.pass_counts || {},
     truePositives: promotionRecord?.true_positives || {},
+    totalFound: {
+      candidate: numberOrNull(finalMetrics.candidate_total_found),
+      king: numberOrNull(finalMetrics.king_total_found),
+      delta:
+        finalMetrics.candidate_total_found === undefined || finalMetrics.king_total_found === undefined
+          ? null
+          : numberOrNull(Number(finalMetrics.candidate_total_found) - Number(finalMetrics.king_total_found))
+    },
     totalExpected: {
       candidate: numberOrNull(finalMetrics.candidate_total_expected),
       king: numberOrNull(finalMetrics.king_total_expected),
@@ -379,6 +387,10 @@ function loadSn60ActivityMetrics(summary) {
     truePositives: {
       candidate: numberOrNull(duel?.candidate?.true_positives),
       king: numberOrNull(duel?.king?.true_positives)
+    },
+    totalFound: {
+      candidate: numberOrNull(duel?.candidate?.total_found),
+      king: numberOrNull(duel?.king?.total_found)
     },
     precision: {
       candidate: numberOrNull(duel?.candidate?.precision),
@@ -771,6 +783,7 @@ function normalizeLivePool(pool, revealTaskIds) {
     scores: normalizeVariantNumberMap(pool.scores),
     passCounts: normalizeVariantNumberMap(pool.pass_counts),
     truePositives: normalizeVariantNumberMap(pool.true_positives),
+    totalFound: normalizeVariantNumberMap(pool.total_found),
     invalidRuns: normalizeVariantNumberMap(pool.invalid_runs),
     replicaProgress: normalizeReplicaProgress(pool.replica_progress),
     projectKeys: Array.isArray(pool.project_keys) ? pool.project_keys : [],
@@ -1051,6 +1064,7 @@ function inspectSn60Progress(
       scores: { king: null, candidate: null, delta: null },
       passCounts: { king: 0, candidate: 0, delta: 0 },
       truePositives: { king: 0, candidate: 0, delta: 0 },
+      totalFound: { king: 0, candidate: 0, delta: 0 },
       invalidRuns: { king: 0, candidate: screening?.status === "failed" ? 1 : 0, delta: null },
       replicaProgress: {
         king: { completed: 0, total: 0 },
@@ -1107,6 +1121,11 @@ function summarizeSn60SummaryPrimary(summary, runRoot) {
       king: numberOrNull(king.true_positives),
       candidate: numberOrNull(candidate.true_positives),
       delta: numberDelta(candidate.true_positives, king.true_positives)
+    },
+    totalFound: {
+      king: numberOrNull(king.total_found),
+      candidate: numberOrNull(candidate.total_found),
+      delta: numberDelta(candidate.total_found, king.total_found)
     },
     totalExpected: {
       king: numberOrNull(king.total_expected),
@@ -1236,6 +1255,11 @@ function summarizeRunningSn60Duel(
       king: completedKingTruePositives,
       candidate: completedCandidateTruePositives,
       delta: completedCandidateTruePositives - completedKingTruePositives
+    },
+    totalFound: {
+      king: completedKingFound,
+      candidate: completedCandidateFound,
+      delta: completedCandidateFound - completedKingFound
     },
     totalExpected: {
       king: completedKingExpected,

@@ -998,18 +998,30 @@ function DocOverview({ selectedLane, links }) {
       <p className="kicker">Newcomer Guide</p>
       <h1>How Kata competition works</h1>
       <p>
-        Kata is a Gittensor-aligned security-agent competition system. Miners do
-        not submit ordinary code fixes. They submit vulnerability-hunting agents
-        that duel the current king in the same pinned Bitsec sandbox, on the
-        same selected benchmark codebases, under the same validator checks.
+        Kata is a <strong>subnet-agnostic</strong>, competition-based way to build
+        the best mining agent for a Bittensor subnet. Contributors do not submit
+        ordinary code fixes — they submit one autonomous agent that duels the
+        current <strong>king</strong> in the same pinned sandbox, on the same
+        selected benchmark codebases, under the same validator checks. One subnet
+        is live today: <strong>SN60 / Bitsec</strong>, where agents hunt critical-
+        and high-severity smart-contract vulnerabilities. More competition targets
+        will be added over time.
       </p>
       <DocCallout
+        title="⚡ Built with Gittensor (Bittensor Subnet 74)"
+        text="Kata's development is powered by Gittensor, the open-source-software subnet on Bittensor (SN74). This repository is registered on Gittensor, which coordinates and rewards the contributors who build and improve it. You don't need to use Bittensor or Discord to take part — but that's where the work comes from and how contributors get credit."
+      />
+      <DocCallout
+        title="Two subnets — keep them straight"
+        text="SN74 / Gittensor funds and coordinates development of THIS repository. SN60 / Bitsec is the competition TARGET — the subnet Kata currently builds an agent for. The framework is subnet-agnostic; SN60 is simply the first live lane."
+      />
+      <DocCallout
         title="If you are new, start here"
-        text="Think of Kata as a live tournament for security-agent strategies. Your PR contains the agent. The validator runs it against benchmark smart-contract projects. If it finds vulnerabilities better than the current king, your agent becomes the new king."
+        text="Think of Kata as a live tournament for mining-agent strategies. Your PR contains the agent. The validator runs it against the benchmark. If it strictly beats the current king, your agent is merged and becomes the new king — agent quality becomes a merge decision, not a review opinion."
       />
       <DocCallout
         title="Mental model"
-        text="Each subnet pack has one current king. A candidate PR wins only if its agent beats that king on SN60-style detection score, true positives, precision, F1, and invalid/error evaluations."
+        text="Each subnet pack has one current king. A candidate PR wins only if its agent strictly beats that king on the pack's scoring rules — for SN60: detection score, then true positives, precision, F1, and fewer invalid/error evaluations."
       />
       <DocGrid>
         <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
@@ -1059,15 +1071,19 @@ function DocWorkflow({ links }) {
           ["Queue job", "kata-bot receives the GitHub webhook and writes a durable queue job."],
           ["Validate shape", "The bot checks changed paths before trusting PR contents."],
           ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
-          ["Screening", "Static checks and one screener sandbox run must pass before the full duel."],
-          ["Sandbox duel", "Candidate and king run once per selected benchmark codebase in the Bitsec sandbox."],
+          ["Static screening", "Cheap source-only anti-cheat checks run BEFORE the duel. They are the only thing that can close a PR early — and no duel cost is spent if they fail."],
+          ["Sandbox duel", "Candidate and king run once per selected benchmark codebase in the Bitsec sandbox. The duel is resilient: every selected codebase is scored, and a bad or empty result on one is simply a 0 for that codebase, never a rejection."],
           ["Verify freshness", "Kata rejects stale wins if the king or the pinned benchmark snapshot changed."],
           ["Apply action", "Invalid and losing PRs close. Verified winners get labels, merge, and promote."]
         ]}
       />
       <DocCallout
+        title="Only two ways a PR ends without merging"
+        text="1) Static screening fails before the duel (a cheating or no-op agent) — closed early with a clear reason. 2) The duel runs fully and your agent does not out-detect the king (close-losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and the duel continues."
+      />
+      <DocCallout
         title="Why stale results matter"
-        text="A candidate only beats the current king if it was evaluated against the current king and current task-pool fingerprints. If either changed during evaluation, the PR must rerun."
+        text="A candidate only beats the current king if it was evaluated against the current king and current benchmark fingerprints. If either changed during evaluation, the PR must rerun."
       />
       <DocLinks links={[["Full workflow doc", links.systemWorkflow], ["GitHub automation", links.githubAutomation]]} />
     </section>
@@ -1144,9 +1160,13 @@ function DocAgent({ links }) {
           "Do not hardcode provider endpoints or secret tokens.",
           "Do not set model sampling parameters (temperature, top_p, seed, ...).",
           "Do not embed benchmark-answer maps or dataset leakage tokens.",
-          "Return a top-level `vulnerabilities` list with at least one useful finding during screening, not prose-only output.",
+          "Return a dict with a top-level `vulnerabilities` list, not prose-only output. A stub that directly returns an empty list (no analysis) is rejected at static screening; a real agent that happens to find nothing is not rejected — it just scores 0 and cannot out-detect the king.",
           "Do not copy the current king bundle; exact copies are rejected."
         ]}
+      />
+      <DocCallout
+        title="The model is pinned — and it reasons"
+        text="Every agent, king and candidate alike, is forced onto the same pinned model through the validator proxy, so you compete on strategy, not on private API access. Do not send a `model` field or sampling knobs; they are stripped. The pinned model is a reasoning model and the validator raises your max_tokens to a safe ceiling automatically, so you do not need a large value. Read the final answer from choices[0].message.content."
       />
       <DocLinks links={[["Submission contract", links.submissions], ["Benchmark contract", links.benchmarkEvaluation]]} />
     </section>
@@ -1181,12 +1201,26 @@ function DocScoring({ selectedLane }) {
       </DocGrid>
       <h2>Screening</h2>
       <p>
-        Every candidate is screened before the duel. Static checks reject
-        no-op agents, helper files, leaked benchmark-answer hints, and secret
-        references. The screener run must return at least one useful finding
-        with a title and description.
+        Only <strong>static</strong> screening runs before the duel, and it is the
+        only thing that can close a PR early. Cheap source-only checks reject
+        no-op stub agents, helper files, leaked benchmark-answer hints, and secret
+        references — no model calls, so no duel cost is spent. There is no separate
+        "screener run": each agent runs once per project inside the duel itself,
+        and an empty, unparsable, or slow result on a project simply scores 0 for
+        that project instead of rejecting the PR.
       </p>
-      <CodeBlock value={`detection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  screening passed\n  candidate strictly outranks king on:\n    detection score\n    true positives\n    precision\n    f1 score\n    fewer invalid/error evaluations`} />
+      <CodeBlock value={`detection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  static screening passed\n  candidate strictly outranks king on:\n    detection score\n    true positives\n    precision\n    f1 score\n    fewer invalid/error evaluations`} />
+      <h2>Reading the live board</h2>
+      <p>
+        The Arena view shows each duel as it runs. A few terms map straight to the
+        scoring above.
+      </p>
+      <DocGrid>
+        <DocCard title="matched / reported" text="Per agent: matched = true positives the scorer confirmed; reported = every finding the agent submitted. reported is the denominator of precision — a big gap means noisy output." />
+        <DocCard title="expected vulnerabilities" text="One number for the sampled problem set: how many real benchmark vulnerabilities exist to be found. It is the denominator of detection score, and it is the same target for both king and candidate." />
+        <DocCard title="detection / precision / F1 bars" text="The three per-agent quality bars. Detection = matched / expected; precision = matched / reported; F1 balances the two." />
+        <DocCard title="invalid" text="Projects where a run or the scorer did not complete successfully. Each invalid run scores 0 for that project and is a tie-breaker against the agent — but never closes the PR." />
+      </DocGrid>
     </section>
   );
 }
@@ -1366,11 +1400,11 @@ function sourceLinks(kataRepoSlug) {
   // Point every link at a doc that actually exists in the kata repo today.
   return {
     kataReadme: `${kataBase}/README.md`,
-    systemWorkflow: `${kataBase}/README.md`,
+    systemWorkflow: `${kataBase}/docs/workflow.md`,
     submissions: `${kataBase}/docs/submissions.md`,
     scoring: `${kataBase}/docs/submissions.md`,
     benchmarkEvaluation: `${kataBase}/docs/submissions.md`,
-    githubAutomation: `${kataBase}/README.md`,
+    githubAutomation: `${botBase}/README.md`,
     milestones: `${kataBase}/docs/milestones.md`,
     botDeployment: `${botBase}/README.md`,
     botChecklist: `${botBase}/README.md`,

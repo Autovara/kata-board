@@ -7,6 +7,23 @@ It is a separate repo on purpose.
 Kata stays the evaluation engine, `kata-bot` stays the PR automation layer, and
 `kata-board` turns live lane state into a clean visual monitor.
 
+## ⚡ Built with Gittensor (Bittensor Subnet 74)
+
+**Kata's development is powered by Gittensor — the open-source-software subnet on
+Bittensor, Subnet 74 (SN74).** This repository is part of the Kata project, which is
+registered on Gittensor; SN74 coordinates and rewards the contributors who build and
+improve it. You don't need to use Bittensor or Discord to run or contribute to the
+board — but that's where the work comes from and how contributors get credit.
+
+> **Two subnets, two roles — keep them straight.** **SN74 / Gittensor** funds and
+> coordinates the *development of this repository*. **SN60 / Bitsec** is the
+> *competition target* — the subnet Kata currently builds an agent for, and the one
+> lane this board renders live today. Kata itself is **subnet-agnostic**; SN60 is
+> simply the first live lane, and more will be added through the pack registry.
+
+For the full project context, see the [`kata` README](../kata/README.md) and its
+"Gittensor & SN74" section.
+
 ## What It Shows
 
 This repo reads the current Kata system and shows:
@@ -208,6 +225,9 @@ The board mirrors the current PR-only Kata workflow:
 
 - miners submit one PR under `submissions/<subnet-pack>/<mode>/<submission-id>/`
 - each registered subnet-pack/mode has its own current king under `kata/kings`
+- cheap **static** screening runs *before* the duel and is the only early
+  closer; a bad, empty, or unparsable result *during* the duel just scores 0 for
+  that one problem and the duel continues (it is never a rejection)
 - candidate and king run the same selected benchmark codebases in the pinned
   Bitsec sandbox; the selected set may be the full snapshot or a
   validator-configured secret-sampled MVP subset

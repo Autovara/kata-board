@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import GridBackground from "./GridBackground.jsx";
 
 const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
 const STREAM_URL = import.meta.env.VITE_STREAM_URL || "/api/stream";
@@ -149,6 +150,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <GridBackground />
       <main className="page">
         <Header
           pathname={pathname}

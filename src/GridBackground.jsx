@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 
-// Interactive dot-grid background (ReactBits "shape grid" style).
-// Every dot sits at a home position and is physically pushed away from the
-// pointer, then springs back — so the grid visibly moves and ripples as the
-// cursor passes over it.
+// Themed adaptation of the ReactBits "Shape Grid" background.
+// A grid of square outlines that scrolls continuously (diagonally), with the
+// square under the pointer filling in and easing out — so the grid is always
+// gently moving and reacts to the cursor.
 export default function GridBackground() {
   const canvasRef = useRef(null);
 
@@ -13,116 +13,115 @@ export default function GridBackground() {
     const ctx = canvas.getContext("2d");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const GAP = 30; // spacing between dots
-    const BASE_R = 1.3; // resting dot radius
-    const REPEL = 150; // pointer influence radius
-    const REPEL2 = REPEL * REPEL;
-    const PUSH = 0.9; // push strength
-    const SPRING = 0.075; // return-to-home strength
-    const FRICTION = 0.86; // velocity damping
+    const SIZE = 44; // cell size
+    const SPEED = 0.45; // scroll speed (px/frame)
+    const BORDER = "rgba(244, 247, 239, 0.08)";
+    const HOVER_FILL = "rgba(185, 255, 93, 0.18)"; // accent green
+    const BG = "8, 9, 8"; // --bg rgb, for the edge vignette
 
-    let width = 0;
-    let height = 0;
-    let dots = [];
+    let W = 0;
+    let H = 0;
     let raf = 0;
+    const offset = { x: 0, y: 0 };
+    let hovered = null; // {x, y} cell coords
+    const opacities = new Map(); // "col,row" -> current fill alpha
 
-    const pointer = { x: -9999, y: -9999, active: false };
-
-    function build() {
+    function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      dots = [];
-      const cols = Math.ceil(width / GAP) + 1;
-      const rows = Math.ceil(height / GAP) + 1;
-      for (let iy = 0; iy < rows; iy++) {
-        for (let ix = 0; ix < cols; ix++) {
-          const hx = ix * GAP;
-          const hy = iy * GAP;
-          dots.push({ hx, hy, x: hx, y: hy, vx: 0, vy: 0 });
-        }
-      }
-      if (reduce) drawStatic();
+      if (reduce) drawGrid();
     }
 
-    function drawStatic() {
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = "rgba(244, 247, 239, 0.07)";
-      for (const d of dots) {
-        ctx.beginPath();
-        ctx.arc(d.hx, d.hy, BASE_R, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    function drawGrid() {
+      ctx.clearRect(0, 0, W, H);
 
-    function draw() {
-      ctx.clearRect(0, 0, width, height);
-      for (const d of dots) {
-        // push away from the pointer
-        if (pointer.active) {
-          const dx = d.x - pointer.x;
-          const dy = d.y - pointer.y;
-          const dist2 = dx * dx + dy * dy;
-          if (dist2 < REPEL2 && dist2 > 0.01) {
-            const dist = Math.sqrt(dist2);
-            const force = (1 - dist / REPEL) * PUSH;
-            d.vx += (dx / dist) * force;
-            d.vy += (dy / dist) * force;
+      const offX = ((offset.x % SIZE) + SIZE) % SIZE;
+      const offY = ((offset.y % SIZE) + SIZE) % SIZE;
+      const cols = Math.ceil(W / SIZE) + 3;
+      const rows = Math.ceil(H / SIZE) + 3;
+
+      for (let col = -2; col < cols; col++) {
+        for (let row = -2; row < rows; row++) {
+          const sx = col * SIZE + offX;
+          const sy = row * SIZE + offY;
+
+          const alpha = opacities.get(`${col},${row}`);
+          if (alpha) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = HOVER_FILL;
+            ctx.fillRect(sx, sy, SIZE, SIZE);
+            ctx.globalAlpha = 1;
           }
+
+          ctx.strokeStyle = BORDER;
+          ctx.strokeRect(sx, sy, SIZE, SIZE);
         }
-        // spring back to the home cell
-        d.vx += (d.hx - d.x) * SPRING;
-        d.vy += (d.hy - d.y) * SPRING;
-        d.vx *= FRICTION;
-        d.vy *= FRICTION;
-        d.x += d.vx;
-        d.y += d.vy;
-
-        // dots that have moved brighten and grow, fading toward the accent
-        const off = Math.min(1, (Math.abs(d.x - d.hx) + Math.abs(d.y - d.hy)) / 26);
-        const alpha = 0.06 + off * 0.55;
-        const rad = BASE_R + off * 1.6;
-        const r = Math.round(244 + (150 - 244) * off);
-        const g = Math.round(247 + (255 - 247) * off);
-        const b = Math.round(239 + (140 - 239) * off);
-
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        ctx.arc(d.x, d.y, rad, 0, Math.PI * 2);
-        ctx.fill();
       }
-      raf = requestAnimationFrame(draw);
+
+      // soft vignette so the grid fades toward the edges
+      const g = ctx.createRadialGradient(
+        W / 2,
+        H / 2,
+        0,
+        W / 2,
+        H / 2,
+        Math.sqrt(W * W + H * H) / 2
+      );
+      g.addColorStop(0, `rgba(${BG}, 0)`);
+      g.addColorStop(1, `rgba(${BG}, 0.55)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function updateOpacities() {
+      const target = hovered ? `${hovered.x},${hovered.y}` : null;
+      if (target && !opacities.has(target)) opacities.set(target, 0);
+      for (const [key, value] of opacities) {
+        const goal = key === target ? 1 : 0;
+        const next = value + (goal - value) * 0.15;
+        if (next < 0.005) opacities.delete(key);
+        else opacities.set(key, next);
+      }
+    }
+
+    function tick() {
+      // continuous diagonal scroll
+      offset.x = (offset.x - SPEED + SIZE) % SIZE;
+      offset.y = (offset.y - SPEED + SIZE) % SIZE;
+      updateOpacities();
+      drawGrid();
+      raf = requestAnimationFrame(tick);
     }
 
     function onMove(e) {
-      pointer.x = e.clientX;
-      pointer.y = e.clientY;
-      pointer.active = true;
+      const offX = ((offset.x % SIZE) + SIZE) % SIZE;
+      const offY = ((offset.y % SIZE) + SIZE) % SIZE;
+      const col = Math.floor((e.clientX - offX) / SIZE);
+      const row = Math.floor((e.clientY - offY) / SIZE);
+      hovered = { x: col, y: row };
     }
     function onLeave() {
-      pointer.active = false;
+      hovered = null;
     }
 
-    build();
-    window.addEventListener("resize", build);
+    resize();
+    window.addEventListener("resize", resize);
 
     if (reduce) {
-      return () => window.removeEventListener("resize", build);
+      return () => window.removeEventListener("resize", resize);
     }
 
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerleave", onLeave);
-    raf = requestAnimationFrame(draw);
+    raf = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", build);
+      window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerleave", onLeave);
     };

@@ -2578,21 +2578,6 @@ html { scroll-behavior: smooth; }
 /* ============================================================================ */
 /*  Arena live task progress                                                    */
 /* ============================================================================ */
-.live-task-progress {
-  display: grid;
-  gap: 14px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-}
-
-.live-task-progress-head {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 16px;
-  align-items: end;
-}
-
 .live-task-progress-head span,
 .live-task-side span {
   color: var(--muted);
@@ -2607,86 +2592,6 @@ html { scroll-behavior: smooth; }
   margin-top: 4px;
   color: var(--text);
   font-size: 15px;
-}
-
-.live-task-list {
-  display: grid;
-  gap: 8px;
-  max-height: 430px;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.live-task-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 118px 118px;
-  gap: 12px;
-  align-items: center;
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background:
-    linear-gradient(90deg, rgba(244, 247, 239, 0.04), transparent),
-    rgba(8, 9, 8, 0.28);
-}
-
-.live-task-row-active {
-  border-color: rgba(37, 208, 171, 0.34);
-  background:
-    linear-gradient(90deg, rgba(37, 208, 171, 0.09), transparent),
-    rgba(8, 9, 8, 0.28);
-}
-
-.live-task-row-ok {
-  border-color: rgba(185, 255, 93, 0.32);
-}
-
-.live-task-row-bad {
-  border-color: rgba(255, 95, 90, 0.42);
-}
-
-.live-task-main {
-  min-width: 0;
-}
-
-.live-task-main strong {
-  display: block;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-task-main span {
-  display: inline-flex;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.live-task-side {
-  display: grid;
-  gap: 3px;
-  justify-items: end;
-}
-
-.live-task-side strong {
-  color: var(--soft);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-}
-
-@media (max-width: 760px) {
-  .live-task-progress-head,
-  .live-task-row {
-    grid-template-columns: 1fr;
-  }
-
-  .live-task-side {
-    display: flex;
-    justify-content: space-between;
-  }
 }
 
 /* ============================================================================ */
@@ -2960,64 +2865,6 @@ html { scroll-behavior: smooth; }
   animation: live-pulse 2.8s ease-in-out infinite;
 }
 
-.live-task-progress {
-  margin-top: 4px;
-  padding-top: 20px;
-}
-
-.live-task-progress-head {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-}
-
-.live-task-progress-head small {
-  display: block;
-  max-width: 680px;
-  margin-top: 6px;
-  line-height: 1.5;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.live-task-table-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 128px 140px 140px;
-  gap: 12px;
-  padding: 0 12px;
-}
-
-.live-task-table-head span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.live-task-row {
-  grid-template-columns: minmax(0, 1fr) 128px 140px 140px;
-  min-height: 66px;
-}
-
-.live-task-row .status {
-  justify-self: start;
-}
-
-.live-task-side {
-  justify-items: start;
-}
-
-.live-task-main strong {
-  font-size: 14px;
-}
-
-.live-task-main span {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (max-width: 900px) {
   .arena-hero-head-clear,
   .lane-card-head {
@@ -3037,9 +2884,7 @@ html { scroll-behavior: smooth; }
 
 @media (max-width: 760px) {
   .arena-hero .battle,
-  .battle-compare,
-  .live-task-table-head,
-  .live-task-row {
+  .battle-compare {
     grid-template-columns: 1fr;
   }
 
@@ -3056,19 +2901,9 @@ html { scroll-behavior: smooth; }
     width: min(100%, 240px);
   }
 
-  .live-task-table-head {
-    display: none;
-  }
-
-  .live-task-progress-head,
   .arena-summary-grid,
   .lane-metrics {
     grid-template-columns: 1fr;
-  }
-
-  .live-task-side {
-    display: flex;
-    justify-content: space-between;
   }
 }
 
@@ -3303,89 +3138,36 @@ html { scroll-behavior: smooth; }
   font-size: 21px;
 }
 
-.live-task-progress {
-  border-top: 0;
-  padding-top: 0;
+.live-task-stop {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 95, 90, 0.34);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 95, 90, 0.12), transparent 42%),
+    rgba(255, 95, 90, 0.055);
 }
 
-.live-task-progress-head {
-  padding: 0 2px;
-}
-
-.live-task-list {
-  gap: 6px;
-  max-height: 500px;
-}
-
-.live-task-table-head {
-  grid-template-columns: minmax(0, 1fr) 112px 128px 128px;
-  padding: 0 16px;
-}
-
-.live-task-row {
-  grid-template-columns: minmax(0, 1fr) 112px 128px 128px;
-  min-height: 58px;
-  padding: 10px 16px;
-  border-radius: 12px;
-  background: rgba(8, 9, 8, 0.3);
-}
-
-.live-task-row:hover {
-  border-color: rgba(185, 255, 93, 0.22);
-  background: rgba(185, 255, 93, 0.045);
-}
-
-.live-task-main strong {
-  font-size: 13px;
-}
-
-.live-task-main span {
+.live-task-stop span,
+.live-task-stop small {
+  color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.live-task-side {
-  align-content: center;
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 7px 9px;
-  background: rgba(244, 247, 239, 0.035);
-}
-
-.live-task-side span {
-  font-size: 10px;
-}
-
-.live-task-side strong {
-  font-size: 13px;
-}
-
-.live-task-side-ok {
-  border-color: rgba(185, 255, 93, 0.32);
-  background: rgba(185, 255, 93, 0.07);
-}
-
-.live-task-side-ok span {
-  color: var(--green);
-}
-
-.live-task-side-bad {
-  border-color: rgba(255, 95, 90, 0.34);
-  background: rgba(255, 95, 90, 0.07);
-}
-
-.live-task-side-bad span {
+.live-task-stop strong {
   color: var(--red);
+  font-size: 16px;
 }
 
-.live-task-side-active {
-  border-color: rgba(37, 208, 171, 0.34);
-  background: rgba(37, 208, 171, 0.07);
-}
-
-.live-task-side-active span {
-  color: var(--cyan);
+.live-task-stop small {
+  color: var(--soft);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 @media (max-width: 900px) {
@@ -3418,16 +3200,246 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 760px) {
-  .live-task-row {
+  .lane-metrics {
     grid-template-columns: 1fr;
   }
+}
 
+/* Arena problem list refresh: clearer codebase rows and less table noise. */
+.live-task-progress {
+  display: grid;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.live-task-progress-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  border: 1px solid rgba(244, 247, 239, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(37, 208, 171, 0.11), transparent 38%),
+    rgba(8, 9, 8, 0.28);
+}
+
+.live-task-progress-head small {
+  display: block;
+  max-width: 680px;
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.live-task-table-head {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 150px 170px 170px;
+  gap: 12px;
+  padding: 0 18px;
+}
+
+.live-task-table-head span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 560px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.live-task-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 150px 170px 170px;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 78px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(244, 247, 239, 0.055), rgba(244, 247, 239, 0.015)),
+    rgba(8, 9, 8, 0.34);
+  box-shadow: inset 0 1px 0 rgba(244, 247, 239, 0.045);
+}
+
+.live-task-row .status {
+  justify-self: start;
+}
+
+.live-task-row-active {
+  border-color: rgba(37, 208, 171, 0.42);
+  background:
+    radial-gradient(circle at 0% 50%, rgba(37, 208, 171, 0.14), transparent 34%),
+    rgba(8, 9, 8, 0.36);
+}
+
+.live-task-row-ok {
+  border-color: rgba(185, 255, 93, 0.34);
+}
+
+.live-task-row-bad {
+  border-color: rgba(255, 95, 90, 0.42);
+}
+
+.live-task-main {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.live-task-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(244, 247, 239, 0.12);
+  border-radius: 14px;
+  color: var(--soft);
+  background: rgba(244, 247, 239, 0.055);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.live-task-row-active .live-task-icon {
+  border-color: rgba(37, 208, 171, 0.4);
+  color: var(--cyan);
+  background: rgba(37, 208, 171, 0.1);
+}
+
+.live-task-row-ok .live-task-icon {
+  border-color: rgba(185, 255, 93, 0.34);
+  color: var(--green);
+  background: rgba(185, 255, 93, 0.09);
+}
+
+.live-task-row-bad .live-task-icon {
+  border-color: rgba(255, 95, 90, 0.38);
+  color: var(--red);
+  background: rgba(255, 95, 90, 0.09);
+}
+
+.live-task-main strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-task-main span {
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-task-side {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 2px;
+  min-height: 52px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(244, 247, 239, 0.035);
+}
+
+.live-task-side span,
+.live-task-side small {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.live-task-side strong {
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.live-task-side small {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.live-task-side-ok {
+  border-color: rgba(185, 255, 93, 0.32);
+  background: rgba(185, 255, 93, 0.07);
+}
+
+.live-task-side-ok span {
+  color: var(--green);
+}
+
+.live-task-side-bad {
+  border-color: rgba(255, 95, 90, 0.34);
+  background: rgba(255, 95, 90, 0.07);
+}
+
+.live-task-side-bad span {
+  color: var(--red);
+}
+
+.live-task-side-active {
+  border-color: rgba(37, 208, 171, 0.34);
+  background: rgba(37, 208, 171, 0.07);
+}
+
+.live-task-side-active span {
+  color: var(--cyan);
+}
+
+@media (max-width: 980px) {
   .live-task-table-head {
     display: none;
   }
 
-  .lane-metrics {
+  .live-task-row {
+    grid-template-columns: 1fr 140px;
+  }
+
+  .live-task-side {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .live-task-progress-head,
+  .live-task-row {
     grid-template-columns: 1fr;
+  }
+
+  .live-task-main {
+    grid-template-columns: 34px minmax(0, 1fr);
   }
 }
 

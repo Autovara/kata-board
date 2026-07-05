@@ -554,6 +554,7 @@ function BattleReplicaBar({ label, progress, tone }) {
 function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
   const winner = state.finalWinner;
   const screeningFailed = state.screeningStatus === "failed";
+  const showProblemList = shouldShowProblemList(state, activeEvaluation);
   const result = screeningFailed
     ? "Screening failed"
     : state.live
@@ -585,9 +586,26 @@ function Sn60LanePanel({ state, activeEvaluation, activeJob }) {
 
       <LatestDuelResult state={state} activeEvaluation={activeEvaluation} />
 
-      {state.screeningStatus !== "running" ? <LiveTaskProgress state={state} /> : null}
+      {showProblemList ? <LiveTaskProgress state={state} /> : null}
     </section>
   );
+}
+
+function shouldShowProblemList(state, activeEvaluation) {
+  if (state.screeningStatus === "running" || state.screeningStatus === "failed") {
+    return false;
+  }
+  const tasks = Array.isArray(state.liveProgress?.taskStatuses)
+    ? state.liveProgress.taskStatuses
+    : [];
+  if (!tasks.length) {
+    return false;
+  }
+  const phase = String(activeEvaluation?.phase || state.liveProgress?.phase || "").toLowerCase();
+  if (phase.includes("duel")) {
+    return true;
+  }
+  return tasks.length > 1 || tasks.some((task) => task.king?.started || task.king?.finished);
 }
 
 function LatestDuelResult({ state, activeEvaluation }) {
@@ -742,9 +760,15 @@ function LiveTaskProgress({ state }) {
   if (!tasks.length) {
     return null;
   }
-  const totalTasks = state.liveProgress?.totalTasks ?? tasks.length;
-  const completedTasks =
-    state.liveProgress?.completedTasks ?? tasks.filter((task) => task.completed).length;
+  const invalidStopTask = tasks.find((task) => taskHasCandidateInvalid(task));
+  const visibleTasks = [...(invalidStopTask
+    ? tasks.filter((task) => taskHasStarted(task) || taskHasCandidateInvalid(task))
+    : tasks
+  )].sort(compareLiveTasks);
+  const totalTasks = invalidStopTask ? visibleTasks.length : state.liveProgress?.totalTasks ?? tasks.length;
+  const completedTasks = invalidStopTask
+    ? visibleTasks.filter((task) => task.completed || taskHasCandidateInvalid(task)).length
+    : state.liveProgress?.completedTasks ?? tasks.filter((task) => task.completed).length;
   const candidateReplicas = state.replicaProgress?.candidate || {};
   const kingReplicas = state.replicaProgress?.king || {};
 
@@ -752,27 +776,38 @@ function LiveTaskProgress({ state }) {
     <div className="live-task-progress">
       <div className="live-task-progress-head">
         <div>
-          <span>problem list</span>
+          <span>codebase progress</span>
           <strong>
             {completedTasks}/{totalTasks} complete
           </strong>
-          <small>Clean view of every selected benchmark codebase and both agents' replica status.</small>
+          <small>
+            {invalidStopTask
+              ? "Stopped after the candidate produced an invalid evaluation."
+              : "Each row is one selected benchmark codebase. Pass means verified findings matched the benchmark."}
+          </small>
         </div>
         <div>
-          <span>all replicas</span>
+          <span>replicas</span>
           <strong>
             C {formatReplicaSide(candidateReplicas)} · K {formatReplicaSide(kingReplicas)}
           </strong>
         </div>
       </div>
-      <div className="live-task-table-head">
+      {invalidStopTask ? (
+        <div className="live-task-stop">
+          <span>Stopped</span>
+          <strong>Candidate invalid on {formatTaskName(invalidStopTask.taskId || "current problem")}</strong>
+          <small>The full duel should end here to avoid spending more validator API budget.</small>
+        </div>
+      ) : null}
+      <div className="live-task-table-head" aria-hidden="true">
         <span>problem</span>
         <span>state</span>
         <span>candidate</span>
         <span>king</span>
       </div>
       <div className="live-task-list">
-        {tasks.map((task) => (
+        {visibleTasks.map((task) => (
           <LiveTaskRow key={task.taskId || task.status} task={task} />
         ))}
       </div>
@@ -780,24 +815,65 @@ function LiveTaskProgress({ state }) {
   );
 }
 
+function taskHasCandidateInvalid(task) {
+  return (
+    String(task?.status || "").toLowerCase().includes("candidate invalid") ||
+    Boolean(task?.candidate?.finished && !task?.candidate?.valid)
+  );
+}
+
+function taskHasStarted(task) {
+  return Boolean(task?.candidate?.started || task?.king?.started || task?.completed);
+}
+
+function compareLiveTasks(left, right) {
+  const weightDelta = liveTaskWeight(left) - liveTaskWeight(right);
+  if (weightDelta !== 0) {
+    return weightDelta;
+  }
+  return String(left?.taskId || "").localeCompare(String(right?.taskId || ""));
+}
+
+function liveTaskWeight(task) {
+  if (
+    (task?.candidate?.started && !task?.candidate?.finished) ||
+    (task?.king?.started && !task?.king?.finished) ||
+    String(task?.status || "").toLowerCase().includes("running")
+  ) {
+    return 0;
+  }
+  if (task?.completed || taskHasCandidateInvalid(task) || task?.candidate?.finished || task?.king?.finished) {
+    return 1;
+  }
+  return 2;
+}
+
 function LiveTaskRow({ task }) {
   const candidate = task.candidate || {};
   const king = task.king || {};
+  const tone = taskStatusTone(task.status);
   return (
-    <div className={`live-task-row live-task-row-${taskStatusTone(task.status)}`}>
+    <div className={`live-task-row live-task-row-${tone}`}>
       <div className="live-task-main">
-        <strong>{formatTaskName(task.taskId || "hidden task")}</strong>
-        <span>{task.taskId || "hidden task"}</span>
+        <div className="live-task-icon" aria-hidden="true">{taskStatusIcon(task.status)}</div>
+        <div>
+          <strong>{formatTaskName(task.taskId || "hidden task")}</strong>
+          <span>{task.taskId || "hidden task"}</span>
+        </div>
       </div>
-      <Status label={task.status || "queued"} tone={taskStatusTone(task.status)} />
-      <div className={`live-task-side live-task-side-${variantTone(candidate)}`}>
-        <span>C · {variantResultLabel(candidate)}</span>
-        <strong>{formatVariantReplicas(candidate)}</strong>
-      </div>
-      <div className={`live-task-side live-task-side-${variantTone(king)}`}>
-        <span>K · {variantResultLabel(king)}</span>
-        <strong>{formatVariantReplicas(king)}</strong>
-      </div>
+      <Status label={formatTaskStatus(task.status)} tone={tone} />
+      <AgentTaskCell label="candidate" variant={candidate} />
+      <AgentTaskCell label="king" variant={king} />
+    </div>
+  );
+}
+
+function AgentTaskCell({ label, variant }) {
+  return (
+    <div className={`live-task-side live-task-side-${variantTone(variant)}`}>
+      <span>{label}</span>
+      <strong>{variantResultLabel(variant)}</strong>
+      <small>{formatVariantReplicas(variant)}</small>
     </div>
   );
 }
@@ -1685,19 +1761,17 @@ function progressPercent(progress) {
 function formatVariantReplicas(variant) {
   const completed = Number(variant?.completedReplicas || 0);
   const total = Number(variant?.totalReplicas || 0);
-  const solved = variant?.solved ? "pass" : variant?.finished ? "fail" : "";
-  const suffix = solved ? ` · ${solved}` : "";
-  return total > 0 ? `${completed}/${total}${suffix}` : "-";
+  return total > 0 ? `${completed}/${total} replicas` : "-";
 }
 
 function variantResultLabel(variant) {
   if (variant?.finished && !variant?.valid) {
-    return "invalid";
+    return "invalid run";
   }
   if (!variant?.finished) {
     return variant?.started ? "running" : "waiting";
   }
-  return variant?.solved ? "passed" : "failed";
+  return variant?.solved ? "verified" : "no verified finding";
 }
 
 function variantTone(variant) {
@@ -1868,13 +1942,61 @@ function taskStatusTone(status) {
   if (normalized.includes("invalid")) {
     return "bad";
   }
-  if (normalized.includes("candidate ahead") || normalized.includes("both solved")) {
+  if (
+    normalized.includes("candidate ahead") ||
+    normalized.includes("candidate leads") ||
+    normalized.includes("both solved") ||
+    normalized.includes("both verified")
+  ) {
     return "ok";
   }
   if (normalized.includes("running")) {
     return "active";
   }
   return "neutral";
+}
+
+function formatTaskStatus(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "both failed" || normalized === "no verified findings") {
+    return "no verified finds";
+  }
+  if (normalized === "both solved" || normalized === "both verified") {
+    return "both verified";
+  }
+  if (normalized === "candidate ahead" || normalized === "candidate leads") {
+    return "candidate leads";
+  }
+  if (normalized === "king ahead" || normalized === "king leads") {
+    return "king leads";
+  }
+  if (normalized === "candidate invalid") {
+    return "candidate invalid";
+  }
+  if (normalized === "king invalid") {
+    return "king invalid";
+  }
+  return status || "queued";
+}
+
+function taskStatusIcon(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized.includes("invalid")) {
+    return "!";
+  }
+  if (normalized.includes("running")) {
+    return "...";
+  }
+  if (normalized.includes("candidate") || normalized.includes("both verified") || normalized.includes("both solved")) {
+    return "+";
+  }
+  if (normalized.includes("king")) {
+    return "K";
+  }
+  if (normalized.includes("no verified") || normalized.includes("both failed")) {
+    return "-";
+  }
+  return "•";
 }
 
 function activeEvaluationStatus(activeEvaluation) {

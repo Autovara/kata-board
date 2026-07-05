@@ -1602,18 +1602,24 @@ function exactTaskStatusLabel(candidate, king) {
     return "candidate invalid";
   }
   if (candidate.solved && !king.solved) {
-    return "candidate ahead";
+    return "candidate leads";
   }
   if (candidate.solved && king.solved) {
-    return "both solved";
+    return "both verified";
   }
   if (!candidate.solved && king.solved) {
-    return "king ahead";
+    return "king leads";
   }
-  return "both failed";
+  return "no verified findings";
 }
 
 function runningTaskStatusLabel(candidate, king) {
+  if (candidate.finished && !candidate.valid) {
+    return "candidate invalid";
+  }
+  if (king.finished && !king.valid) {
+    return "king invalid";
+  }
   if (candidate.finished && king.finished) {
     return "finished";
   }

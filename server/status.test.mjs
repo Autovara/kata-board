@@ -376,6 +376,7 @@ test("merges live status with active SN60 worktree progress", async () => {
   });
   assert.equal(active.primary.taskStatuses[0].candidate.completedReplicas, 3);
   assert.equal(active.primary.taskStatuses[0].candidate.totalReplicas, 3);
+  assert.equal(active.primary.taskStatuses[0].status, "candidate invalid");
   assert.equal(active.primary.taskStatuses[1].candidate.completedReplicas, 1);
   assert.equal(active.primary.taskStatuses[1].candidate.totalReplicas, 3);
 });

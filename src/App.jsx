@@ -444,8 +444,7 @@ function roundExtras(round) {
   return extras;
 }
 
-function RoundPanel({ round, kataRepoSlug }) {
-  const [selectedPull, setSelectedPull] = useState(null);
+function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
@@ -990,15 +989,26 @@ function Arena({
   kataRepoSlug,
   setSelectedLaneId
 }) {
+  const [selectedPull, setSelectedPull] = useState(null);
+  const entrants = round?.entrants || [];
+  // A duel detail page is open — hide everything else (lanes, recent rounds) so
+  // the page shows only that PR's duel.
+  const detailOpen = selectedPull != null && entrants.some((e) => e.pull_number === selectedPull);
+
   return (
     <div className="stack">
-      {lanes.length > 1 ? (
+      {!detailOpen && lanes.length > 1 ? (
         <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
       ) : null}
 
-      <RoundPanel round={round} kataRepoSlug={kataRepoSlug} />
+      <RoundPanel
+        round={round}
+        kataRepoSlug={kataRepoSlug}
+        selectedPull={selectedPull}
+        setSelectedPull={setSelectedPull}
+      />
 
-      <RoundHistory rounds={roundHistory} />
+      {!detailOpen ? <RoundHistory rounds={roundHistory} /> : null}
     </div>
   );
 }

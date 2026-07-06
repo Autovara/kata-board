@@ -466,6 +466,20 @@ function RoundPanel({ round, kataRepoSlug }) {
     });
   }
 
+  // Clicking a row opens a full-width duel page (not a modal), matching the
+  // original arena duel layout.
+  if (hasRound && selectedEntrant) {
+    return (
+      <DuelDetail
+        entrant={selectedEntrant}
+        king={round.king}
+        live={progressByPull[selectedEntrant.pull_number]}
+        kataRepoSlug={kataRepoSlug}
+        onBack={() => setSelectedPull(null)}
+      />
+    );
+  }
+
   return (
     <div className="round-block">
       <div className="round-block-head">
@@ -536,12 +550,12 @@ function RoundPanel({ round, kataRepoSlug }) {
             <span>status</span>
           </div>
 
-          {round.king ? (
+          {round.king || (live && live.king) ? (
             <div className="table-row round-grid round-row-king">
               <span aria-hidden="true">♔</span>
               <span>current king</span>
-              <span>{formatDetection(round.king.aggregated_score)}</span>
-              <span>{round.king.true_positives ?? "—"}</span>
+              <span>{formatDetection(round.king?.aggregated_score)}</span>
+              <span>{round.king?.true_positives ?? "—"}</span>
               <span>—</span>
               <span>
                 {live && live.king ? (
@@ -590,20 +604,11 @@ function RoundPanel({ round, kataRepoSlug }) {
           ) : null}
         </section>
       )}
-      {selectedEntrant ? (
-        <DuelDetail
-          entrant={selectedEntrant}
-          king={round.king}
-          kataRepoSlug={kataRepoSlug}
-          live={progressByPull[selectedEntrant.pull_number]}
-          onClose={() => setSelectedPull(null)}
-        />
-      ) : null}
     </div>
   );
 }
 
-function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
+function DuelDetail({ entrant, king, kataRepoSlug, live, onBack }) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
   const scoring = live && live.state === "scoring";
@@ -616,18 +621,26 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
   const candidateInvalid = Number(entrant.invalid_runs || 0);
 
   return (
-    <div className="duel-detail-overlay" onClick={onClose} role="presentation">
-      <div className="duel-detail" onClick={(event) => event.stopPropagation()}>
-        <div className="duel-detail-head">
-          <div className="duel-detail-title">
-            {prLabel(kataRepoSlug, entrant.pull_number)}
-            <RoundStatusPill status={entrant.status} />
-          </div>
-          <button type="button" className="duel-detail-close" onClick={onClose} aria-label="Close">
-            ×
-          </button>
+    <div className="round-block duel-page">
+      <div className="duel-detail-topbar">
+        <button type="button" className="button" onClick={onBack}>
+          ← Back to round
+        </button>
+        <div className="duel-detail-title">
+          <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
+          {prLabel(kataRepoSlug, entrant.pull_number)}
+          <RoundStatusPill status={entrant.status} />
         </div>
+      </div>
 
+      {scoring ? (
+        <div className="duel-live-banner">
+          <Status label="scoring now" tone="warn" />
+          <span>{live.done}/{live.total} problems scored — live metrics fill in as the round completes.</span>
+        </div>
+      ) : null}
+
+      <section className="arena-hero">
         <div className="battle-wrap">
           <div className="battle">
             <BattleSide
@@ -660,15 +673,9 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
             />
           </div>
         </div>
+      </section>
 
-        {scoring ? (
-          <p className="section-lead">
-            Scoring in progress — {live.done}/{live.total} problems done. Final metrics fill in when
-            the round completes.
-          </p>
-        ) : null}
-
-        <div className="duel-compare-panel">
+      <div className="duel-compare-panel">
           <div className="duel-panel-head">
             <span>candidate vs king</span>
             <div className="comparison-legend">
@@ -746,7 +753,6 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
         ) : (
           <Empty text="Per-problem detail appears once this PR finishes scoring." />
         )}
-      </div>
     </div>
   );
 }

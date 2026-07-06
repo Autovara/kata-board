@@ -485,7 +485,12 @@ function RoundPanel({ round, kataRepoSlug }) {
                 <RoundMeta label="king detection" value={formatDetection(round.king.aggregated_score)} />
               ) : null}
               <RoundMeta label="candidates" value={entrants.length} />
-              {round.runId ? <RoundMeta label="round id" value={round.runId} /> : null}
+              {round.generatedAt ? (
+                <RoundMeta
+                  label={state === "executing" ? "started" : "finished"}
+                  value={formatDateTime(round.generatedAt)}
+                />
+              ) : null}
             </div>
           </div>
 
@@ -604,7 +609,7 @@ function RoundHistory({ rounds }) {
         </div>
         {rounds.slice(0, 12).map((round, index) => (
           <div className="table-row round-hist-grid" key={round.runId || index}>
-            <span>{round.headline || `Round ${round.runId || ""}`}</span>
+            <span>{round.headline || "Competition round"}</span>
             <span className="round-hist-badges">
               {round.achievements?.length ? (
                 round.achievements.map((item) => (

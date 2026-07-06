@@ -712,6 +712,24 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   );
 }
 
+// One problem row's score, read as tp / expected / found:
+//   tp       = real vulnerabilities the agent matched
+//   expected = real vulnerabilities in that codebase
+//   found    = total findings the agent reported (tp + false positives)
+// A problem "passes" when the agent matched every expected vulnerability
+// (tp === expected, i.e. 100% detection) -- that is the scorer's PASS verdict.
+function formatTpExpectedFound(project) {
+  if (!project) return "—";
+  return `${project.true_positives}/${project.total_expected}/${project.total_found}`;
+}
+
+function problemResult(project) {
+  if (!project) return { label: "scoring", tone: "warn" };
+  if (project.passed) return { label: "pass", tone: "ok" };
+  if ((project.true_positives ?? 0) > 0) return { label: "partial", tone: "warn" };
+  return { label: "no match", tone: "neutral" };
+}
+
 function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys, onBack }) {
   const projects = king?.projects || [];
   const done = progress?.done ?? projects.length;
@@ -793,24 +811,26 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys,
           <div className="table-head king-problem-grid">
             <span>problem</span>
             <span>result</span>
-            <span>king tp/found</span>
+            <span>king tp / expected / found</span>
           </div>
           {problemKeys.map((key) => {
             const project = kingByKey[key];
             const pending = !project;
+            const result = problemResult(pending ? null : project);
+            const resultClass = pending
+              ? "rstat-executing"
+              : project.passed
+                ? "rstat-winner"
+                : result.tone === "warn"
+                  ? "rstat-executing"
+                  : "rstat-losing";
             return (
               <div className="table-row king-problem-grid" key={key}>
                 <span title={key}>{formatProjectName(key)}</span>
                 <span>
-                  {pending ? (
-                    <span className="rstat rstat-executing">scoring</span>
-                  ) : project.passed ? (
-                    <span className="rstat rstat-winner">pass</span>
-                  ) : (
-                    <span className="rstat rstat-losing">no match</span>
-                  )}
+                  <span className={`rstat ${resultClass}`}>{result.label}</span>
                 </span>
-                <span>{pending ? "—" : `${project.true_positives}/${project.total_found}`}</span>
+                <span>{pending ? "—" : formatTpExpectedFound(project)}</span>
               </div>
             );
           })}
@@ -955,7 +975,7 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
               <div>
                 <span>per-problem breakdown</span>
                 <strong>{candidateByKey_count}/{problemKeys.length} scored</strong>
-                <small>Each row is one sampled benchmark codebase (matched findings / reported).</small>
+                <small>Each row is one sampled benchmark codebase. Scores read as tp / expected / found — a problem passes when tp equals expected (every real vulnerability matched).</small>
               </div>
             </div>
             <div className="live-task-table-head" aria-hidden="true">
@@ -983,22 +1003,19 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
                         <span>{key}</span>
                       </div>
                     </div>
-                    {pending ? (
-                      <Status label="scoring" tone="warn" />
-                    ) : (
-                      <Status label={project.passed ? "pass" : "no match"} tone={project.passed ? "ok" : "neutral"} />
-                    )}
+                    {(() => {
+                      const r = problemResult(pending ? null : project);
+                      return <Status label={r.label} tone={r.tone} />;
+                    })()}
                     <div className="live-task-side">
                       <span>candidate</span>
-                      <strong>{pending ? "—" : `${project.true_positives}/${project.total_found}`}</strong>
-                      <small>tp / found</small>
+                      <strong>{pending ? "—" : formatTpExpectedFound(project)}</strong>
+                      <small>tp / expected / found</small>
                     </div>
                     <div className="live-task-side">
                       <span>king</span>
-                      <strong>
-                        {kingProject ? `${kingProject.true_positives}/${kingProject.total_found}` : "—"}
-                      </strong>
-                      <small>tp / found</small>
+                      <strong>{formatTpExpectedFound(kingProject)}</strong>
+                      <small>tp / expected / found</small>
                     </div>
                   </div>
                 );

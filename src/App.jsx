@@ -430,6 +430,26 @@ function BeatsKingBadge({ beats }) {
   );
 }
 
+function compareEntrantsByRank(a, b) {
+  // Same order the engine ranks by: detection, then true positives, then
+  // precision, then F1, then fewer invalid runs. Unscored entrants sort last.
+  const key = (entrant) => [
+    entrant.aggregated_score ?? -1,
+    entrant.true_positives ?? -1,
+    entrant.precision ?? -1,
+    entrant.f1_score ?? -1,
+    -(entrant.invalid_runs ?? 0)
+  ];
+  const av = key(a);
+  const bv = key(b);
+  for (let i = 0; i < av.length; i += 1) {
+    if (av[i] !== bv[i]) {
+      return bv[i] - av[i];
+    }
+  }
+  return 0;
+}
+
 function roundExtras(round) {
   const extras = [];
   if (round.screenedOut?.length) {
@@ -476,6 +496,26 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
     }
   });
   const kingResult = round?.liveProgress?.king || round?.king || null;
+
+  // Live-merge each entrant with its published result, then rank by the engine's
+  // comparator so the table is a live leaderboard (winner on top).
+  const rankedEntrants = entrants
+    .map((entrant) => {
+      const result = resultByPull[entrant.pull_number];
+      if (!result) {
+        return entrant;
+      }
+      return {
+        ...entrant,
+        aggregated_score: result.aggregated_score ?? entrant.aggregated_score,
+        true_positives: result.true_positives ?? entrant.true_positives,
+        precision: result.precision ?? entrant.precision,
+        f1_score: result.f1_score ?? entrant.f1_score,
+        invalid_runs: result.invalid_runs ?? entrant.invalid_runs,
+        beats_king: result.beats_king ?? entrant.beats_king
+      };
+    })
+    .sort(compareEntrantsByRank);
 
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
@@ -580,7 +620,7 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
 
           <div className="table-head round-grid">
             <span>PR</span>
-            <span>entrant</span>
+            <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
             <span>detection</span>
             <span>true positives</span>
             <span>beats king</span>
@@ -616,8 +656,8 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
             </div>
           ) : null}
 
-          {entrants.length ? (
-            entrants.map((entrant) => (
+          {rankedEntrants.length ? (
+            rankedEntrants.map((entrant, index) => (
               <div
                 className="table-row round-grid round-row-clickable"
                 key={entrant.pull_number}
@@ -633,7 +673,14 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
                 }}
               >
                 <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
-                <span><EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} /></span>
+                <span className="entrant-cell">
+                  {entrant.aggregated_score != null ? (
+                    <span className={`entrant-rank ${index === 0 ? "entrant-rank-top" : ""}`}>
+                      #{index + 1}
+                    </span>
+                  ) : null}
+                  <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
+                </span>
                 <span>{formatDetection(entrant.aggregated_score)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
                 <span><BeatsKingBadge beats={entrant.beats_king} /></span>

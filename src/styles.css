@@ -4125,3 +4125,21 @@ html { scroll-behavior: smooth; }
 .king-problem-grid {
   grid-template-columns: minmax(160px, 1fr) 120px 130px;
 }
+
+/* ranked entrant cell: #N rank + identity */
+.entrant-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.entrant-rank {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-width: 20px;
+}
+.entrant-rank-top {
+  color: var(--green);
+}

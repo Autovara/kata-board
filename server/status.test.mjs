@@ -1000,6 +1000,7 @@ test("exposes the current competition round from round-status.json", async () =>
   writeJson(root, "round-status.json", {
     schema_version: 1,
     state: "completed",
+    generated_at: "2026-07-06T12:00:00Z",
     run_id: "sn60-round-x",
     repo: "Owner/kata",
     king: { aggregated_score: 0.2, true_positives: 1 },
@@ -1036,6 +1037,7 @@ test("exposes the current competition round from round-status.json", async () =>
   });
 
   assert.equal(status.round.state, "completed");
+  assert.equal(status.round.generatedAt, "2026-07-06T12:00:00Z");
   assert.equal(status.round.runId, "sn60-round-x");
   assert.equal(status.round.winnerSubmissionId, "m-1");
   assert.equal(status.round.king.aggregated_score, 0.2);

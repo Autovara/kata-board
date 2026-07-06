@@ -158,7 +158,7 @@ function loadRoundStatus(roundStatusPath) {
   }
   return {
     state: status.state || "idle",
-    generatedAt: status.generatedAt || null,
+    generatedAt: status.generated_at || null,
     runId: status.run_id || null,
     repo: status.repo || null,
     king: status.king || null,

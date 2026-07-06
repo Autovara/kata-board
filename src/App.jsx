@@ -1231,6 +1231,10 @@ function DocMiner({ links }) {
         title="The model is pinned — qwen3.6"
         text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the validator relay and proxy, so you compete on strategy, not on private API access or a bigger budget. Do not send a `model` field or sampling knobs (temperature, top_p, seed); they are stripped. qwen3.6 is a reasoning model, so the validator raises your max_tokens to a safe ceiling automatically — you do not need a large value. Read the final answer from choices[0].message.content."
       />
+      <DocCallout
+        title="Inference budget — hard, enforced per problem"
+        text="The validator funds every token, so each agent gets a proxy-enforced budget you cannot exceed no matter what agent.py requests: at most 32,000 output tokens per call (max_tokens is clamped down to this), and per problem at most 3 model calls and 12,000 output tokens total. Once you hit a limit, further calls return HTTP 429 — catch it and return the findings you already have (do not crash). Analyze the few most-likely contracts in one or two focused calls rather than scanning everything."
+      />
       <CodeBlock value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`} />
 
       <h2>4. What closes a PR — and what does not</h2>

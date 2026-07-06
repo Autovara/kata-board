@@ -27,6 +27,7 @@ export async function loadBoardStatus(env) {
   const roots = resolveRoots(env);
   const validator = await loadValidatorStatus(env, roots);
   const round = loadRoundStatus(roots.roundStatusPath);
+  const roundHistory = loadRoundHistory(roots.roundHistoryPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
   const leaderboard = augmentLeaderboardWithActivity(
     await loadLeaderboard(env),
@@ -57,6 +58,7 @@ export async function loadBoardStatus(env) {
     overview: buildOverview(lanes, activity, leaderboard, validator),
     validator,
     round,
+    roundHistory,
     lanes,
     activity,
     leaderboard,
@@ -114,8 +116,37 @@ function resolveRoots(env) {
           ),
           "round-status.json"
         )
+    ),
+    roundHistoryPath: path.resolve(
+      env.KATA_ROUND_HISTORY_PATH ||
+        path.join(
+          path.dirname(
+            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
+          ),
+          "round-history.json"
+        )
     )
   };
+}
+
+function loadRoundHistory(roundHistoryPath) {
+  // Public feed of completed rounds + achievements (most recent first).
+  const data = readJsonSafe(roundHistoryPath);
+  const rounds = data && Array.isArray(data.rounds) ? data.rounds : [];
+  return rounds
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => ({
+      runId: entry.run_id || null,
+      generatedAt: entry.generated_at || null,
+      candidateCount: entry.candidate_count ?? 0,
+      winnerSubmissionId: entry.winner_submission_id || null,
+      kingDetection: entry.king_detection ?? null,
+      bestDetection: entry.best_detection ?? null,
+      bestTruePositives: entry.best_true_positives ?? 0,
+      achievements: Array.isArray(entry.achievements) ? entry.achievements : [],
+      headline: entry.headline || null
+    }))
+    .reverse();
 }
 
 function loadRoundStatus(roundStatusPath) {

@@ -178,6 +178,7 @@ export default function App() {
             laneActivity={laneActivity}
             validator={payload.validator}
             round={payload.round}
+            roundHistory={payload.roundHistory}
             kataRepoSlug={payload.publicLinks?.kataRepo}
             setSelectedLaneId={setSelectedLaneId}
           />
@@ -470,7 +471,46 @@ function prLabel(kataRepoSlug, pullNumber) {
   );
 }
 
-function Arena({ lanes, selectedLane, laneActivity, validator, round, kataRepoSlug, setSelectedLaneId }) {
+function RoundHistory({ rounds }) {
+  if (!rounds || !rounds.length) {
+    return null;
+  }
+  return (
+    <section className="table-section">
+      <div className="arena-hero-status">
+        <Status label="highlights" tone="ok" />
+        <span>recent competition rounds</span>
+      </div>
+      {rounds.slice(0, 12).map((round, index) => (
+        <div className="table-row" key={round.runId || index}>
+          <span>{round.headline || `Round ${round.runId || ""}`}</span>
+          <span>
+            {round.achievements.length
+              ? round.achievements.map((item) => (
+                  <span className="status status-ok" key={item}>
+                    {item}
+                  </span>
+                ))
+              : null}
+          </span>
+          <span>{formatDetection(round.bestDetection)}</span>
+          <span>{formatDateTime(round.generatedAt)}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function Arena({
+  lanes,
+  selectedLane,
+  laneActivity,
+  validator,
+  round,
+  roundHistory,
+  kataRepoSlug,
+  setSelectedLaneId
+}) {
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
   const activeJob = validator?.queue?.activeJob || null;
@@ -500,6 +540,8 @@ function Arena({ lanes, selectedLane, laneActivity, validator, round, kataRepoSl
       ) : null}
 
       <RoundPanel round={round} kataRepoSlug={kataRepoSlug} />
+
+      <RoundHistory rounds={roundHistory} />
 
       <section className="arena-hero">
         <div className="arena-topline">

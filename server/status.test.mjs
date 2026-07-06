@@ -1049,3 +1049,35 @@ test("round is null when no round-status file exists", async () => {
   const status = await loadBoardStatus(boardEnv(root));
   assert.equal(status.round, null);
 });
+
+test("exposes the round-history feed from round-history.json", async () => {
+  const root = makeKataRoot();
+  writeJson(root, "round-history.json", {
+    schema_version: 1,
+    rounds: [
+      {
+        run_id: "r1",
+        generated_at: "2026-07-06T00:00:00Z",
+        candidate_count: 2,
+        winner_submission_id: "m-1",
+        best_detection: 0.5,
+        best_true_positives: 2,
+        achievements: ["👑 New king", "🥇 First true positive"],
+        headline: "🏆 Round — new king, best detection 50%, 2 candidates"
+      }
+    ]
+  });
+
+  const status = await loadBoardStatus({
+    KATA_ROOT: root,
+    KATA_BOT_ROOT: path.join(root, "no-bot"),
+    KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
+    KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
+    KATA_STATUS_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.roundHistory.length, 1);
+  assert.equal(status.roundHistory[0].winnerSubmissionId, "m-1");
+  assert.equal(status.roundHistory[0].bestDetection, 0.5);
+  assert.deepEqual(status.roundHistory[0].achievements, ["👑 New king", "🥇 First true positive"]);
+});

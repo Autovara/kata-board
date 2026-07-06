@@ -552,6 +552,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       <DuelDetail
         entrant={candidate}
         king={kingResult}
+        kingAuthor={kingAuthor}
         progress={result}
         kataRepoSlug={kataRepoSlug}
         onBack={() => setSelectedPull(null)}
@@ -805,7 +806,7 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, onBack }) {
   );
 }
 
-function DuelDetail({ entrant, king, kataRepoSlug, progress, onBack }) {
+function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, onBack }) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
   const scoring = progress && progress.state === "scoring";
@@ -846,8 +847,11 @@ function DuelDetail({ entrant, king, kataRepoSlug, progress, onBack }) {
             <BattleSide
               role="king"
               crown
-              name="Current king"
-              sub="reigning king"
+              name={kingAuthor || "Current king"}
+              sub={kingAuthor ? "reigning king" : "current king"}
+              avatarUrl={
+                kingAuthor ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96` : null
+              }
               score={percentScore(king?.aggregated_score)}
               won={decided && !won}
             />

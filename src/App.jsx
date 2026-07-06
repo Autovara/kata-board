@@ -3,7 +3,7 @@ import GridBackground from "./GridBackground.jsx";
 
 const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
 const STREAM_URL = import.meta.env.VITE_STREAM_URL || "/api/stream";
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS = 2000;
 const PAGES = [
   { path: "/", label: "Dashboard" },
   { path: "/arena", label: "Arena" },

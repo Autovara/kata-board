@@ -20,11 +20,17 @@ let cachedLeaderboardAt = 0;
 
 export async function loadBoardStatus(env) {
   const cacheTtlMs = readCacheTtlMs(env);
+  const roots = resolveRoots(env);
   if (cachedStatus && Date.now() - cachedAt < cacheTtlMs) {
+    // Live round progress is a cheap local-file read that moves fast during a
+    // round, while the rest of the payload (GitHub PRs, leaderboard) is slow and
+    // rate-limited. Refresh just the progress on a cache hit so the dashboard
+    // animates smoothly every stream frame without re-hitting GitHub.
+    if (cachedStatus.round) {
+      cachedStatus.round.liveProgress = loadRoundProgress(roots.roundProgressPath);
+    }
     return cachedStatus;
   }
-
-  const roots = resolveRoots(env);
   const validator = await loadValidatorStatus(env, roots);
   const round = loadRoundStatus(roots.roundStatusPath);
   if (round) {

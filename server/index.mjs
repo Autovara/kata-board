@@ -107,11 +107,11 @@ server.on("error", (error) => {
 });
 
 function streamIntervalMs(env) {
-  const parsed = Number.parseInt(env.KATA_STREAM_INTERVAL_MS || "2000", 10);
-  if (Number.isFinite(parsed) && parsed >= 1000) {
+  const parsed = Number.parseInt(env.KATA_STREAM_INTERVAL_MS || "1000", 10);
+  if (Number.isFinite(parsed) && parsed >= 500) {
     return parsed;
   }
-  return 2000;
+  return 1000;
 }
 
 function loadDotEnv(envPath) {

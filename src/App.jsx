@@ -287,9 +287,9 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           </h1>
           <p>
             Miners submit one candidate agent by pull request. Kata screens it
-            cheaply, duels it against the current king on the active subnet benchmark,
-            and promotes only objective winners to the public king lane. SN60 Bitsec
-            is the first live lane.
+            cheaply, then scores it against the current king in scheduled competition
+            rounds on the active subnet benchmark, and promotes only objective winners
+            to the public king lane. SN60 Bitsec is the first live lane.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
@@ -332,7 +332,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           sub={`${overview.totalSubmissions ?? 0} submission PRs seen`}
         />
         <Stat
-          label="recent duels"
+          label="recent rounds"
           value={overview.recentDuels ?? overview.recentChallenges ?? 0}
           sub="visible completed run artifacts"
         />
@@ -346,8 +346,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
       <section className="section-block how-block">
         <SectionTitle title="How it works" />
         <div className="how-row">
-          <HowStep step="01" title="Submit" text="Open one pull request that adds a single agent under submissions/." />
-          <HowStep step="02" title="Duel" text="Your agent runs head-to-head against the current king on the fixed benchmark." />
+          <HowStep step="01" title="Submit" text="Open one pull request that adds a single agent under submissions/. It is screened and labeled pending." />
+          <HowStep step="02" title="Compete" text="In each scheduled round, every pending agent is scored against the current king on the same sampled problems." />
           <HowStep step="03" title="Take the crown" text="Beat the king and your agent is merged and published as the new king." />
         </div>
       </section>
@@ -388,66 +388,180 @@ function HowStep({ step, title, text }) {
   );
 }
 
-function RoundPanel({ round, kataRepoSlug }) {
-  if (!round || (round.state === "idle" && !round.entrants.length)) {
-    return null;
+const ROUND_STATE_BANNER = {
+  idle: {
+    label: "idle",
+    tone: "neutral",
+    text: "Waiting for the maintainer to start the next round."
+  },
+  executing: {
+    label: "scoring now",
+    tone: "warn",
+    text: "Every candidate is being scored against the king right now."
+  },
+  completed: {
+    label: "round complete",
+    tone: "ok",
+    text: "Scoring finished — see the result below."
   }
-  const entrants = round.entrants || [];
-  const stateTone =
-    round.state === "completed" ? "ok" : round.state === "executing" ? "warn" : "neutral";
-  const extras = [];
-  if (round.screenedOut.length) extras.push(`${round.screenedOut.length} screened out`);
-  if (round.closedExtras.length) extras.push(`${round.closedExtras.length} extra PR closed`);
-  if (round.skippedStale.length) extras.push(`${round.skippedStale.length} skipped (unchanged)`);
+};
 
-  return (
-    <section className="table-section">
-      <div className="arena-hero-status">
-        <Status label={`round ${round.state}`} tone={stateTone} />
-        {round.runId ? <span>{round.runId}</span> : null}
-        {round.king ? <span>king detection {formatDetection(round.king.aggregated_score)}</span> : null}
-        <span>{entrants.length} candidate{entrants.length === 1 ? "" : "s"}</span>
-        {round.winnerSubmissionId ? <span>winner {round.winnerSubmissionId}</span> : null}
-      </div>
-      {entrants.length ? (
-        <>
-          <div className="table-head">
-            <span>PR</span>
-            <span>submission</span>
-            <span>detection</span>
-            <span>TP</span>
-            <span>status</span>
-          </div>
-          {entrants.map((entrant) => (
-            <div className="table-row" key={entrant.pull_number}>
-              <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
-              <span>{entrant.submission_id}</span>
-              <span>{formatDetection(entrant.aggregated_score)}</span>
-              <span>{entrant.true_positives ?? "—"}</span>
-              <span>
-                <Status label={entrant.status} tone={roundStatusTone(entrant.status)} />
-              </span>
-            </div>
-          ))}
-        </>
-      ) : (
-        <Empty text="No candidates entered this round." />
-      )}
-      {extras.length ? (
-        <div className="arena-hero-status">
-          {extras.map((text) => (
-            <span key={text}>{text}</span>
-          ))}
-        </div>
-      ) : null}
-    </section>
+const ROUND_STATUS_LABEL = {
+  pending: "pending",
+  executing: "scoring",
+  winner: "winner",
+  losing: "did not beat king",
+  invalid: "invalid",
+  stale: "stale",
+  hold: "on hold"
+};
+
+function RoundStatusPill({ status }) {
+  const label = ROUND_STATUS_LABEL[status] || status || "—";
+  return <span className={`rstat rstat-${status || "neutral"}`}>{label}</span>;
+}
+
+function BeatsKingBadge({ beats }) {
+  if (beats == null) {
+    return <span className="beat-badge beat-pending">—</span>;
+  }
+  return beats ? (
+    <span className="beat-badge beat-yes">beats king</span>
+  ) : (
+    <span className="beat-badge beat-no">no</span>
   );
 }
 
-function roundStatusTone(status) {
-  if (status === "winner") return "ok";
-  if (status === "executing" || status === "pending") return "warn";
-  return "neutral";
+function roundExtras(round) {
+  const extras = [];
+  if (round.screenedOut?.length) {
+    extras.push(`${round.screenedOut.length} screened out`);
+  }
+  if (round.closedExtras?.length) {
+    extras.push(`${round.closedExtras.length} extra PR closed — one open PR per contributor`);
+  }
+  if (round.skippedStale?.length) {
+    extras.push(`${round.skippedStale.length} skipped — unchanged since last round`);
+  }
+  return extras;
+}
+
+function RoundPanel({ round, kataRepoSlug }) {
+  const entrants = round?.entrants || [];
+  const state = round?.state || "idle";
+  const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
+
+  return (
+    <div className="round-block">
+      <div className="round-block-head">
+        <SectionTitle title="Current round" />
+        <p className="section-lead">
+          A round locks every open candidate pull request and scores each one against the
+          reigning king on the same secret-sampled Bitsec problems. The maintainer starts
+          each round; only a candidate that strictly beats the king is promoted.
+        </p>
+      </div>
+
+      {!hasRound ? (
+        <div className="round-empty">
+          <Status label="no round running" tone="neutral" />
+          <p>
+            No competition round has run yet. When the maintainer starts one, every candidate
+            appears here with its live detection score, true-positive count, and result.
+          </p>
+        </div>
+      ) : (
+        <section className="table-section round-table">
+          <div className="round-banner">
+            <div className="round-banner-state">
+              <Status
+                label={(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).label}
+                tone={(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).tone}
+              />
+              <p>{(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).text}</p>
+            </div>
+            <div className="round-banner-meta">
+              {round.king ? (
+                <RoundMeta label="king detection" value={formatDetection(round.king.aggregated_score)} />
+              ) : null}
+              <RoundMeta label="candidates" value={entrants.length} />
+              {round.runId ? <RoundMeta label="round id" value={round.runId} /> : null}
+            </div>
+          </div>
+
+          {round.winnerSubmissionId ? (
+            <div className="round-verdict round-verdict-win">
+              <span className="round-verdict-crown" aria-hidden="true">♔</span>
+              <div>
+                <strong>New king: {round.winnerSubmissionId}</strong>
+                <p>Beat the king this round and is being promoted.</p>
+              </div>
+            </div>
+          ) : state === "completed" ? (
+            <div className="round-verdict round-verdict-hold">
+              <span className="round-verdict-crown" aria-hidden="true">♔</span>
+              <div>
+                <strong>King held the crown</strong>
+                <p>No candidate strictly beat the king this round.</p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="table-head round-grid">
+            <span>PR</span>
+            <span>entrant</span>
+            <span>detection</span>
+            <span>true positives</span>
+            <span>beats king</span>
+            <span>status</span>
+          </div>
+
+          {round.king ? (
+            <div className="table-row round-grid round-row-king">
+              <span aria-hidden="true">♔</span>
+              <span>current king</span>
+              <span>{formatDetection(round.king.aggregated_score)}</span>
+              <span>{round.king.true_positives ?? "—"}</span>
+              <span>—</span>
+              <span><span className="rstat rstat-king">king</span></span>
+            </div>
+          ) : null}
+
+          {entrants.length ? (
+            entrants.map((entrant) => (
+              <div className="table-row round-grid" key={entrant.pull_number}>
+                <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
+                <span>{entrant.submission_id}</span>
+                <span>{formatDetection(entrant.aggregated_score)}</span>
+                <span>{entrant.true_positives ?? "—"}</span>
+                <span><BeatsKingBadge beats={entrant.beats_king} /></span>
+                <span><RoundStatusPill status={entrant.status} /></span>
+              </div>
+            ))
+          ) : (
+            <Empty text="No candidates entered this round." />
+          )}
+
+          {roundExtras(round).length ? (
+            <div className="round-extras">
+              {roundExtras(round).map((text) => (
+                <span key={text}>{text}</span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function RoundMeta({ label, value }) {
+  return (
+    <div className="round-meta">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
 }
 
 function formatDetection(value) {
@@ -476,28 +590,38 @@ function RoundHistory({ rounds }) {
     return null;
   }
   return (
-    <section className="table-section">
-      <div className="arena-hero-status">
-        <Status label="highlights" tone="ok" />
-        <span>recent competition rounds</span>
+    <div className="round-block">
+      <div className="round-block-head">
+        <SectionTitle title="Recent rounds" />
+        <p className="section-lead">Highlights from completed competition rounds.</p>
       </div>
-      {rounds.slice(0, 12).map((round, index) => (
-        <div className="table-row" key={round.runId || index}>
-          <span>{round.headline || `Round ${round.runId || ""}`}</span>
-          <span>
-            {round.achievements.length
-              ? round.achievements.map((item) => (
-                  <span className="status status-ok" key={item}>
+      <section className="table-section">
+        <div className="table-head round-hist-grid">
+          <span>round</span>
+          <span>highlights</span>
+          <span>best detection</span>
+          <span>finished</span>
+        </div>
+        {rounds.slice(0, 12).map((round, index) => (
+          <div className="table-row round-hist-grid" key={round.runId || index}>
+            <span>{round.headline || `Round ${round.runId || ""}`}</span>
+            <span className="round-hist-badges">
+              {round.achievements?.length ? (
+                round.achievements.map((item) => (
+                  <span className="rstat rstat-winner" key={item}>
                     {item}
                   </span>
                 ))
-              : null}
-          </span>
-          <span>{formatDetection(round.bestDetection)}</span>
-          <span>{formatDateTime(round.generatedAt)}</span>
-        </div>
-      ))}
-    </section>
+              ) : (
+                <span className="round-hist-quiet">no new king</span>
+              )}
+            </span>
+            <span>{formatDetection(round.bestDetection)}</span>
+            <span>{formatDateTime(round.generatedAt)}</span>
+          </div>
+        ))}
+      </section>
+    </div>
   );
 }
 
@@ -517,20 +641,9 @@ function Arena({
   const displayJob = activeJob || (activeEvaluation?.available ? validator?.queue?.latestJob || null : null);
   const current = selectedLane?.evaluatorState?.current || null;
   const displayState = mergeActiveEvaluationState(current, activeEvaluation, selectedLane);
-  const phase = activeEvaluation
-    ? activeEvaluationStatus(activeEvaluation)
-    : displayState?.finalWinner
-      ? "completed"
-      : latest
-        ? latest.promotionReady
-          ? "winner"
-          : "completed"
-        : "idle";
-  const tone = activeEvaluation
-    ? activeEvaluationTone(activeEvaluation)
-    : displayState?.finalWinner === "candidate" || latest?.promotionReady
-      ? "ok"
-      : "neutral";
+  // The 1v1 view only makes sense while a round winner is actually being
+  // re-verified and merged; otherwise the round table above tells the story.
+  const promotionLive = Boolean(activeJob) || Boolean(activeEvaluation?.available);
   const updatedLabel = formatDateTime(activeEvaluation?.updatedAt || latest?.createdAt);
 
   return (
@@ -541,35 +654,37 @@ function Arena({
 
       <RoundPanel round={round} kataRepoSlug={kataRepoSlug} />
 
-      <RoundHistory rounds={roundHistory} />
-
-      <section className="arena-hero">
-        <div className="arena-topline">
-          <div className="arena-hero-status">
-            <Status label={phase} tone={tone} />
-            <span>{selectedLane?.repoName || "SN60 Bitsec"}</span>
-            {displayJob?.pullNumber ? <span>PR #{displayJob.pullNumber}</span> : null}
-            <span>updated {updatedLabel}</span>
+      {promotionLive && displayState ? (
+        <div className="round-block">
+          <div className="round-block-head">
+            <SectionTitle title="Winner promotion" />
+            <p className="section-lead">
+              The round winner is re-verified against the king one final time, then merged and
+              published as the new king. This runs automatically after a round selects a winner.
+            </p>
           </div>
+          <section className="arena-hero">
+            <div className="arena-topline">
+              <div className="arena-hero-status">
+                <Status label="promoting" tone="ok" />
+                <span>{selectedLane?.repoName || "SN60 Bitsec"}</span>
+                {displayJob?.pullNumber ? <span>PR #{displayJob.pullNumber}</span> : null}
+                <span>updated {updatedLabel}</span>
+              </div>
+            </div>
+            <Battle
+              state={displayState}
+              activeEvaluation={activeEvaluation}
+              activeJob={displayJob}
+              selectedLane={selectedLane}
+              kataRepoSlug={kataRepoSlug}
+            />
+          </section>
+          <Sn60LanePanel state={displayState} activeEvaluation={activeEvaluation} activeJob={displayJob} />
         </div>
-        {displayState || activeEvaluation ? (
-          <Battle
-            state={displayState}
-            activeEvaluation={activeEvaluation}
-            activeJob={displayJob}
-            selectedLane={selectedLane}
-            kataRepoSlug={kataRepoSlug}
-          />
-        ) : (
-          <Empty text="No duel yet for this lane. Waiting for the first challenger." />
-        )}
-      </section>
+      ) : null}
 
-      {displayState ? (
-        <Sn60LanePanel state={displayState} activeEvaluation={activeEvaluation} activeJob={displayJob} />
-      ) : (
-        <Empty text="No duel results yet for this subnet." />
-      )}
+      <RoundHistory rounds={roundHistory} />
     </div>
   );
 }
@@ -2163,22 +2278,6 @@ function activeEvaluationStatus(activeEvaluation) {
     return "queued";
   }
   return "evaluating";
-}
-
-function activeEvaluationTone(activeEvaluation) {
-  if (!activeEvaluation || activeEvaluation.state === "idle") {
-    return "neutral";
-  }
-  if (activeEvaluation.state === "completed") {
-    return activeEvaluation.finalAction === "merge" ? "ok" : "neutral";
-  }
-  if (activeEvaluation.state === "failed") {
-    return "bad";
-  }
-  if (activeEvaluation.phase === "confirm" || activeEvaluation.state === "verifying") {
-    return "ok";
-  }
-  return "neutral";
 }
 
 function clampPercent(value) {

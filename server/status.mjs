@@ -196,6 +196,7 @@ function loadRoundProgress(roundProgressPath) {
     state: data.state || null,
     runId: data.run_id || null,
     updatedAt: data.updated_at || null,
+    projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
     king: data.king && typeof data.king === "object" ? data.king : null,
     candidates: Array.isArray(data.candidates) ? data.candidates : []
   };

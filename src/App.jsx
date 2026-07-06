@@ -496,6 +496,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
     }
   });
   const kingResult = round?.liveProgress?.king || round?.king || null;
+  const projectKeys = round?.liveProgress?.projectKeys || [];
 
   // Live-merge each entrant with its published result, then rank by the engine's
   // comparator so the table is a live leaderboard (winner on top).
@@ -526,6 +527,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         progress={round?.liveProgress?.king || null}
         kingAuthor={kingAuthor}
         kingSubmissionId={kingSubmissionId}
+        projectKeys={projectKeys}
         onBack={() => setSelectedPull(null)}
       />
     );
@@ -554,6 +556,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         king={kingResult}
         kingAuthor={kingAuthor}
         progress={result}
+        projectKeys={projectKeys}
         kataRepoSlug={kataRepoSlug}
         onBack={() => setSelectedPull(null)}
       />
@@ -709,12 +712,19 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   );
 }
 
-function KingDetail({ king, progress, kingAuthor, kingSubmissionId, onBack }) {
+function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys, onBack }) {
   const projects = king?.projects || [];
   const done = progress?.done ?? projects.length;
   const total = progress?.total ?? projects.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const scoring = progress?.state === "scoring";
+  // Show every sampled problem up front; scored ones fill in, the rest stay pending.
+  const kingByKey = {};
+  projects.forEach((project) => {
+    kingByKey[project.project_key] = project;
+  });
+  const problemKeys =
+    projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
   const name = kingAuthor || kingSubmissionId || "Current king";
   return (
     <div className="round-block duel-page">
@@ -778,35 +788,41 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, onBack }) {
         <MetricChip label="invalid" value={String(Number(king?.invalid_runs || 0))} />
       </div>
 
-      {projects.length ? (
+      {problemKeys.length ? (
         <section className="table-section">
           <div className="table-head king-problem-grid">
             <span>problem</span>
             <span>result</span>
             <span>king tp/found</span>
           </div>
-          {projects.map((project) => (
-            <div className="table-row king-problem-grid" key={project.project_key}>
-              <span title={project.project_key}>{formatProjectName(project.project_key)}</span>
-              <span>
-                {project.passed ? (
-                  <span className="rstat rstat-winner">pass</span>
-                ) : (
-                  <span className="rstat rstat-losing">no match</span>
-                )}
-              </span>
-              <span>{project.true_positives}/{project.total_found}</span>
-            </div>
-          ))}
+          {problemKeys.map((key) => {
+            const project = kingByKey[key];
+            const pending = !project;
+            return (
+              <div className="table-row king-problem-grid" key={key}>
+                <span title={key}>{formatProjectName(key)}</span>
+                <span>
+                  {pending ? (
+                    <span className="rstat rstat-executing">scoring</span>
+                  ) : project.passed ? (
+                    <span className="rstat rstat-winner">pass</span>
+                  ) : (
+                    <span className="rstat rstat-losing">no match</span>
+                  )}
+                </span>
+                <span>{pending ? "—" : `${project.true_positives}/${project.total_found}`}</span>
+              </div>
+            );
+          })}
         </section>
       ) : (
-        <Empty text="Per-problem detail appears once the king finishes scoring." />
+        <Empty text="Per-problem detail appears once scoring starts." />
       )}
     </div>
   );
 }
 
-function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, onBack }) {
+function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, projectKeys, onBack }) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
   const scoring = progress && progress.state === "scoring";
@@ -820,6 +836,14 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, onBack 
   const taskDone = progress?.done ?? projects.length;
   const taskTotal = progress?.total ?? projects.length;
   const taskPct = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
+  // Show ALL sampled problems up front; scored ones fill in, the rest stay "scoring".
+  const candidateByKey = {};
+  projects.forEach((project) => {
+    candidateByKey[project.project_key] = project;
+  });
+  const candidateByKey_count = projects.length;
+  const problemKeys =
+    projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
 
   return (
     <div className="round-block duel-page">
@@ -925,12 +949,12 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, onBack 
           />
         </div>
 
-        {projects.length ? (
+        {problemKeys.length ? (
           <div className="live-task-progress">
             <div className="live-task-progress-head">
               <div>
                 <span>per-problem breakdown</span>
-                <strong>{projects.length} codebases</strong>
+                <strong>{candidateByKey_count}/{problemKeys.length} scored</strong>
                 <small>Each row is one sampled benchmark codebase (matched findings / reported).</small>
               </div>
             </div>
@@ -941,29 +965,39 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, onBack 
               <span>king</span>
             </div>
             <div className="live-task-list">
-              {projects.map((project) => {
-                const kingProject = kingProjects[project.project_key] || {};
+              {problemKeys.map((key) => {
+                const project = candidateByKey[key];
+                const kingProject = kingProjects[key];
+                const pending = !project;
                 return (
                   <div
-                    className={`live-task-row live-task-row-${project.passed ? "ok" : "neutral"}`}
-                    key={project.project_key}
+                    className={`live-task-row live-task-row-${pending ? "neutral" : project.passed ? "ok" : "neutral"}`}
+                    key={key}
                   >
                     <div className="live-task-main">
-                      <div className="live-task-icon" aria-hidden="true">{project.passed ? "✓" : "·"}</div>
+                      <div className="live-task-icon" aria-hidden="true">
+                        {pending ? "·" : project.passed ? "✓" : "·"}
+                      </div>
                       <div>
-                        <strong>{formatProjectName(project.project_key)}</strong>
-                        <span>{project.project_key}</span>
+                        <strong>{formatProjectName(key)}</strong>
+                        <span>{key}</span>
                       </div>
                     </div>
-                    <Status label={project.passed ? "pass" : "no match"} tone={project.passed ? "ok" : "neutral"} />
+                    {pending ? (
+                      <Status label="scoring" tone="warn" />
+                    ) : (
+                      <Status label={project.passed ? "pass" : "no match"} tone={project.passed ? "ok" : "neutral"} />
+                    )}
                     <div className="live-task-side">
                       <span>candidate</span>
-                      <strong>{project.true_positives}/{project.total_found}</strong>
+                      <strong>{pending ? "—" : `${project.true_positives}/${project.total_found}`}</strong>
                       <small>tp / found</small>
                     </div>
                     <div className="live-task-side">
                       <span>king</span>
-                      <strong>{kingProject.true_positives ?? "—"}/{kingProject.total_found ?? "—"}</strong>
+                      <strong>
+                        {kingProject ? `${kingProject.true_positives}/${kingProject.total_found}` : "—"}
+                      </strong>
                       <small>tp / found</small>
                     </div>
                   </div>
@@ -972,7 +1006,7 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, onBack 
             </div>
           </div>
         ) : (
-          <Empty text="Per-problem detail appears once this PR finishes scoring." />
+          <Empty text="Per-problem detail appears once scoring starts." />
         )}
     </div>
   );

@@ -4120,3 +4120,8 @@ html { scroll-behavior: smooth; }
 .duel-task-bar-head strong { font-size: 15px; }
 .duel-task-bar-head small { color: var(--muted); }
 .duel-task-track { height: 8px; }
+
+/* king-only detail: per-problem grid (3 columns) */
+.king-problem-grid {
+  grid-template-columns: minmax(160px, 1fr) 120px 130px;
+}

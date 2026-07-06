@@ -479,6 +479,15 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
 
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
+  if (hasRound && selectedPull === "king") {
+    return (
+      <KingDetail
+        king={kingResult}
+        progress={round?.liveProgress?.king || null}
+        onBack={() => setSelectedPull(null)}
+      />
+    );
+  }
   if (hasRound && selectedEntrant) {
     const result = resultByPull[selectedEntrant.pull_number] || null;
     const candidate = {
@@ -578,6 +587,35 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
             <span>status</span>
           </div>
 
+          {kingResult || (live && live.king) ? (
+            <div
+              className="table-row round-grid round-row-king round-row-clickable"
+              role="button"
+              tabIndex={0}
+              title="Open the king's scoring detail"
+              onClick={() => setSelectedPull("king")}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedPull("king");
+                }
+              }}
+            >
+              <span aria-hidden="true">♔</span>
+              <span>current king</span>
+              <span>{formatDetection(kingResult?.aggregated_score)}</span>
+              <span>{kingResult?.true_positives ?? "—"}</span>
+              <span>—</span>
+              <span>
+                {live && live.king && live.king.state === "scoring" ? (
+                  <ProgressBar done={live.king.done} total={live.king.total} tone="king" />
+                ) : (
+                  <span className="rstat rstat-king">king</span>
+                )}
+              </span>
+            </div>
+          ) : null}
+
           {entrants.length ? (
             entrants.map((entrant) => (
               <div
@@ -614,6 +652,84 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
             </div>
           ) : null}
         </section>
+      )}
+    </div>
+  );
+}
+
+function KingDetail({ king, progress, onBack }) {
+  const projects = king?.projects || [];
+  const done = progress?.done ?? projects.length;
+  const total = progress?.total ?? projects.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const scoring = progress?.state === "scoring";
+  return (
+    <div className="round-block duel-page">
+      <div className="duel-detail-topbar">
+        <button type="button" className="button" onClick={onBack}>
+          ← Back to round
+        </button>
+        <div className="duel-detail-title">
+          <span className="rstat rstat-king">♔ current king</span>
+          {scoring ? (
+            <Status label="scoring now" tone="warn" />
+          ) : (
+            <Status label="cached for this round" tone="ok" />
+          )}
+        </div>
+      </div>
+
+      {total > 0 ? (
+        <div className="duel-task-bar">
+          <div className="duel-task-bar-head">
+            <span>problem progress</span>
+            <strong>{done}/{total} problems scored</strong>
+            <small>
+              {scoring
+                ? "Scoring the king on all problems — then cached for the whole round."
+                : "King scored and cached; candidates are compared to this."}
+            </small>
+          </div>
+          <div className="progress-track duel-task-track" aria-hidden="true">
+            <i style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="duel-snapshot">
+        <MetricChip label="detection" value={formatDetection(king?.aggregated_score)} />
+        <MetricChip label="precision" value={percentMetric(king?.precision)} />
+        <MetricChip label="f1 score" value={percentMetric(king?.f1_score)} />
+        <MetricChip
+          label="matched / reported"
+          value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
+        />
+        <MetricChip label="invalid" value={String(Number(king?.invalid_runs || 0))} />
+      </div>
+
+      {projects.length ? (
+        <section className="table-section">
+          <div className="table-head king-problem-grid">
+            <span>problem</span>
+            <span>result</span>
+            <span>king tp/found</span>
+          </div>
+          {projects.map((project) => (
+            <div className="table-row king-problem-grid" key={project.project_key}>
+              <span title={project.project_key}>{formatProjectName(project.project_key)}</span>
+              <span>
+                {project.passed ? (
+                  <span className="rstat rstat-winner">pass</span>
+                ) : (
+                  <span className="rstat rstat-losing">no match</span>
+                )}
+              </span>
+              <span>{project.true_positives}/{project.total_found}</span>
+            </div>
+          ))}
+        </section>
+      ) : (
+        <Empty text="Per-problem detail appears once the king finishes scoring." />
       )}
     </div>
   );
@@ -993,7 +1109,9 @@ function Arena({
   const entrants = round?.entrants || [];
   // A duel detail page is open — hide everything else (lanes, recent rounds) so
   // the page shows only that PR's duel.
-  const detailOpen = selectedPull != null && entrants.some((e) => e.pull_number === selectedPull);
+  const detailOpen =
+    selectedPull === "king" ||
+    (selectedPull != null && entrants.some((e) => e.pull_number === selectedPull));
 
   return (
     <div className="stack">

@@ -1128,12 +1128,13 @@ function DocOverview({ selectedLane, links }) {
       <p>
         Kata is a <strong>subnet-agnostic</strong>, competition-based way to build
         the best mining agent for a Bittensor subnet. Contributors do not submit
-        ordinary code fixes — they submit one autonomous agent that duels the
+        ordinary code fixes — they submit one autonomous agent. Scoring runs in{" "}
+        <strong>scheduled rounds</strong>: each round scores every pending agent against the
         current <strong>king</strong> in the same pinned sandbox, on the same
-        selected benchmark codebases, under the same validator checks. One subnet
-        is live today: <strong>SN60 / Bitsec</strong>, where agents hunt critical-
-        and high-severity smart-contract vulnerabilities. More competition targets
-        will be added over time.
+        secretly-sampled benchmark problems, under the same validator checks, and the best
+        one that beats the king becomes the new king. One subnet is live today:{" "}
+        <strong>SN60 / Bitsec</strong>, where agents hunt critical- and high-severity
+        smart-contract vulnerabilities. More competition targets will be added over time.
       </p>
       <DocCallout
         title="⚡ Built with Gittensor (Bittensor Subnet 74)"
@@ -1155,7 +1156,7 @@ function DocOverview({ selectedLane, links }) {
         <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
         <DocCard title="Pack registry" text="Central registry of subnet packs. Each pack pins its own benchmark snapshot, scoring rules, and current king." />
         <DocCard title="Bitsec sandbox" text="Pinned SN60 evaluation mirror. Agents run in Docker against selected projects from the pinned benchmark snapshot." />
-        <DocCard title="kata-bot" text="GitHub automation. Queues PRs, evaluates candidates, comments, closes, merges, and promotes winners." />
+        <DocCard title="kata-bot" text="GitHub automation. Intakes PRs (screen + label kata:pending), runs competition rounds that score all pending agents against the king, and merges + promotes the winner." />
       </DocGrid>
       <div className="doc-metrics">
         <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
@@ -1182,23 +1183,25 @@ function DocMiner({ links }) {
       <h1>Compete: submit one agent, beat the king</h1>
       <p>
         You never edit engine code. You add exactly one agent bundle under{" "}
-        <code>submissions/</code>, open a pull request, and the validator duels
-        your agent against the current king on the SN60 / Bitsec benchmark.
-        Out-detect the king and your PR is merged — your agent becomes the new
-        king. You compete purely on detection quality.
+        <code>submissions/</code> and open a pull request. Scoring happens in{" "}
+        <strong>scheduled rounds</strong>: your PR is screened and marked{" "}
+        <code>kata:pending</code>, then each round scores every pending agent against the
+        current king on the same secretly-sampled SN60 / Bitsec problems. The best agent
+        that out-detects the king is merged and becomes the new king. You compete purely on
+        detection quality — one open PR per contributor.
       </p>
 
       <h2>// the miner lifecycle</h2>
       <DocSteps
         items={[
           ["Create a branch", "Work in the public Kata repo on a normal branch. You only ever touch submissions/."],
-          ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<id>/ with agent.py, agent_manifest.json, and submission.json."],
+          ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<id>/ with agent.py, agent_manifest.json, and submission.json. You may have only one open PR at a time."],
           ["Validate locally", "Run `kata submission validate` to catch shape and contract errors before you open the PR."],
           ["Open the PR", "Target the default competition branch and touch only your one submission directory."],
-          ["Queue", "kata-bot receives the webhook and stores a durable job keyed by repo, PR number, and head SHA."],
-          ["Static screening", "Cheap source-only anti-cheat checks run before any model call. This is the ONLY gate that can close your PR early — and no duel cost is spent if it fails."],
-          ["Duel", "Your agent and the king both run on every sampled Bitsec project. The duel is resilient: a bad, empty, or slow problem is just a 0 for that problem, never a rejection."],
-          ["Decide & promote", "Strictly out-rank the king and the PR is merged, your bundle is published under kings/, and you are the new king."]
+          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending — it now waits for the next round. A push to a benched kata:stale PR re-enters it. No scoring happens yet."],
+          ["Round: screen & execute", "When a round runs, it locks the pending PRs, keeps one per contributor, re-screens your locked commit, and labels it kata:executing while it competes."],
+          ["Round: score", "Your agent and the king are scored on the same sampled Bitsec projects. Scoring is resilient: a bad, empty, or slow problem is just a 0 for that problem, never a rejection. The king is cached, so it isn't re-run for every candidate."],
+          ["Decide & promote", "The top candidate that strictly out-detects the king is merged and becomes the new king. Beat the king but not the top? You stay open (kata:pending) for next round. Didn't beat it? Closed kata:losing."]
         ]}
       />
 
@@ -1236,7 +1239,7 @@ function DocMiner({ links }) {
       <h2>4. What closes a PR — and what does not</h2>
       <DocCallout
         title="Only two ways a PR ends without merging"
-        text="1) Static screening fails before the duel (a cheating or no-op agent) — closed early with a clear reason and no duel cost. 2) The duel runs fully and your agent does not out-detect the king (close-losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and the duel continues."
+        text="1) Static screening fails (a cheating or no-op agent, or a second open PR from you) — closed early with a clear reason and no scoring cost. 2) A round scores your agent and it does not out-detect the king (kata:losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and scoring continues. If you beat the king but weren't the top challenger, your PR stays open (kata:pending) for the next round."
       />
       <RequirementList
         title="Validation rules"
@@ -1292,19 +1295,21 @@ function DocScoring({ selectedLane }) {
       </DocGrid>
       <h2>Screening</h2>
       <p>
-        Only <strong>static</strong> screening runs before the duel, and it is the
+        Only <strong>static</strong> screening runs before scoring, and it is the
         only thing that can close a PR early. Cheap source-only checks reject
         no-op stub agents, helper files, leaked benchmark-answer hints, and secret
-        references — no model calls, so no duel cost is spent. There is no separate
-        "screener run": each agent runs once per project inside the duel itself,
+        references — no model calls, so no scoring cost is spent. There is no separate
+        "screener run": each agent runs once per project when the round scores it,
         and an empty, unparsable, or slow result on a project simply scores 0 for
-        that project instead of rejecting the PR.
+        that project instead of rejecting the PR. Findings are matched to the
+        benchmark by the pinned <strong>ScaBenchScorerV2</strong> LLM judge (MiniMax) at a
+        0.75 confidence threshold.
       </p>
       <CodeBlock value={`detection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  static screening passed\n  candidate strictly outranks king on:\n    detection score\n    true positives\n    precision\n    f1 score\n    fewer invalid/error evaluations`} />
       <h2>Reading the live board</h2>
       <p>
-        The Arena view shows each duel as it runs. A few terms map straight to the
-        scoring above.
+        The Arena view shows the current round — every candidate and the king — as it runs,
+        plus a highlights feed of past rounds. A few terms map straight to the scoring above.
       </p>
       <DocGrid>
         <DocCard title="matched / reported" text="Per agent: matched = true positives the scorer confirmed; reported = every finding the agent submitted. reported is the denominator of precision — a big gap means noisy output." />
@@ -1326,25 +1331,24 @@ function DocValidator({ links, selectedLane }) {
       <p className="kicker">For Validators</p>
       <h1>How a submission is judged</h1>
       <p>
-        The validator runs the resident engine end-to-end. kata-bot is
-        deliberately thin — it does not own scoring. It receives PR events,
-        queues jobs, calls Kata commands, and applies the GitHub outcome. Kata
-        does the validation, the duel, the scoring, and the promotion.
+        Scoring runs in <strong>scheduled rounds</strong> (started with{" "}
+        <code>kata-bot run-round-env</code>), not per PR. kata-bot is deliberately thin — it
+        does not own scoring. On a PR event it only <strong>intakes</strong> (screens and
+        labels the PR). When a round runs, it locks the pending PRs, gates and screens them,
+        calls Kata to score them against the cached king, applies the outcome labels, and
+        merges + promotes the winner. Kata does the validation, scoring, ranking, and
+        promotion.
       </p>
 
-      <h2>// the validation pipeline</h2>
+      <h2>// the round pipeline</h2>
       <DocSteps
         items={[
-          ["Enqueue", "Webhook events become durable FIFO queue jobs keyed by repo, PR number, and head SHA. A newer commit on the same PR supersedes the older job."],
-          ["Single worker", "One resident worker drains the queue in order; jobs never run concurrently, so results stay reproducible."],
-          ["Inspect shape", "Changed paths are checked before any untrusted PR content is executed; off-scope edits are rejected."],
-          ["Validate bundle", "Kata validates agent.py, agent_manifest.json, and submission.json against the SN60 contract."],
-          ["Static screening", "Cheap source-only anti-cheat checks run BEFORE the duel — the only early PR-closer. No model calls, no duel cost."],
-          ["Duel", "Candidate and king run once per sampled project (one replica) in the pinned Bitsec sandbox. The duel is resilient: every sampled project is scored and one bad project never aborts the rest."],
-          ["Execution note", "The per-project findings quality is recorded informationally (e.g. 'findings on 2/6 problems') — it never closes a PR."],
-          ["Score & decide", "Kata reduces the SN60 metrics to one action: merge, close-losing, close-invalid, rerun-stale, or hold-merge."],
-          ["Verify freshness", "Before merging, Kata re-checks the candidate, king, and benchmark fingerprints; a stale result reruns instead of merging."],
-          ["Apply & promote", "The bot labels and comments. A verified winner is merged, published under kings/, recorded in lane state, and cleared from submissions/."]
+          ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending, or closes it kata:invalid. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
+          ["Lock entrants", "The round snapshots the open PRs at their commits, keeps one per contributor (extras closed kata:invalid), and skips a PR only if its commit AND the king are unchanged since it last competed (kata:stale)."],
+          ["Screen & execute", "Each entrant is re-screened on its locked commit; survivors are labeled kata:executing while the round runs."],
+          ["Score vs cached king", "The king is scored once per problem and cached; every candidate is scored on the SAME secret-sampled set (one replica) in the pinned Bitsec sandbox. Scoring is resilient: one bad project never aborts the rest."],
+          ["Rank & decide", "Candidates are ranked by the SN60 comparator; the top one that strictly beats the king wins. Others that beat it stay kata:pending; the rest close kata:losing."],
+          ["Verify & promote", "Before merging, Kata re-checks the winner against the current king and benchmark; a stale or unmergeable winner is held (kata:hold). A verified winner is merged, published under kings/, and recorded in lane state."]
         ]}
       />
 
@@ -1367,28 +1371,27 @@ function DocValidator({ links, selectedLane }) {
         the full benchmark. The selected keys are recorded in the challenge
         summary and lane provenance for audit.
       </p>
-      <CodeBlock value={`KATA_SN60_PROJECT_KEYS=            # explicit override; keep unset in prod\nKATA_SN60_PROJECT_SAMPLE_SIZE=6   # projects sampled per evaluation\nKATA_SN60_PROJECT_SAMPLE_SECRET=<private-validator-secret>\nKATA_SN60_REPLICAS_PER_PROJECT=1`} />
+      <CodeBlock value={`KATA_SN60_PROJECT_KEYS=            # explicit override; keep unset in prod\nKATA_SN60_PROJECT_SAMPLE_SIZE=6   # problems sampled per round\nKATA_SN60_PROJECT_SAMPLE_SECRET=<private-validator-secret>\nKATA_SN60_REPLICAS_PER_PROJECT=1`} />
       <p>
-        The current lane samples{" "}
+        Each round samples{" "}
         <strong>
           {projectCount ? `${projectCount} project${projectCount === 1 ? "" : "s"}` : "a secret-seeded subset"}
-        </strong>{" "}
-        per duel; both king and candidate run the same selected set.
-
+        </strong>
+        ; every candidate faces the same set, and the king's per-project scores are cached
+        across rounds so the king is not re-run each time.
       </p>
 
-      <h2>Decisions & labels</h2>
+      <h2>Outcome labels</h2>
+      <p>Each PR carries one color-coded label so its state is readable at a glance.</p>
       <DocGrid>
-        <DocCard title="merge" text="Candidate strictly beat the king and passed freshness — promote it." />
-        <DocCard title="close-losing" text="Candidate evaluated correctly but did not out-rank the king." />
-        <DocCard title="close-invalid" text="Bundle or PR shape failed validation or static screening." />
-        <DocCard title="rerun-stale" text="King or benchmark changed during evaluation; the result must rerun." />
-      </DocGrid>
-      <DocGrid>
-        <DocCard title="kata:winner:sn60__bitsec" text="A verified king promotion — applied only after the duel and freshness checks pass. Gittensor/SN74 label rules recognize only this as a valid result." />
-        <DocCard title="kata:mode:miner" text="The competition mode for the lane." />
-        <DocCard title="kata:invalid / :losing / :stale / :hold" text="Non-winning outcomes, so a result can be read from the PR without re-running the evaluation." />
-        <DocCard title="Provenance" text="Every duel records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />
+        <DocCard title="kata:pending (blue)" text="Screened and waiting for the next round." />
+        <DocCard title="kata:executing (yellow)" text="Competing in the round running now." />
+        <DocCard title="kata:winner:<pack> (green)" text="Beat the king → merged and promoted. Gittensor/SN74 rules recognize only this as a valid result." />
+        <DocCard title="kata:losing (grey)" text="Competed but did not beat the king → closed." />
+        <DocCard title="kata:invalid (red)" text="Failed screening, or an extra open PR beyond one-per-contributor → closed." />
+        <DocCard title="kata:stale (orange)" text="Benched: unchanged since it last competed → push to re-enter." />
+        <DocCard title="kata:hold (purple)" text="Won, but the merge is currently blocked → needs attention." />
+        <DocCard title="Provenance" text="Every round records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />
       </DocGrid>
 
       <DocCallout
@@ -1415,7 +1418,7 @@ function DocMilestones() {
           ["complete", "Pinned benchmark scoring", "Duels score against the pinned Bitsec benchmark snapshot with deterministic replica rules."],
           ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
           ["complete", "Live dashboard deployment", "kata-board runs as a Node service behind ngrok and reads the live validator API."],
-          ["current", "Resident validator hardening", "Keep improving queue visibility, PR comments, stale reruns, labels, merge safety, and operational logs."],
+          ["current", "Round-based competition", "Scheduled rounds score all pending agents against a cached king; one open PR per contributor; a live current-round panel and a round-history highlights feed on the board."],
           ["next", "Multi-pack lanes", "Add more registered subnet packs so each subnet pack can have its own king and benchmark snapshot."],
           ["next", "Snapshot refresh", "Resync the pinned Bitsec sandbox snapshot as the subnet benchmark evolves."],
           ["later", "Advanced analytics", "Track per-codebase pass rates, agent regressions, win history, cost, and benchmark coverage over time."]

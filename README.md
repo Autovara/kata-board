@@ -31,8 +31,9 @@ This repo reads the current Kata system and shows:
 - active subnet-pack lanes
 - current king status per lane
 - benchmark pack health
-- SN60 duel state (screening, scores, replica stability, provenance)
-- recent challenge activity
+- the live current competition round — every candidate PR, its status, and its score
+- a round-history highlights feed (achievements: new king, first true positive, record detection)
+- recent challenge activity and per-round SN60 scores/provenance
 - optional miner leaderboard
 
 It supports two leaderboard sources:
@@ -117,6 +118,8 @@ Important variables:
 - `KATA_WORK_ROOT`
 - `KATA_QUEUE_STATE_PATH`
 - `KATA_LIVE_STATUS_PATH`
+- `KATA_ROUND_STATUS_PATH`
+- `KATA_ROUND_HISTORY_PATH`
 - `KATA_VALIDATOR_HEALTH_URL`
 - `KATA_REPO_SLUG`
 - `KATA_GITHUB_TOKEN`
@@ -129,10 +132,14 @@ If the repo roots are omitted, `kata-board` assumes the repos live beside it:
 - `../kata`
 - `../kata-bot`
 
-For active duel progress, point `KATA_LIVE_STATUS_PATH` at the same durable
-status file used by `kata-bot`, usually:
+Point `KATA_LIVE_STATUS_PATH`, `KATA_ROUND_STATUS_PATH`, and `KATA_ROUND_HISTORY_PATH`
+at the durable state files written by `kata-bot`, usually alongside the queue:
 
 - `/srv/kata-bot/state/live-status.json`
+- `/srv/kata-bot/state/round-status.json`
+- `/srv/kata-bot/state/round-history.json`
+
+If they are omitted, the board derives them from the `KATA_QUEUE_STATE_PATH` directory.
 
 `KATA_STATUS_CACHE_TTL_MS` controls API caching. Use a low value such as `3000`
 for live dashboards.
@@ -182,7 +189,9 @@ Current server endpoints:
 `/api/status` returns:
 
 - overview metrics
-- lane status and the current SN60 duel state
+- lane status and current king state
+- `round` — the live current competition round (entrants, per-PR status, scores, winner)
+- `roundHistory` — recent completed rounds with achievements
 - recent challenge activity
 - leaderboard rows
 - data-source flags
@@ -191,8 +200,8 @@ Current server endpoints:
 
 `kata-board` is designed to run as a live Node service beside `kata-bot`.
 The browser always reads `/api/status`, so the page reflects queue state,
-current king data, active duel progress, benchmark counts, and GitHub PR
-history dynamically.
+current king data, the live round, benchmark counts, and GitHub PR history
+dynamically.
 
 Recommended ngrok split:
 
@@ -221,20 +230,23 @@ https://dashboardking.ngrok.app/api/status
 
 ## Current Kata Workflow
 
-The board mirrors the current PR-only Kata workflow:
+The board mirrors the current **round-based** Kata workflow:
 
-- miners submit one PR under `submissions/<subnet-pack>/<mode>/<submission-id>/`
-- each registered subnet-pack/mode has its own current king under `kata/kings`
-- cheap **static** screening runs *before* the duel and is the only early
-  closer; a bad, empty, or unparsable result *during* the duel just scores 0 for
-  that one problem and the duel continues (it is never a rejection)
-- candidate and king run the same selected benchmark codebases in the pinned
-  Bitsec sandbox; the selected set may be the full snapshot or a
-  validator-configured secret-sampled MVP subset
-- the promotion comparator follows SN60-style metrics: detection score, true
-  positives, precision, F1 score, then fewer invalid/error evaluations
-- agents receive the project contents and an inference endpoint, not oracle
-  files or benchmark answers
+- miners submit one PR under `submissions/<subnet-pack>/<mode>/<submission-id>/`; on
+  open/push it is screened and labeled `kata:pending` (intake) — one open PR per contributor
+- scoring runs in **scheduled rounds**, not per PR; a round locks the pending PRs, keeps one
+  per contributor, screens them, and labels the qualified ones `kata:executing`
+- each round scores the **cached king** against every candidate on the same secret-sampled
+  Bitsec problems, so the king isn't re-run each round; a bad/empty/unparsable result on one
+  problem just scores 0 for it (never a rejection)
+- the promotion comparator follows SN60-style metrics: detection score, true positives,
+  precision, F1 score, then fewer invalid/error evaluations; the top candidate that strictly
+  beats the king is merged and becomes the new king
+- outcome labels are color-coded: `kata:pending` (blue), `kata:executing` (yellow),
+  `kata:winner:<pack>` (green), `kata:losing` (grey), `kata:invalid` (red), `kata:stale`
+  (orange), `kata:hold` (purple)
+- agents receive the project contents and an inference endpoint, not oracle files or
+  benchmark answers
 
 ## Production Shape
 

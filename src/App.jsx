@@ -445,9 +445,11 @@ function roundExtras(round) {
 }
 
 function RoundPanel({ round, kataRepoSlug }) {
+  const [selectedPull, setSelectedPull] = useState(null);
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
+  const selectedEntrant = entrants.find((entrant) => entrant.pull_number === selectedPull) || null;
   // Live progress only while the round is actively scoring; ignore a stale
   // snapshot left over from a previous round.
   const live =
@@ -553,9 +555,22 @@ function RoundPanel({ round, kataRepoSlug }) {
 
           {entrants.length ? (
             entrants.map((entrant) => (
-              <div className="table-row round-grid" key={entrant.pull_number}>
+              <div
+                className="table-row round-grid round-row-clickable"
+                key={entrant.pull_number}
+                role="button"
+                tabIndex={0}
+                title="Open the detailed duel for this PR"
+                onClick={() => setSelectedPull(entrant.pull_number)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedPull(entrant.pull_number);
+                  }
+                }}
+              >
                 <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
-                <span>{entrant.submission_id}</span>
+                <span><EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} /></span>
                 <span>{formatDetection(entrant.aggregated_score)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
                 <span><BeatsKingBadge beats={entrant.beats_king} /></span>
@@ -575,8 +590,118 @@ function RoundPanel({ round, kataRepoSlug }) {
           ) : null}
         </section>
       )}
+      {selectedEntrant ? (
+        <DuelDetail
+          entrant={selectedEntrant}
+          king={round.king}
+          kataRepoSlug={kataRepoSlug}
+          live={progressByPull[selectedEntrant.pull_number]}
+          onClose={() => setSelectedPull(null)}
+        />
+      ) : null}
     </div>
   );
+}
+
+function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
+  const projects = entrant.projects || [];
+  const kingProjects = {};
+  (king?.projects || []).forEach((project) => {
+    kingProjects[project.project_key] = project;
+  });
+  const scoring = live && live.state === "scoring";
+  return (
+    <div className="duel-detail-overlay" onClick={onClose} role="presentation">
+      <div className="duel-detail" onClick={(event) => event.stopPropagation()}>
+        <div className="duel-detail-head">
+          <div className="duel-detail-title">
+            <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
+            <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
+            <RoundStatusPill status={entrant.status} />
+          </div>
+          <button type="button" className="duel-detail-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+
+        {scoring ? (
+          <p className="section-lead">
+            Scoring in progress — {live.done}/{live.total} problems done. Final metrics fill in
+            when the round completes.
+          </p>
+        ) : null}
+
+        <div className="duel-detail-compare">
+          <div className="duel-compare-row duel-compare-head">
+            <span />
+            <strong>challenger</strong>
+            <strong>king</strong>
+          </div>
+          <CompareRow label="detection" c={formatDetection(entrant.aggregated_score)} k={formatDetection(king?.aggregated_score)} />
+          <CompareRow label="true positives" c={entrant.true_positives ?? "—"} k={king?.true_positives ?? "—"} />
+          <CompareRow label="precision" c={formatPercent(entrant.precision)} k={formatPercent(king?.precision)} />
+          <CompareRow label="F1 score" c={formatPercent(entrant.f1_score)} k={formatPercent(king?.f1_score)} />
+          <CompareRow
+            label="found / expected"
+            c={`${entrant.total_found ?? "—"} / ${entrant.total_expected ?? "—"}`}
+            k={`${king?.total_found ?? "—"} / ${king?.total_expected ?? "—"}`}
+          />
+          <CompareRow label="invalid runs" c={entrant.invalid_runs ?? "—"} k={king?.invalid_runs ?? "—"} />
+        </div>
+
+        {projects.length ? (
+          <div className="duel-detail-projects">
+            <div className="table-head duel-project-grid">
+              <span>problem</span>
+              <span>challenger TP/found</span>
+              <span>king TP/found</span>
+              <span>result</span>
+            </div>
+            {projects.map((project) => {
+              const kingProject = kingProjects[project.project_key] || {};
+              return (
+                <div className="table-row duel-project-grid" key={project.project_key}>
+                  <span title={project.project_key}>{formatProjectName(project.project_key)}</span>
+                  <span>{project.true_positives}/{project.total_found}</span>
+                  <span>{kingProject.true_positives ?? "—"}/{kingProject.total_found ?? "—"}</span>
+                  <span>
+                    {project.passed ? (
+                      <span className="rstat rstat-winner">pass</span>
+                    ) : (
+                      <span className="rstat rstat-losing">no match</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Empty text="Per-problem detail appears once this PR finishes scoring." />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompareRow({ label, c, k }) {
+  return (
+    <div className="duel-compare-row">
+      <span>{label}</span>
+      <strong>{c}</strong>
+      <strong>{k}</strong>
+    </div>
+  );
+}
+
+function formatPercent(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${Math.round(Number(value) * 100)}%`;
+}
+
+function formatProjectName(key) {
+  return String(key || "").replace(/_/g, " ");
 }
 
 function RoundMeta({ label, value }) {
@@ -598,6 +723,19 @@ function ProgressBar({ done, total, label, tone = "candidate" }) {
       </div>
       <span>{label ?? `${done}/${safeTotal}`}</span>
     </div>
+  );
+}
+
+function EntrantIdentity({ author, submissionId }) {
+  const name = author || submissionId || "unknown";
+  const avatarUrl = author
+    ? `https://github.com/${encodeURIComponent(author)}.png?size=48`
+    : null;
+  return (
+    <span className="entrant-identity">
+      <Avatar name={name} avatarUrl={avatarUrl} />
+      <span className="entrant-name">{name}</span>
+    </span>
   );
 }
 

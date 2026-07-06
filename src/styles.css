@@ -4029,3 +4029,113 @@ html { scroll-behavior: smooth; }
 .progress-king .progress-track i {
   background: #ffd479;
 }
+
+/* entrant identity: github avatar + username in the round table */
+.entrant-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.entrant-identity .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.entrant-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* clickable round rows + per-PR duel detail modal */
+.round-row-clickable {
+  cursor: pointer;
+}
+.round-row-clickable:hover {
+  background: var(--panel-2);
+}
+.duel-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 6, 4, 0.72);
+  backdrop-filter: blur(2px);
+}
+.duel-detail {
+  width: min(720px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.duel-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.duel-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.duel-detail-close {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.duel-detail-close:hover {
+  border-color: var(--line-strong);
+}
+.duel-detail-compare {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.duel-compare-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 110px 110px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.duel-compare-row:last-child {
+  border-bottom: 0;
+}
+.duel-compare-row > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.duel-compare-head {
+  background: var(--panel-2);
+}
+.duel-compare-head strong {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.duel-project-grid {
+  grid-template-columns: minmax(140px, 1.4fr) 130px 110px 90px;
+}

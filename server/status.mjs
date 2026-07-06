@@ -175,7 +175,10 @@ function loadRoundStatus(roundStatusPath) {
     repo: status.repo || null,
     king: status.king || null,
     winnerSubmissionId: status.winner_submission_id || null,
-    entrants: Array.isArray(status.entrants) ? status.entrants : [],
+    entrants: (Array.isArray(status.entrants) ? status.entrants : []).map((entrant) => ({
+      ...entrant,
+      author: entrant.author || inferSubmissionAuthorFromId(entrant.submission_id)
+    })),
     screenedOut: Array.isArray(status.screened_out) ? status.screened_out : [],
     closedExtras: Array.isArray(status.closed_extras) ? status.closed_extras : [],
     skippedStale: Array.isArray(status.skipped_stale) ? status.skipped_stale : []

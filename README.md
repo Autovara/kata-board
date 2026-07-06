@@ -120,6 +120,7 @@ Important variables:
 - `KATA_LIVE_STATUS_PATH`
 - `KATA_ROUND_STATUS_PATH`
 - `KATA_ROUND_HISTORY_PATH`
+- `KATA_ROUND_PROGRESS_PATH`
 - `KATA_VALIDATOR_HEALTH_URL`
 - `KATA_REPO_SLUG`
 - `KATA_GITHUB_TOKEN`
@@ -132,12 +133,14 @@ If the repo roots are omitted, `kata-board` assumes the repos live beside it:
 - `../kata`
 - `../kata-bot`
 
-Point `KATA_LIVE_STATUS_PATH`, `KATA_ROUND_STATUS_PATH`, and `KATA_ROUND_HISTORY_PATH`
-at the durable state files written by `kata-bot`, usually alongside the queue:
+Point `KATA_LIVE_STATUS_PATH`, `KATA_ROUND_STATUS_PATH`, `KATA_ROUND_HISTORY_PATH`,
+and `KATA_ROUND_PROGRESS_PATH` at the durable state files written by `kata-bot`,
+usually alongside the queue:
 
 - `/srv/kata-bot/state/live-status.json`
 - `/srv/kata-bot/state/round-status.json`
 - `/srv/kata-bot/state/round-history.json`
+- `/srv/kata-bot/state/round-progress.json` — live per-candidate progress during a round
 
 If they are omitted, the board derives them from the `KATA_QUEUE_STATE_PATH` directory.
 

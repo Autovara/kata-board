@@ -27,6 +27,9 @@ export async function loadBoardStatus(env) {
   const roots = resolveRoots(env);
   const validator = await loadValidatorStatus(env, roots);
   const round = loadRoundStatus(roots.roundStatusPath);
+  if (round) {
+    round.liveProgress = loadRoundProgress(roots.roundProgressPath);
+  }
   const roundHistory = loadRoundHistory(roots.roundHistoryPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
   const leaderboard = augmentLeaderboardWithActivity(
@@ -125,6 +128,15 @@ function resolveRoots(env) {
           ),
           "round-history.json"
         )
+    ),
+    roundProgressPath: path.resolve(
+      env.KATA_ROUND_PROGRESS_PATH ||
+        path.join(
+          path.dirname(
+            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
+          ),
+          "round-progress.json"
+        )
     )
   };
 }
@@ -167,6 +179,22 @@ function loadRoundStatus(roundStatusPath) {
     screenedOut: Array.isArray(status.screened_out) ? status.screened_out : [],
     closedExtras: Array.isArray(status.closed_extras) ? status.closed_extras : [],
     skippedStale: Array.isArray(status.skipped_stale) ? status.skipped_stale : []
+  };
+}
+
+function loadRoundProgress(roundProgressPath) {
+  // Live per-candidate progress written by the scoring engine as each candidate
+  // and problem finishes; used to animate the round while it is executing.
+  const data = readJsonSafe(roundProgressPath);
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  return {
+    state: data.state || null,
+    runId: data.run_id || null,
+    updatedAt: data.updated_at || null,
+    king: data.king && typeof data.king === "object" ? data.king : null,
+    candidates: Array.isArray(data.candidates) ? data.candidates : []
   };
 }
 

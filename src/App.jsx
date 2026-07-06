@@ -448,6 +448,21 @@ function RoundPanel({ round, kataRepoSlug }) {
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
+  // Live progress only while the round is actively scoring; ignore a stale
+  // snapshot left over from a previous round.
+  const live =
+    state === "executing" && round?.liveProgress?.state === "executing"
+      ? round.liveProgress
+      : null;
+  const progressByPull = {};
+  if (live) {
+    live.candidates.forEach((candidate) => {
+      const match = /^pr-(\d+)$/.exec(candidate.submission_id || "");
+      if (match) {
+        progressByPull[Number(match[1])] = candidate;
+      }
+    });
+  }
 
   return (
     <div className="round-block">
@@ -526,7 +541,13 @@ function RoundPanel({ round, kataRepoSlug }) {
               <span>{formatDetection(round.king.aggregated_score)}</span>
               <span>{round.king.true_positives ?? "—"}</span>
               <span>—</span>
-              <span><span className="rstat rstat-king">king</span></span>
+              <span>
+                {live && live.king ? (
+                  <ProgressBar done={live.king.done} total={live.king.total} tone="king" />
+                ) : (
+                  <span className="rstat rstat-king">king</span>
+                )}
+              </span>
             </div>
           ) : null}
 
@@ -538,7 +559,7 @@ function RoundPanel({ round, kataRepoSlug }) {
                 <span>{formatDetection(entrant.aggregated_score)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
                 <span><BeatsKingBadge beats={entrant.beats_king} /></span>
-                <span><RoundStatusPill status={entrant.status} /></span>
+                <span>{renderEntrantStatus(entrant, progressByPull[entrant.pull_number])}</span>
               </div>
             ))
           ) : (
@@ -565,6 +586,33 @@ function RoundMeta({ label, value }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function ProgressBar({ done, total, label, tone = "candidate" }) {
+  const safeTotal = total > 0 ? total : 0;
+  const pct = safeTotal > 0 ? Math.round((done / safeTotal) * 100) : 0;
+  return (
+    <div className={`progress-cell progress-${tone}`}>
+      <div className="progress-track" aria-hidden="true">
+        <i style={{ width: `${pct}%` }} />
+      </div>
+      <span>{label ?? `${done}/${safeTotal}`}</span>
+    </div>
+  );
+}
+
+function renderEntrantStatus(entrant, progress) {
+  if (progress) {
+    if (progress.state === "queued") {
+      return <span className="rstat rstat-pending">queued</span>;
+    }
+    const label =
+      progress.state === "done"
+        ? `${progress.done}/${progress.total}`
+        : `scoring ${progress.done}/${progress.total}`;
+    return <ProgressBar done={progress.done} total={progress.total} label={label} />;
+  }
+  return <RoundStatusPill status={entrant.status} />;
 }
 
 function formatDetection(value) {

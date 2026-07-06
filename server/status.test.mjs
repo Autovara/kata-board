@@ -1052,6 +1052,38 @@ test("round is null when no round-status file exists", async () => {
   assert.equal(status.round, null);
 });
 
+test("attaches live per-candidate progress while a round is executing", async () => {
+  const root = makeKataRoot();
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "executing",
+    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }]
+  });
+  writeJson(root, "round-progress.json", {
+    schema_version: 1,
+    state: "executing",
+    run_id: "sn60-round-live",
+    updated_at: "2026-07-06T12:00:05Z",
+    king: { done: 4, total: 6 },
+    candidates: [{ submission_id: "pr-5", done: 2, total: 6, state: "scoring" }]
+  });
+
+  const status = await loadBoardStatus({
+    KATA_ROOT: root,
+    KATA_BOT_ROOT: path.join(root, "no-bot"),
+    KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_STATUS_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.round.state, "executing");
+  assert.equal(status.round.liveProgress.state, "executing");
+  assert.equal(status.round.liveProgress.king.done, 4);
+  assert.equal(status.round.liveProgress.candidates[0].submission_id, "pr-5");
+  assert.equal(status.round.liveProgress.candidates[0].done, 2);
+});
+
 test("exposes the round-history feed from round-history.json", async () => {
   const root = makeKataRoot();
   writeJson(root, "round-history.json", {

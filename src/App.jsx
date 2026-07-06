@@ -466,14 +466,43 @@ function RoundPanel({ round, kataRepoSlug }) {
     });
   }
 
+  // Per-PR result feed (published as each PR finishes, and after the round ends) —
+  // used by the detail page so a finished PR keeps its full result. Not gated on
+  // "executing", so it survives to the completed snapshot.
+  const resultByPull = {};
+  (round?.liveProgress?.candidates || []).forEach((candidate) => {
+    const match = /^pr-(\d+)$/.exec(candidate.submission_id || "");
+    if (match) {
+      resultByPull[Number(match[1])] = candidate;
+    }
+  });
+  const kingResult = round?.liveProgress?.king || round?.king || null;
+
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
   if (hasRound && selectedEntrant) {
+    const result = resultByPull[selectedEntrant.pull_number] || null;
+    const candidate = {
+      ...selectedEntrant,
+      ...(result
+        ? {
+            aggregated_score: result.aggregated_score ?? selectedEntrant.aggregated_score,
+            true_positives: result.true_positives ?? selectedEntrant.true_positives,
+            precision: result.precision,
+            f1_score: result.f1_score,
+            total_found: result.total_found,
+            total_expected: result.total_expected,
+            invalid_runs: result.invalid_runs,
+            beats_king: result.beats_king ?? selectedEntrant.beats_king,
+            projects: result.projects
+          }
+        : {})
+    };
     return (
       <DuelDetail
-        entrant={selectedEntrant}
-        king={round.king}
-        live={progressByPull[selectedEntrant.pull_number]}
+        entrant={candidate}
+        king={kingResult}
+        progress={result}
         kataRepoSlug={kataRepoSlug}
         onBack={() => setSelectedPull(null)}
       />
@@ -510,8 +539,8 @@ function RoundPanel({ round, kataRepoSlug }) {
               <p>{(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).text}</p>
             </div>
             <div className="round-banner-meta">
-              {round.king ? (
-                <RoundMeta label="king detection" value={formatDetection(round.king.aggregated_score)} />
+              {kingResult && kingResult.aggregated_score != null ? (
+                <RoundMeta label="king detection" value={formatDetection(kingResult.aggregated_score)} />
               ) : null}
               <RoundMeta label="candidates" value={entrants.length} />
               {round.generatedAt ? (
@@ -549,23 +578,6 @@ function RoundPanel({ round, kataRepoSlug }) {
             <span>beats king</span>
             <span>status</span>
           </div>
-
-          {round.king || (live && live.king) ? (
-            <div className="table-row round-grid round-row-king">
-              <span aria-hidden="true">♔</span>
-              <span>current king</span>
-              <span>{formatDetection(round.king?.aggregated_score)}</span>
-              <span>{round.king?.true_positives ?? "—"}</span>
-              <span>—</span>
-              <span>
-                {live && live.king ? (
-                  <ProgressBar done={live.king.done} total={live.king.total} tone="king" />
-                ) : (
-                  <span className="rstat rstat-king">king</span>
-                )}
-              </span>
-            </div>
-          ) : null}
 
           {entrants.length ? (
             entrants.map((entrant) => (
@@ -608,10 +620,10 @@ function RoundPanel({ round, kataRepoSlug }) {
   );
 }
 
-function DuelDetail({ entrant, king, kataRepoSlug, live, onBack }) {
+function DuelDetail({ entrant, king, kataRepoSlug, progress, onBack }) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
-  const scoring = live && live.state === "scoring";
+  const scoring = progress && progress.state === "scoring";
   const delta = (entrant.aggregated_score ?? 0) - (king?.aggregated_score ?? 0);
   const kingProjects = {};
   (king?.projects || []).forEach((project) => {
@@ -619,6 +631,9 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onBack }) {
   });
   const projects = entrant.projects || [];
   const candidateInvalid = Number(entrant.invalid_runs || 0);
+  const taskDone = progress?.done ?? projects.length;
+  const taskTotal = progress?.total ?? projects.length;
+  const taskPct = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
 
   return (
     <div className="round-block duel-page">
@@ -636,7 +651,7 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onBack }) {
       {scoring ? (
         <div className="duel-live-banner">
           <Status label="scoring now" tone="warn" />
-          <span>{live.done}/{live.total} problems scored — live metrics fill in as the round completes.</span>
+          <span>{progress.done}/{progress.total} problems scored — live metrics fill in as the round completes.</span>
         </div>
       ) : null}
 
@@ -674,6 +689,23 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onBack }) {
           </div>
         </div>
       </section>
+
+      {taskTotal > 0 ? (
+        <div className="duel-task-bar">
+          <div className="duel-task-bar-head">
+            <span>problem progress</span>
+            <strong>{taskDone}/{taskTotal} problems scored</strong>
+            <small>
+              {scoring
+                ? "Scoring in progress — the bar fills as each problem finishes."
+                : "All sampled problems scored."}
+            </small>
+          </div>
+          <div className="progress-track duel-task-track" aria-hidden="true">
+            <i style={{ width: `${taskPct}%` }} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="duel-compare-panel">
           <div className="duel-panel-head">

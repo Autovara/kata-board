@@ -4100,3 +4100,23 @@ html { scroll-behavior: smooth; }
   color: var(--muted);
   font-size: 13px;
 }
+
+/* per-problem task progress bar on the duel detail page */
+.duel-task-bar {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.duel-task-bar-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.duel-task-bar-head > span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.duel-task-bar-head strong { font-size: 15px; }
+.duel-task-bar-head small { color: var(--muted); }
+.duel-task-track { height: 8px; }

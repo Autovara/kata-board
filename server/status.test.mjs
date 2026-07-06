@@ -994,3 +994,58 @@ test("accepts subnet_pack in event log leaderboard entries", async () => {
   assert.ok(alice.gittensorScore > 0);
   assert.ok(alice.gittensorScore <= 1);
 });
+
+test("exposes the current competition round from round-status.json", async () => {
+  const root = makeKataRoot();
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "completed",
+    run_id: "sn60-round-x",
+    repo: "Owner/kata",
+    king: { aggregated_score: 0.2, true_positives: 1 },
+    winner_submission_id: "m-1",
+    entrants: [
+      {
+        pull_number: 1,
+        submission_id: "m-1",
+        status: "winner",
+        aggregated_score: 0.5,
+        true_positives: 2,
+        beats_king: true
+      },
+      {
+        pull_number: 2,
+        submission_id: "m-2",
+        status: "losing",
+        aggregated_score: 0.0,
+        true_positives: 0,
+        beats_king: false
+      }
+    ],
+    screened_out: [{ pull_number: 6, reason: "screening failed" }],
+    closed_extras: [{ pull_number: 3, kept_pull_number: 1 }],
+    skipped_stale: [4]
+  });
+
+  const status = await loadBoardStatus({
+    KATA_ROOT: root,
+    KATA_BOT_ROOT: path.join(root, "no-bot"),
+    KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_STATUS_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.round.state, "completed");
+  assert.equal(status.round.runId, "sn60-round-x");
+  assert.equal(status.round.winnerSubmissionId, "m-1");
+  assert.equal(status.round.king.aggregated_score, 0.2);
+  assert.equal(status.round.entrants.length, 2);
+  assert.equal(status.round.entrants[0].status, "winner");
+  assert.equal(status.round.screenedOut[0].pull_number, 6);
+});
+
+test("round is null when no round-status file exists", async () => {
+  const root = makeKataRoot();
+  const status = await loadBoardStatus(boardEnv(root));
+  assert.equal(status.round, null);
+});

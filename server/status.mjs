@@ -26,6 +26,7 @@ export async function loadBoardStatus(env) {
 
   const roots = resolveRoots(env);
   const validator = await loadValidatorStatus(env, roots);
+  const round = loadRoundStatus(roots.roundStatusPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
   const leaderboard = augmentLeaderboardWithActivity(
     await loadLeaderboard(env),
@@ -55,6 +56,7 @@ export async function loadBoardStatus(env) {
     },
     overview: buildOverview(lanes, activity, leaderboard, validator),
     validator,
+    round,
     lanes,
     activity,
     leaderboard,
@@ -103,7 +105,37 @@ function resolveRoots(env) {
           ),
           "live-status.json"
         )
+    ),
+    roundStatusPath: path.resolve(
+      env.KATA_ROUND_STATUS_PATH ||
+        path.join(
+          path.dirname(
+            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
+          ),
+          "round-status.json"
+        )
     )
+  };
+}
+
+function loadRoundStatus(roundStatusPath) {
+  // The competition round writes this file at start (executing) and end
+  // (completed); the board renders every entrant until final results.
+  const status = readJsonSafe(roundStatusPath);
+  if (!status || typeof status !== "object") {
+    return null;
+  }
+  return {
+    state: status.state || "idle",
+    generatedAt: status.generatedAt || null,
+    runId: status.run_id || null,
+    repo: status.repo || null,
+    king: status.king || null,
+    winnerSubmissionId: status.winner_submission_id || null,
+    entrants: Array.isArray(status.entrants) ? status.entrants : [],
+    screenedOut: Array.isArray(status.screened_out) ? status.screened_out : [],
+    closedExtras: Array.isArray(status.closed_extras) ? status.closed_extras : [],
+    skippedStale: Array.isArray(status.skipped_stale) ? status.skipped_stale : []
   };
 }
 

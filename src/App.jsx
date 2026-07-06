@@ -464,7 +464,7 @@ function roundExtras(round) {
   return extras;
 }
 
-function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
+function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selectedPull, setSelectedPull }) {
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
@@ -524,6 +524,8 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
       <KingDetail
         king={kingResult}
         progress={round?.liveProgress?.king || null}
+        kingAuthor={kingAuthor}
+        kingSubmissionId={kingSubmissionId}
         onBack={() => setSelectedPull(null)}
       />
     );
@@ -642,7 +644,9 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
               }}
             >
               <span aria-hidden="true">♔</span>
-              <span>current king</span>
+              <span className="entrant-cell">
+                <EntrantIdentity author={kingAuthor} submissionId={kingSubmissionId || "current king"} />
+              </span>
               <span>{formatDetection(kingResult?.aggregated_score)}</span>
               <span>{kingResult?.true_positives ?? "—"}</span>
               <span>—</span>
@@ -704,12 +708,13 @@ function RoundPanel({ round, kataRepoSlug, selectedPull, setSelectedPull }) {
   );
 }
 
-function KingDetail({ king, progress, onBack }) {
+function KingDetail({ king, progress, kingAuthor, kingSubmissionId, onBack }) {
   const projects = king?.projects || [];
   const done = progress?.done ?? projects.length;
   const total = progress?.total ?? projects.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const scoring = progress?.state === "scoring";
+  const name = kingAuthor || kingSubmissionId || "Current king";
   return (
     <div className="round-block duel-page">
       <div className="duel-detail-topbar">
@@ -725,6 +730,24 @@ function KingDetail({ king, progress, onBack }) {
           )}
         </div>
       </div>
+
+      <section className="arena-hero">
+        <div className="battle-wrap">
+          <div className="battle battle-solo">
+            <BattleSide
+              role="king"
+              crown
+              name={name}
+              sub={kingAuthor ? "reigning king" : "current king"}
+              avatarUrl={
+                kingAuthor ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96` : null
+              }
+              score={percentScore(king?.aggregated_score)}
+              won={false}
+            />
+          </div>
+        </div>
+      </section>
 
       {total > 0 ? (
         <div className="duel-task-bar">
@@ -1169,6 +1192,8 @@ function Arena({
       <RoundPanel
         round={round}
         kataRepoSlug={kataRepoSlug}
+        kingAuthor={selectedLane?.king?.author || null}
+        kingSubmissionId={selectedLane?.king?.submissionId || null}
         selectedPull={selectedPull}
         setSelectedPull={setSelectedPull}
       />

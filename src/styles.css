@@ -4143,3 +4143,12 @@ html { scroll-behavior: smooth; }
 .entrant-rank-top {
   color: var(--green);
 }
+
+/* king detail hero: a single centered king card */
+.battle-solo {
+  display: flex;
+  justify-content: center;
+}
+.battle-solo .battle-side {
+  width: min(340px, 100%);
+}

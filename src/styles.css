@@ -4067,7 +4067,7 @@ html { scroll-behavior: smooth; }
   backdrop-filter: blur(2px);
 }
 .duel-detail {
-  width: min(720px, 100%);
+  width: min(940px, 100%);
   max-height: 88vh;
   overflow-y: auto;
   display: grid;
@@ -4104,38 +4104,10 @@ html { scroll-behavior: smooth; }
 .duel-detail-close:hover {
   border-color: var(--line-strong);
 }
-.duel-detail-compare {
-  display: grid;
-  gap: 2px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.duel-compare-row {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) 110px 110px;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
-}
-.duel-compare-row:last-child {
-  border-bottom: 0;
-}
-.duel-compare-row > span {
-  color: var(--muted);
-  font-size: 13px;
-}
-.duel-compare-head {
-  background: var(--panel-2);
-}
-.duel-compare-head strong {
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.duel-project-grid {
-  grid-template-columns: minmax(140px, 1.4fr) 130px 110px 90px;
-}
+
+
+
+
+
+
+

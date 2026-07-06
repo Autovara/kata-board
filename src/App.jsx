@@ -604,19 +604,23 @@ function RoundPanel({ round, kataRepoSlug }) {
 }
 
 function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
-  const projects = entrant.projects || [];
+  const won = entrant.beats_king === true;
+  const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
+  const scoring = live && live.state === "scoring";
+  const delta = (entrant.aggregated_score ?? 0) - (king?.aggregated_score ?? 0);
   const kingProjects = {};
   (king?.projects || []).forEach((project) => {
     kingProjects[project.project_key] = project;
   });
-  const scoring = live && live.state === "scoring";
+  const projects = entrant.projects || [];
+  const candidateInvalid = Number(entrant.invalid_runs || 0);
+
   return (
     <div className="duel-detail-overlay" onClick={onClose} role="presentation">
       <div className="duel-detail" onClick={(event) => event.stopPropagation()}>
         <div className="duel-detail-head">
           <div className="duel-detail-title">
-            <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
-            <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
+            {prLabel(kataRepoSlug, entrant.pull_number)}
             <RoundStatusPill status={entrant.status} />
           </div>
           <button type="button" className="duel-detail-close" onClick={onClose} aria-label="Close">
@@ -624,56 +628,120 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
           </button>
         </div>
 
+        <div className="battle-wrap">
+          <div className="battle">
+            <BattleSide
+              role="king"
+              crown
+              name="Current king"
+              sub="reigning king"
+              score={percentScore(king?.aggregated_score)}
+              won={decided && !won}
+            />
+            <div className="battle-mid">
+              <div className="vs">VS</div>
+              <div className="battle-decision">
+                <span>{delta > 0 ? "challenger leads" : delta < 0 ? "king leads" : "level"}</span>
+                <strong className={delta > 0 ? "positive" : delta < 0 ? "negative" : ""}>
+                  {formatSignedPoints(delta)}
+                </strong>
+                <small>candidate vs king</small>
+              </div>
+            </div>
+            <BattleSide
+              role="candidate"
+              name={entrant.author || entrant.submission_id}
+              sub={`PR #${entrant.pull_number}`}
+              avatarUrl={
+                entrant.author ? `https://github.com/${encodeURIComponent(entrant.author)}.png?size=96` : null
+              }
+              score={percentScore(entrant.aggregated_score)}
+              won={won}
+            />
+          </div>
+        </div>
+
         {scoring ? (
           <p className="section-lead">
-            Scoring in progress — {live.done}/{live.total} problems done. Final metrics fill in
-            when the round completes.
+            Scoring in progress — {live.done}/{live.total} problems done. Final metrics fill in when
+            the round completes.
           </p>
         ) : null}
 
-        <div className="duel-detail-compare">
-          <div className="duel-compare-row duel-compare-head">
-            <span />
-            <strong>challenger</strong>
-            <strong>king</strong>
+        <div className="duel-compare-panel">
+          <div className="duel-panel-head">
+            <span>candidate vs king</span>
+            <div className="comparison-legend">
+              <small><i className="legend-candidate" />Candidate</small>
+              <small><i className="legend-king" />King</small>
+            </div>
           </div>
-          <CompareRow label="detection" c={formatDetection(entrant.aggregated_score)} k={formatDetection(king?.aggregated_score)} />
-          <CompareRow label="true positives" c={entrant.true_positives ?? "—"} k={king?.true_positives ?? "—"} />
-          <CompareRow label="precision" c={formatPercent(entrant.precision)} k={formatPercent(king?.precision)} />
-          <CompareRow label="F1 score" c={formatPercent(entrant.f1_score)} k={formatPercent(king?.f1_score)} />
-          <CompareRow
-            label="found / expected"
-            c={`${entrant.total_found ?? "—"} / ${entrant.total_expected ?? "—"}`}
-            k={`${king?.total_found ?? "—"} / ${king?.total_expected ?? "—"}`}
+          <ComparisonBar label="detection" candidate={entrant.aggregated_score} king={king?.aggregated_score} />
+          <ComparisonBar label="precision" candidate={entrant.precision} king={king?.precision} />
+          <ComparisonBar label="f1 score" candidate={entrant.f1_score} king={king?.f1_score} />
+        </div>
+
+        <div className="duel-snapshot">
+          <MetricChip
+            label="candidate matched / reported"
+            value={`${entrant.true_positives ?? "—"} / ${entrant.total_found ?? "—"}`}
           />
-          <CompareRow label="invalid runs" c={entrant.invalid_runs ?? "—"} k={king?.invalid_runs ?? "—"} />
+          <MetricChip
+            label="king matched / reported"
+            value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
+          />
+          <MetricChip
+            label="invalid"
+            value={`C ${candidateInvalid} · K ${Number(king?.invalid_runs || 0)}`}
+            tone={candidateInvalid > 0 ? "bad" : "ok"}
+          />
         </div>
 
         {projects.length ? (
-          <div className="duel-detail-projects">
-            <div className="table-head duel-project-grid">
-              <span>problem</span>
-              <span>challenger TP/found</span>
-              <span>king TP/found</span>
-              <span>result</span>
+          <div className="live-task-progress">
+            <div className="live-task-progress-head">
+              <div>
+                <span>per-problem breakdown</span>
+                <strong>{projects.length} codebases</strong>
+                <small>Each row is one sampled benchmark codebase (matched findings / reported).</small>
+              </div>
             </div>
-            {projects.map((project) => {
-              const kingProject = kingProjects[project.project_key] || {};
-              return (
-                <div className="table-row duel-project-grid" key={project.project_key}>
-                  <span title={project.project_key}>{formatProjectName(project.project_key)}</span>
-                  <span>{project.true_positives}/{project.total_found}</span>
-                  <span>{kingProject.true_positives ?? "—"}/{kingProject.total_found ?? "—"}</span>
-                  <span>
-                    {project.passed ? (
-                      <span className="rstat rstat-winner">pass</span>
-                    ) : (
-                      <span className="rstat rstat-losing">no match</span>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
+            <div className="live-task-table-head" aria-hidden="true">
+              <span>problem</span>
+              <span>result</span>
+              <span>candidate</span>
+              <span>king</span>
+            </div>
+            <div className="live-task-list">
+              {projects.map((project) => {
+                const kingProject = kingProjects[project.project_key] || {};
+                return (
+                  <div
+                    className={`live-task-row live-task-row-${project.passed ? "ok" : "neutral"}`}
+                    key={project.project_key}
+                  >
+                    <div className="live-task-main">
+                      <div className="live-task-icon" aria-hidden="true">{project.passed ? "✓" : "·"}</div>
+                      <div>
+                        <strong>{formatProjectName(project.project_key)}</strong>
+                        <span>{project.project_key}</span>
+                      </div>
+                    </div>
+                    <Status label={project.passed ? "pass" : "no match"} tone={project.passed ? "ok" : "neutral"} />
+                    <div className="live-task-side">
+                      <span>candidate</span>
+                      <strong>{project.true_positives}/{project.total_found}</strong>
+                      <small>tp / found</small>
+                    </div>
+                    <div className="live-task-side">
+                      <span>king</span>
+                      <strong>{kingProject.true_positives ?? "—"}/{kingProject.total_found ?? "—"}</strong>
+                      <small>tp / found</small>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <Empty text="Per-problem detail appears once this PR finishes scoring." />
@@ -683,21 +751,83 @@ function DuelDetail({ entrant, king, kataRepoSlug, live, onClose }) {
   );
 }
 
-function CompareRow({ label, c, k }) {
+function BattleSide({ role, name, sub, score, avatarUrl, crown, won }) {
   return (
-    <div className="duel-compare-row">
-      <span>{label}</span>
-      <strong>{c}</strong>
-      <strong>{k}</strong>
+    <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
+      {crown ? (
+        <span className="battle-crown" aria-hidden="true">
+          ♔
+        </span>
+      ) : null}
+      <Avatar name={name} avatarUrl={avatarUrl} />
+      <span className="battle-role">{won ? `${role} · winner` : role}</span>
+      <h2>{name}</h2>
+      <p>{sub}</p>
+      <div className="battle-score">
+        <strong>{score}</strong>
+        <small>detection score</small>
+      </div>
     </div>
   );
 }
 
-function formatPercent(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return "—";
+function ComparisonBar({ label, candidate, king }) {
+  return (
+    <div className="comparison-bar">
+      <div className="comparison-bar-head">
+        <strong>{label}</strong>
+        <span>C {percentMetric(candidate)} · K {percentMetric(king)}</span>
+      </div>
+      <div className="comparison-track">
+        <div className="comparison-lane">
+          <span>C</span>
+          <b><i className="comparison-fill-candidate" style={{ width: `${ratioWidth(candidate)}%` }} /></b>
+        </div>
+        <div className="comparison-lane">
+          <span>K</span>
+          <b><i className="comparison-fill-king" style={{ width: `${ratioWidth(king)}%` }} /></b>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricChip({ label, value, tone = "neutral" }) {
+  return (
+    <div className={`metric-chip metric-chip-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function percentScore(value) {
+  if (value === null || value === undefined) {
+    return "-";
   }
-  return `${Math.round(Number(value) * 100)}%`;
+  return `${formatNumber(Number(value) * 100)} pts`;
+}
+
+function formatSignedPoints(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "-";
+  }
+  const numeric = Number(value);
+  return `${numeric > 0 ? "+" : ""}${formatNumber(numeric * 100)} pts`;
+}
+
+function percentMetric(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "-";
+  }
+  return `${formatNumber(Number(value) * 100)}%`;
+}
+
+function ratioWidth(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Number(value) * 100));
 }
 
 function formatProjectName(key) {

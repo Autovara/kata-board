@@ -177,6 +177,7 @@ export default function App() {
             selectedLane={selectedLane}
             laneActivity={laneActivity}
             validator={payload.validator}
+            round={payload.round}
             kataRepoSlug={payload.publicLinks?.kataRepo}
             setSelectedLaneId={setSelectedLaneId}
           />
@@ -386,7 +387,90 @@ function HowStep({ step, title, text }) {
   );
 }
 
-function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, setSelectedLaneId }) {
+function RoundPanel({ round, kataRepoSlug }) {
+  if (!round || (round.state === "idle" && !round.entrants.length)) {
+    return null;
+  }
+  const entrants = round.entrants || [];
+  const stateTone =
+    round.state === "completed" ? "ok" : round.state === "executing" ? "warn" : "neutral";
+  const extras = [];
+  if (round.screenedOut.length) extras.push(`${round.screenedOut.length} screened out`);
+  if (round.closedExtras.length) extras.push(`${round.closedExtras.length} extra PR closed`);
+  if (round.skippedStale.length) extras.push(`${round.skippedStale.length} skipped (unchanged)`);
+
+  return (
+    <section className="table-section">
+      <div className="arena-hero-status">
+        <Status label={`round ${round.state}`} tone={stateTone} />
+        {round.runId ? <span>{round.runId}</span> : null}
+        {round.king ? <span>king detection {formatDetection(round.king.aggregated_score)}</span> : null}
+        <span>{entrants.length} candidate{entrants.length === 1 ? "" : "s"}</span>
+        {round.winnerSubmissionId ? <span>winner {round.winnerSubmissionId}</span> : null}
+      </div>
+      {entrants.length ? (
+        <>
+          <div className="table-head">
+            <span>PR</span>
+            <span>submission</span>
+            <span>detection</span>
+            <span>TP</span>
+            <span>status</span>
+          </div>
+          {entrants.map((entrant) => (
+            <div className="table-row" key={entrant.pull_number}>
+              <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
+              <span>{entrant.submission_id}</span>
+              <span>{formatDetection(entrant.aggregated_score)}</span>
+              <span>{entrant.true_positives ?? "—"}</span>
+              <span>
+                <Status label={entrant.status} tone={roundStatusTone(entrant.status)} />
+              </span>
+            </div>
+          ))}
+        </>
+      ) : (
+        <Empty text="No candidates entered this round." />
+      )}
+      {extras.length ? (
+        <div className="arena-hero-status">
+          {extras.map((text) => (
+            <span key={text}>{text}</span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function roundStatusTone(status) {
+  if (status === "winner") return "ok";
+  if (status === "executing" || status === "pending") return "warn";
+  return "neutral";
+}
+
+function formatDetection(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${Math.round(Number(value) * 100)}%`;
+}
+
+function prLabel(kataRepoSlug, pullNumber) {
+  if (!pullNumber) {
+    return "—";
+  }
+  if (!kataRepoSlug) {
+    return `#${pullNumber}`;
+  }
+  return (
+    <a href={`https://github.com/${kataRepoSlug}/pull/${pullNumber}`} target="_blank" rel="noreferrer">
+      #{pullNumber}
+    </a>
+  );
+}
+
+function Arena({ lanes, selectedLane, laneActivity, validator, round, kataRepoSlug, setSelectedLaneId }) {
   const latest = laneActivity[0] || null;
   const activeEvaluation = laneActiveEvaluation(validator?.activeEvaluation, selectedLane);
   const activeJob = validator?.queue?.activeJob || null;
@@ -414,6 +498,8 @@ function Arena({ lanes, selectedLane, laneActivity, validator, kataRepoSlug, set
       {lanes.length > 1 ? (
         <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
       ) : null}
+
+      <RoundPanel round={round} kataRepoSlug={kataRepoSlug} />
 
       <section className="arena-hero">
         <div className="arena-topline">

@@ -40,8 +40,13 @@ export async function loadBoardStatus(env) {
   const activity = loadRecentActivity(roots.kataRoot, env);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
-  const leaderboard = augmentLeaderboardWithActivity(
+  const baseLeaderboard = augmentLeaderboardWithRound(
     await loadLeaderboard(env),
+    round,
+    identityAliases
+  );
+  const leaderboard = augmentLeaderboardWithActivity(
+    baseLeaderboard,
     activity,
     identityAliases
   );
@@ -2011,6 +2016,65 @@ function applyRoundIdentityAliases(round, identityAliases = new Map()) {
       ...entrant,
       author: resolveAuthorAlias(entrant.author, identityAliases)
     }))
+  };
+}
+
+function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new Map()) {
+  const source = String(leaderboard.source || "");
+  if (
+    !round?.entrants?.length ||
+    (!source.startsWith("unavailable") && source !== "github-not-configured")
+  ) {
+    return leaderboard;
+  }
+  const byAuthor = new Map(
+    (leaderboard.rows || []).map((row) => [
+      resolveAuthorAlias(row.author, identityAliases),
+      { ...row, author: resolveAuthorAlias(row.author, identityAliases) }
+    ])
+  );
+  const latestLaneWinners = new Map(
+    Object.entries(leaderboard.latestLaneWinners || {})
+  );
+  const activityAt = round.generatedAt || new Date().toISOString();
+  const laneKey = "sn60__bitsec::miner";
+
+  for (const entrant of round.entrants) {
+    const author =
+      resolveAuthorAlias(entrant.author, identityAliases) ||
+      inferSubmissionAuthorFromId(entrant.submission_id) ||
+      "unknown";
+    const entry = byAuthor.get(author) || createAuthorRow(author);
+    entry.totalSubmissions = Math.max(entry.totalSubmissions || 0, 1);
+    if (entrant.status === "winner") {
+      entry.wins = Math.max(entry.wins || 0, 1);
+      if (!(entry.winnerPulls || []).length) {
+        entry.winnerPulls = [
+          {
+            pullNumber: entrant.pull_number || null,
+            mergedAt: activityAt
+          }
+        ];
+      }
+      latestLaneWinners.set(laneKey, {
+        author,
+        mergedAt: activityAt,
+        pullNumber: entrant.pull_number || null
+      });
+    } else if (entrant.status === "pending" || entrant.status === "executing") {
+      entry.openSubmissions = Math.max(entry.openSubmissions || 0, 1);
+    } else {
+      entry.closedSubmissions = Math.max(entry.closedSubmissions || 0, 1);
+    }
+    entry.lastActivityAt = maxDate(entry.lastActivityAt, activityAt);
+    byAuthor.set(author, entry);
+  }
+
+  return {
+    ...leaderboard,
+    source: `${leaderboard.source}+round`,
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
+    latestLaneWinners: Object.fromEntries(latestLaneWinners)
   };
 }
 

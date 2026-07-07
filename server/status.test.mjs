@@ -1118,6 +1118,43 @@ test("leaderboard uses completed validator identity when github history is unava
   assert.equal(status.round.entrants[0].author, "bob-github");
 });
 
+test("leaderboard falls back to round entrants when github history is unavailable", async () => {
+  const root = makeKataRoot();
+  const roundStatusPath = path.join(root, "round-status.json");
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "completed",
+    generated_at: "2026-07-02T02:00:00Z",
+    winner_submission_id: "alice-20260702-01",
+    entrants: [
+      {
+        pull_number: 10,
+        submission_id: "alice-20260702-01",
+        status: "winner"
+      },
+      {
+        pull_number: 11,
+        submission_id: "charlie-20260702-01",
+        status: "losing"
+      }
+    ]
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_ROUND_STATUS_PATH: roundStatusPath,
+    KATA_REPO_SLUG: "",
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  const authors = status.leaderboard.rows.map((row) => row.author);
+  assert.ok(authors.includes("alice"));
+  assert.ok(authors.includes("charlie"));
+  const charlie = status.leaderboard.rows.find((row) => row.author === "charlie");
+  assert.equal(charlie.totalSubmissions, 1);
+  assert.equal(charlie.closedSubmissions, 1);
+});
+
 test("exposes the current competition round from round-status.json", async () => {
   const root = makeKataRoot();
   writeJson(root, "round-status.json", {

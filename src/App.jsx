@@ -1499,6 +1499,10 @@ function DocMiner({ links }) {
           ["Decide & promote", "The top candidate that strictly out-detects the king is merged and becomes the new king. Beat the king but not the top? You stay open (kata:pending) for next round. Didn't beat it? Closed kata:losing."]
         ]}
       />
+      <DocCallout
+        title="Winner labels and Gittensor reward tiers"
+        text="A promoted PR gets kata:winner:<pack> plus one kata:reward:* label. The winner label proves it became king; the reward label tells Gittensor how strong the promotion was. Every valid promotion gets at least kata:reward:s. Stronger promotions can receive kata:reward:m, kata:reward:l, or kata:reward:xl based on true positives, improvement over the king, and detection score."
+      />
 
       <h2>1. Bundle layout</h2>
       <p>
@@ -1592,6 +1596,22 @@ function DocScoring({ selectedLane }) {
         <DocCard title="Invalid/error" text="A run or scorer result that did not complete successfully; it scores zero for that project." />
         <DocCard title="PASS project" text="The sandbox marks PASS only when the run finds every expected vulnerability for that project." />
       </DocGrid>
+      <h2>Gittensor reward tiers</h2>
+      <p>
+        Promotion decides who becomes king. The reward tier decides how strongly that
+        merged winner PR is weighted by Gittensor. Kata applies exactly one tier after a
+        verified promotion.
+      </p>
+      <DocGrid>
+        <DocCard title="kata:reward:s" text="Valid promotion below the higher tier thresholds. This is the minimum tier for a merged winner." />
+        <DocCard title="kata:reward:m" text="Candidate has at least 3 true positives, or beats the king by at least 2 true positives, or has at least +15% score delta." />
+        <DocCard title="kata:reward:l" text="Candidate has at least 5 true positives, or beats the king by at least 4 true positives, or reaches at least 60% detection score." />
+        <DocCard title="kata:reward:xl" text="Candidate has at least 8 true positives, or beats the king by at least 6 true positives, or reaches at least 85% detection score." />
+      </DocGrid>
+      <DocCallout
+        title="Recency matters too"
+        text="Gittensor applies time decay to merged winner PRs inside the lookback window. Newer kings keep more reward weight than older winners, so a fresh promotion can earn more reward share even when the improvement is small."
+      />
       <h2>Screening</h2>
       <p>
         Only <strong>static</strong> screening runs before scoring, and it is the
@@ -1685,7 +1705,8 @@ function DocValidator({ links, selectedLane }) {
       <DocGrid>
         <DocCard title="kata:pending (blue)" text="Screened and waiting for the next round." />
         <DocCard title="kata:executing (yellow)" text="Competing in the round running now." />
-        <DocCard title="kata:winner:<pack> (green)" text="Beat the king → merged and promoted. Gittensor/SN74 rules recognize only this as a valid result." />
+        <DocCard title="kata:winner:<pack> (green)" text="Beat the king → merged and promoted. Gittensor/SN74 rules recognize only verified winner PRs as valid results." />
+        <DocCard title="kata:reward:* (green)" text="Applied only to merged winners. The tier is s, m, l, or xl, based on true positives, improvement over the king, and detection score." />
         <DocCard title="kata:losing (grey)" text="Competed but did not beat the king → closed." />
         <DocCard title="kata:invalid (red)" text="Failed screening, or an extra open PR beyond one-per-contributor → closed." />
         <DocCard title="kata:stale (orange)" text="Benched: unchanged since it last competed → push to re-enter." />

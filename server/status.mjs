@@ -2,7 +2,11 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { githubRequest, loadGithubLeaderboard } from "./github.mjs";
+import {
+  githubRequest,
+  loadGithubCliLeaderboard,
+  loadGithubLeaderboard
+} from "./github.mjs";
 import {
   createAuthorRow,
   finalizeLeaderboardRows,
@@ -576,7 +580,7 @@ async function computeLeaderboard(env) {
       repoSlug: env.KATA_REPO_SLUG,
       githubToken: env.KATA_GITHUB_TOKEN
     });
-    const localLeaderboard = loadLocalGitWinnerLeaderboard(env.KATA_ROOT);
+    const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
     if (
       localLeaderboard.rows.length &&
       (leaderboard.source === "github-not-configured" || !leaderboard.rows.length)
@@ -585,7 +589,14 @@ async function computeLeaderboard(env) {
     }
     return leaderboard;
   } catch (error) {
-    const localLeaderboard = loadLocalGitWinnerLeaderboard(env.KATA_ROOT);
+    const githubCliLeaderboard = loadGithubCliLeaderboardSafe(env);
+    if (githubCliLeaderboard.rows.length) {
+      return {
+        ...githubCliLeaderboard,
+        githubError: error instanceof Error ? error.message : "unknown leaderboard error"
+      };
+    }
+    const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
     if (localLeaderboard.rows.length) {
       return {
         ...localLeaderboard,
@@ -595,6 +606,18 @@ async function computeLeaderboard(env) {
     return {
       source: "unavailable",
       error: error instanceof Error ? error.message : "unknown leaderboard error",
+      rows: [],
+      latestLaneWinners: {}
+    };
+  }
+}
+
+function loadGithubCliLeaderboardSafe(env) {
+  try {
+    return loadGithubCliLeaderboard({ repoSlug: env.KATA_REPO_SLUG });
+  } catch {
+    return {
+      source: "github-cli-unavailable",
       rows: [],
       latestLaneWinners: {}
     };
@@ -1984,6 +2007,13 @@ function loadEventLeaderboard(eventLogPath) {
   };
 }
 
+function loadLocalArtifactLeaderboard(kataRoot) {
+  return augmentLeaderboardWithRoundSummaries(
+    loadLocalGitWinnerLeaderboard(kataRoot),
+    kataRoot
+  );
+}
+
 function loadLocalGitWinnerLeaderboard(kataRoot) {
   const resolvedRoot = kataRoot ? path.resolve(kataRoot) : null;
   if (!resolvedRoot || !fs.existsSync(path.join(resolvedRoot, ".git"))) {
@@ -2063,6 +2093,109 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
     source: "local-git",
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners)
+  };
+}
+
+function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
+  const resolvedRoot = kataRoot ? path.resolve(kataRoot) : null;
+  if (!resolvedRoot) {
+    return leaderboard;
+  }
+  const summaryPaths = collectFiles(path.join(resolvedRoot, "runs"), "round_summary.json");
+  if (!summaryPaths.length) {
+    return leaderboard;
+  }
+
+  const byAuthor = new Map(
+    (leaderboard.rows || []).map((row) => [row.author, { ...row }])
+  );
+  const latestLaneWinners = new Map(
+    Object.entries(leaderboard.latestLaneWinners || {})
+  );
+  const winnerByPull = new Map();
+  for (const row of leaderboard.rows || []) {
+    for (const pull of row.winnerPulls || []) {
+      if (pull.pullNumber) {
+        winnerByPull.set(Number(pull.pullNumber), row.author);
+      }
+    }
+  }
+
+  let added = false;
+  const seenPullsByAuthor = new Map();
+  for (const row of leaderboard.rows || []) {
+    seenPullsByAuthor.set(
+      row.author,
+      new Set((row.recentPulls || []).map((pull) => Number(pull.number || 0)).filter(Boolean))
+    );
+  }
+
+  for (const summaryPath of summaryPaths) {
+    const summary = readJsonSafe(summaryPath);
+    if (!summary || typeof summary !== "object") {
+      continue;
+    }
+    const createdAt = summary.created_at || statMtimeIso(summaryPath);
+    for (const roundEntry of Array.isArray(summary.entries) ? summary.entries : []) {
+      const pullNumber = pullNumberFromRoundEntry(roundEntry);
+      const artifact = inferArtifactSubmission(roundEntry?.artifact_path);
+      const author =
+        (pullNumber ? winnerByPull.get(pullNumber) : null) ||
+        inferSubmissionAuthorFromId(artifact?.submissionId) ||
+        inferSubmissionAuthorFromId(roundEntry?.submission_id) ||
+        "unknown";
+      const entry = byAuthor.get(author) || createAuthorRow(author);
+      const seenPulls = seenPullsByAuthor.get(author) || new Set();
+      if (!pullNumber || !seenPulls.has(pullNumber)) {
+        entry.totalSubmissions += 1;
+        if (!roundEntry?.beats_king) {
+          entry.closedSubmissions += 1;
+        }
+        if (pullNumber) {
+          seenPulls.add(pullNumber);
+        }
+      }
+      entry.lastActivityAt = maxDate(entry.lastActivityAt, createdAt);
+      if (entry.recentPulls.length < 4 && pullNumber && !seenPulls.has(-pullNumber)) {
+        entry.recentPulls.push({
+          number: pullNumber,
+          title: artifact?.submissionId || roundEntry?.submission_id || `PR #${pullNumber}`,
+          htmlUrl: null,
+          state: roundEntry?.beats_king ? "merged" : "closed",
+          updatedAt: createdAt
+        });
+        seenPulls.add(-pullNumber);
+      }
+      seenPullsByAuthor.set(author, seenPulls);
+      byAuthor.set(author, entry);
+      added = true;
+    }
+  }
+
+  return {
+    ...leaderboard,
+    source: added ? `${leaderboard.source}+round-artifacts` : leaderboard.source,
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
+    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+  };
+}
+
+function pullNumberFromRoundEntry(entry) {
+  const match = String(entry?.submission_id || "").match(/^pr-(\d+)$/);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function inferArtifactSubmission(artifactPath) {
+  const match = String(artifactPath || "").match(
+    /\/submissions\/([^/]+)\/([^/]+)\/([^/]+)(?:\/|$)/
+  );
+  if (!match) {
+    return null;
+  }
+  return {
+    subnetPack: match[1],
+    mode: match[2],
+    submissionId: match[3]
   };
 }
 

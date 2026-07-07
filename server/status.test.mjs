@@ -788,6 +788,58 @@ test("leaderboard includes losing candidates from run artifacts", async () => {
   assert.equal(dave.gittensorScore, 0);
 });
 
+test("leaderboard fallback includes all scored round-summary contributors", async () => {
+  const root = makeKataRoot();
+  const roundRoot = path.join(root, "runs", "sn60-round-all");
+  writeJson(roundRoot, "round_summary.json", {
+    run_id: "sn60-round-all",
+    created_at: "2026-07-07T12:00:00Z",
+    winner_submission_id: null,
+    entries: [
+      {
+        submission_id: "pr-67",
+        artifact_path: path.join(
+          root,
+          "work",
+          "submissions",
+          "sn60__bitsec",
+          "miner",
+          "statxc-20260706-01"
+        ),
+        beats_king: false,
+        candidate: { aggregated_score: 0, true_positives: 0 }
+      },
+      {
+        submission_id: "pr-69",
+        artifact_path: path.join(
+          root,
+          "work",
+          "submissions",
+          "sn60__bitsec",
+          "miner",
+          "Helios531-20260706-01"
+        ),
+        beats_king: false,
+        candidate: { aggregated_score: 0, true_positives: 0 }
+      }
+    ]
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_REPO_SLUG: "",
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  const authors = status.leaderboard.rows.map((row) => row.author);
+  assert.ok(authors.includes("statxc"));
+  assert.ok(authors.includes("Helios531"));
+  const statxc = status.leaderboard.rows.find((row) => row.author === "statxc");
+  assert.equal(statxc.totalSubmissions, 1);
+  assert.equal(statxc.closedSubmissions, 1);
+  assert.equal(statxc.gittensorScore, 0);
+});
+
 test("degrades gracefully when the kata root is empty", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-empty-"));
   const status = await loadBoardStatus(boardEnv(root));

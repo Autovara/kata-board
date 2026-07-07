@@ -1340,7 +1340,7 @@ function Leaderboard({ leaderboard }) {
           <span>score</span>
         </div>
         {rows.length ? (
-          rows.slice(0, 20).map((row, index) => (
+          rows.map((row, index) => (
             <div
               className={`table-row ${index < 3 ? `lb-top lb-top-${index + 1}` : ""}`}
               key={row.author}

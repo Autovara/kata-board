@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 import {
   createAuthorRow,
   finalizeLeaderboardRows,
@@ -62,6 +64,69 @@ export async function loadGithubLeaderboard({
     });
   }
 
+  return buildLeaderboardFromRelevantPulls("github", relevantPulls);
+}
+
+export function loadGithubCliLeaderboard({ repoSlug, run = execFileSync }) {
+  if (!repoSlug) {
+    return emptyLeaderboard("github-cli-not-configured");
+  }
+  const output = run(
+    "gh",
+    [
+      "pr",
+      "list",
+      "--repo",
+      repoSlug,
+      "--state",
+      "all",
+      "--limit",
+      "500",
+      "--json",
+      "number,title,state,mergedAt,updatedAt,url,author,labels,files"
+    ],
+    {
+      encoding: "utf8",
+      timeout: 20_000,
+      stdio: ["ignore", "pipe", "pipe"]
+    }
+  );
+  const pulls = JSON.parse(output);
+  const relevantPulls = (Array.isArray(pulls) ? pulls : [])
+    .map((pull) => {
+      const touchedSubmissions = (Array.isArray(pull.files) ? pull.files : [])
+        .map((file) => file?.path)
+        .filter((filePath) => String(filePath || "").startsWith("submissions/"));
+      if (!touchedSubmissions.length) {
+        return null;
+      }
+      const laneKeys = [
+        ...new Set(
+          touchedSubmissions.map((path) => {
+            const match = String(path || "").match(SUBMISSION_PATH_PATTERN);
+            return match ? `${match[1]}::${match[2]}` : null;
+          })
+        )
+      ].filter(Boolean);
+      return {
+        number: pull.number,
+        title: pull.title,
+        state: normalizePullState(pull.state),
+        mergedAt: pull.mergedAt || null,
+        createdAt: pull.createdAt || null,
+        updatedAt: pull.updatedAt || pull.mergedAt || null,
+        htmlUrl: pull.url || null,
+        author: pull.author?.login || "unknown",
+        winnerEligible: isKataWinnerPull(pull),
+        laneKeys,
+        submissionPaths: touchedSubmissions
+      };
+    })
+    .filter(Boolean);
+  return buildLeaderboardFromRelevantPulls("github-cli", relevantPulls);
+}
+
+function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
   const byAuthor = new Map();
   const latestLaneWinners = new Map();
 
@@ -108,10 +173,18 @@ export async function loadGithubLeaderboard({
   }
 
   return {
-    source: "github",
+    source,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners)
   };
+}
+
+function normalizePullState(state) {
+  const value = String(state || "").toLowerCase();
+  if (value === "open") {
+    return "open";
+  }
+  return "closed";
 }
 
 function isKataWinnerPull(pull) {

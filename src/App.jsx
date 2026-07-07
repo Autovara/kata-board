@@ -473,6 +473,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
+  const roundKingAuthor = round?.kingAuthor || kingAuthor;
+  const roundKingSubmissionId = round?.kingSubmissionId || kingSubmissionId;
   const selectedEntrant = entrants.find((entrant) => entrant.pull_number === selectedPull) || null;
   // Live progress only while the round is actively scoring; ignore a stale
   // snapshot left over from a previous round.
@@ -530,8 +532,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       <KingDetail
         king={kingResult}
         progress={round?.liveProgress?.king || null}
-        kingAuthor={kingAuthor}
-        kingSubmissionId={kingSubmissionId}
+        kingAuthor={roundKingAuthor}
+        kingSubmissionId={roundKingSubmissionId}
         projectKeys={projectKeys}
         onBack={() => setSelectedPull(null)}
       />
@@ -559,7 +561,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       <DuelDetail
         entrant={candidate}
         king={kingResult}
-        kingAuthor={kingAuthor}
+        kingAuthor={roundKingAuthor}
         progress={result}
         projectKeys={projectKeys}
         kataRepoSlug={kataRepoSlug}
@@ -660,7 +662,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             >
               <span aria-hidden="true">♔</span>
               <span className="entrant-cell">
-                <EntrantIdentity author={kingAuthor} submissionId={kingSubmissionId || "current king"} />
+                <EntrantIdentity author={roundKingAuthor} submissionId={roundKingSubmissionId || "current king"} />
               </span>
               <span>{formatDetection(kingResult?.aggregated_score)}</span>
               <span>{kingResult?.true_positives ?? "—"}</span>

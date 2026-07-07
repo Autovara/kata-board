@@ -1242,6 +1242,83 @@ test("leaderboard reconstructs promoted winners from local git history", async (
   );
 });
 
+test("completed round keeps the king identity from before promotion", async () => {
+  const root = makeKataRoot();
+  git(root, ["init", "-q"]);
+  git(root, ["config", "user.name", "kata-bot"]);
+  git(root, ["config", "user.email", "kata-bot@users.noreply.github.com"]);
+
+  commitEmpty(
+    root,
+    "feat(sn60): depth-first matcher-tuned bitsec miner (nickmopen-20260705-01) (#47)",
+    "2026-07-05T18:28:36Z",
+    "Nick M",
+    "nickmelnikov82@proton.me"
+  );
+  commitEmpty(
+    root,
+    "chore: promote king from PR #47",
+    "2026-07-05T20:27:20Z",
+    "kata-bot",
+    "kata-bot@users.noreply.github.com"
+  );
+  commitEmpty(
+    root,
+    "feat(sn60): jonathan -20260707-01 (#76)",
+    "2026-07-07T16:46:35Z",
+    "Jonathan Chang",
+    "55106972+jonathanchang31@users.noreply.github.com"
+  );
+  commitEmpty(
+    root,
+    "chore: promote king from PR #76",
+    "2026-07-07T16:46:38Z",
+    "kata-bot",
+    "kata-bot@users.noreply.github.com"
+  );
+
+  writeJson(path.join(root, "lanes", "sn60__bitsec"), "king.json", {
+    schema_version: 1,
+    current_king_submission_id: "jonathanchang31-20260707-01",
+    current_king_artifact_hash: "candidate-hash",
+    promotion_source_pr: null,
+    promotion_timestamp: "2026-07-07T16:46:38Z",
+    updated_at: "2026-07-07T16:46:38Z"
+  });
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "completed",
+    generated_at: "2026-07-07T16:36:32Z",
+    run_id: "sn60-round-promoted",
+    repo: "Owner/kata",
+    king: { aggregated_score: 0.05, true_positives: 2 },
+    winner_submission_id: "pr-76",
+    entrants: [
+      {
+        pull_number: 76,
+        submission_id: "jonathan-20260707-01",
+        author: "jonathanchang31",
+        status: "winner",
+        aggregated_score: 0.1,
+        true_positives: 4,
+        beats_king: true
+      }
+    ]
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_REPO_SLUG: "",
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.lanes[0].currentHolder, "jonathanchang31");
+  assert.equal(status.round.kingAuthor, "nickmopen");
+  assert.equal(status.round.kingSubmissionId, "nickmopen-20260705-01");
+  assert.equal(status.round.entrants[0].author, "jonathanchang31");
+});
+
 test("exposes the current competition round from round-status.json", async () => {
   const root = makeKataRoot();
   writeJson(root, "round-status.json", {

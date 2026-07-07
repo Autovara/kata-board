@@ -51,6 +51,7 @@ export async function loadBoardStatus(env) {
     activity,
     identityAliases
   );
+  round = enrichRoundKingIdentity(round, leaderboard);
   const lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
     latestLaneWinners: leaderboard.latestLaneWinners,
@@ -191,6 +192,8 @@ function loadRoundStatus(roundStatusPath) {
     runId: status.run_id || null,
     repo: status.repo || null,
     king: status.king || null,
+    kingAuthor: status.king_author || status.king?.author || null,
+    kingSubmissionId: status.king_submission_id || status.king?.submission_id || null,
     winnerSubmissionId: status.winner_submission_id || null,
     entrants: (Array.isArray(status.entrants) ? status.entrants : []).map((entrant) => ({
       ...entrant,
@@ -2195,11 +2198,67 @@ function applyRoundIdentityAliases(round, identityAliases = new Map()) {
   }
   return {
     ...round,
+    kingAuthor: resolveAuthorAlias(round.kingAuthor, identityAliases),
     entrants: (round.entrants || []).map((entrant) => ({
       ...entrant,
       author: resolveAuthorAlias(entrant.author, identityAliases)
     }))
   };
+}
+
+function enrichRoundKingIdentity(round, leaderboard) {
+  if (!round || round.kingAuthor || round.kingSubmissionId) {
+    return round;
+  }
+  const winner = latestWinnerBefore(
+    leaderboard?.rows || [],
+    round.generatedAt || new Date().toISOString()
+  );
+  if (!winner) {
+    return round;
+  }
+  return {
+    ...round,
+    kingAuthor: winner.author,
+    kingSubmissionId: winner.submissionId || null
+  };
+}
+
+function latestWinnerBefore(rows, cutoffIso) {
+  const cutoff = new Date(cutoffIso || 0).getTime();
+  if (!Number.isFinite(cutoff) || cutoff <= 0) {
+    return null;
+  }
+  let latest = null;
+  for (const row of rows || []) {
+    for (const pull of row.winnerPulls || []) {
+      const mergedAt = new Date(pull.mergedAt || 0).getTime();
+      if (!Number.isFinite(mergedAt) || mergedAt > cutoff) {
+        continue;
+      }
+      if (!latest || mergedAt > latest.mergedAtMs) {
+        latest = {
+          author: row.author,
+          mergedAtMs: mergedAt,
+          submissionId: submissionIdFromWinnerPull(row, pull)
+        };
+      }
+    }
+  }
+  return latest;
+}
+
+function submissionIdFromWinnerPull(row, pull) {
+  const pullNumber = Number(pull?.pullNumber || 0);
+  const detail = (row?.recentPulls || []).find(
+    (item) => Number(item?.number || 0) === pullNumber
+  );
+  return extractSubmissionIdFromText(detail?.title) || null;
+}
+
+function extractSubmissionIdFromText(value) {
+  const match = String(value || "").match(/([A-Za-z0-9][A-Za-z0-9_-]*-\d{8}-\d+)/);
+  return match?.[1] || null;
 }
 
 function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new Map()) {

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -568,11 +569,26 @@ async function computeLeaderboard(env) {
   }
 
   try {
-    return await loadGithubLeaderboard({
+    const leaderboard = await loadGithubLeaderboard({
       repoSlug: env.KATA_REPO_SLUG,
       githubToken: env.KATA_GITHUB_TOKEN
     });
+    const localLeaderboard = loadLocalGitWinnerLeaderboard(env.KATA_ROOT);
+    if (
+      localLeaderboard.rows.length &&
+      (leaderboard.source === "github-not-configured" || !leaderboard.rows.length)
+    ) {
+      return localLeaderboard;
+    }
+    return leaderboard;
   } catch (error) {
+    const localLeaderboard = loadLocalGitWinnerLeaderboard(env.KATA_ROOT);
+    if (localLeaderboard.rows.length) {
+      return {
+        ...localLeaderboard,
+        githubError: error instanceof Error ? error.message : "unknown leaderboard error"
+      };
+    }
     return {
       source: "unavailable",
       error: error instanceof Error ? error.message : "unknown leaderboard error",
@@ -1965,6 +1981,173 @@ function loadEventLeaderboard(eventLogPath) {
   };
 }
 
+function loadLocalGitWinnerLeaderboard(kataRoot) {
+  const resolvedRoot = kataRoot ? path.resolve(kataRoot) : null;
+  if (!resolvedRoot || !fs.existsSync(path.join(resolvedRoot, ".git"))) {
+    return {
+      source: "local-git",
+      rows: [],
+      latestLaneWinners: {}
+    };
+  }
+
+  const commits = loadLocalGitCommits(resolvedRoot);
+  if (!commits.length) {
+    return {
+      source: "local-git",
+      rows: [],
+      latestLaneWinners: {}
+    };
+  }
+
+  const mergeCommitsByPull = new Map();
+  for (const commit of commits) {
+    const pullNumber = extractPullNumberFromSquashSubject(commit.subject);
+    if (!pullNumber) {
+      continue;
+    }
+    const existing = mergeCommitsByPull.get(pullNumber);
+    if (!existing || new Date(commit.authorDate) > new Date(existing.authorDate)) {
+      mergeCommitsByPull.set(pullNumber, commit);
+    }
+  }
+
+  const byAuthor = new Map();
+  const latestLaneWinners = new Map();
+  for (const promotion of commits) {
+    const pullNumber = extractPromotedPullNumber(promotion.subject);
+    if (!pullNumber) {
+      continue;
+    }
+    const mergeCommit = mergeCommitsByPull.get(pullNumber);
+    if (!mergeCommit) {
+      continue;
+    }
+    const author = inferGitHubAuthorFromCommit(mergeCommit);
+    if (!author) {
+      continue;
+    }
+
+    const mergedAt = normalizeIsoDate(mergeCommit.authorDate) || normalizeIsoDate(promotion.authorDate);
+    const laneKey = "sn60__bitsec::miner";
+    const entry = byAuthor.get(author) || createAuthorRow(author);
+    entry.totalSubmissions = Math.max(entry.totalSubmissions || 0, 1);
+    entry.wins += 1;
+    entry.winnerPulls.push({ pullNumber, mergedAt });
+    entry.lastActivityAt = maxDate(entry.lastActivityAt, mergedAt);
+    if (entry.recentPulls.length < 4) {
+      entry.recentPulls.push({
+        number: pullNumber,
+        title: mergeCommit.subject,
+        htmlUrl: null,
+        state: "merged",
+        updatedAt: mergedAt
+      });
+    }
+    byAuthor.set(author, entry);
+
+    const current = latestLaneWinners.get(laneKey);
+    if (!current || new Date(mergedAt) > new Date(current.mergedAt || 0)) {
+      latestLaneWinners.set(laneKey, {
+        author,
+        mergedAt,
+        pullNumber
+      });
+    }
+  }
+
+  return {
+    source: "local-git",
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
+    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+  };
+}
+
+function loadLocalGitCommits(kataRoot) {
+  try {
+    const output = execFileSync(
+      "git",
+      [
+        "-C",
+        kataRoot,
+        "log",
+        "--all",
+        "--date=iso-strict",
+        "--pretty=format:%H%x1f%aI%x1f%cI%x1f%an%x1f%ae%x1f%s%x1e"
+      ],
+      {
+        encoding: "utf8",
+        timeout: 5_000,
+        stdio: ["ignore", "pipe", "ignore"]
+      }
+    );
+    return output
+      .split("\x1e")
+      .map((record) => record.trim())
+      .filter(Boolean)
+      .map(parseLocalGitCommit)
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function parseLocalGitCommit(record) {
+  const parts = record.split("\x1f");
+  if (parts.length < 6) {
+    return null;
+  }
+  return {
+    hash: parts[0],
+    authorDate: parts[1],
+    committerDate: parts[2],
+    authorName: parts[3],
+    authorEmail: parts[4],
+    subject: parts.slice(5).join("\x1f")
+  };
+}
+
+function extractPromotedPullNumber(subject) {
+  const match = String(subject || "").match(/^chore: promote king from PR #(\d+)\b/);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function extractPullNumberFromSquashSubject(subject) {
+  const match = String(subject || "").match(/\(#(\d+)\)\s*$/);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function inferGitHubAuthorFromCommit(commit) {
+  const emailLogin = String(commit.authorEmail || "").match(
+    /^\d+\+([^@]+)@users\.noreply\.github\.com$/i
+  );
+  if (emailLogin?.[1]) {
+    return emailLogin[1];
+  }
+  const plainNoreplyLogin = String(commit.authorEmail || "").match(
+    /^([^@]+)@users\.noreply\.github\.com$/i
+  );
+  if (plainNoreplyLogin?.[1] && plainNoreplyLogin[1] !== "kata-bot") {
+    return plainNoreplyLogin[1];
+  }
+  const submissionId = String(commit.subject || "").match(
+    /([A-Za-z0-9][A-Za-z0-9_-]*-\d{8}-\d+)/
+  );
+  if (submissionId?.[1]) {
+    return inferSubmissionAuthorFromId(submissionId[1]);
+  }
+  const authorName = String(commit.authorName || "").trim();
+  return authorName ? authorName.replace(/\s+/g, "-").toLowerCase() : null;
+}
+
+function normalizeIsoDate(value) {
+  const date = new Date(value || 0);
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
 function buildIdentityAliases({ validator, round }) {
   const aliases = new Map();
   const active = validator?.activeEvaluation || null;
@@ -2023,7 +2206,9 @@ function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new M
   const source = String(leaderboard.source || "");
   if (
     !round?.entrants?.length ||
-    (!source.startsWith("unavailable") && source !== "github-not-configured")
+    (!source.startsWith("unavailable") &&
+      source !== "github-not-configured" &&
+      source !== "local-git")
   ) {
     return leaderboard;
   }
@@ -2056,11 +2241,14 @@ function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new M
           }
         ];
       }
-      latestLaneWinners.set(laneKey, {
-        author,
-        mergedAt: activityAt,
-        pullNumber: entrant.pull_number || null
-      });
+      const current = latestLaneWinners.get(laneKey);
+      if (!current || new Date(activityAt) > new Date(current.mergedAt || 0)) {
+        latestLaneWinners.set(laneKey, {
+          author,
+          mergedAt: activityAt,
+          pullNumber: entrant.pull_number || null
+        });
+      }
     } else if (entrant.status === "pending" || entrant.status === "executing") {
       entry.openSubmissions = Math.max(entry.openSubmissions || 0, 1);
     } else {

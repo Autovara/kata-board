@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -147,6 +148,33 @@ function boardEnv(root) {
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_STATUS_CACHE_TTL_MS: "0"
   };
+}
+
+function git(root, args, env = {}) {
+  return execFileSync("git", ["-C", root, ...args], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      ...env
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+}
+
+function commitEmpty(root, message, isoDate, authorName, authorEmail) {
+  git(
+    root,
+    ["commit", "--allow-empty", "-m", message],
+    {
+      GIT_AUTHOR_NAME: authorName,
+      GIT_AUTHOR_EMAIL: authorEmail,
+      GIT_AUTHOR_DATE: isoDate,
+      GIT_COMMITTER_NAME: authorName,
+      GIT_COMMITTER_EMAIL: authorEmail,
+      GIT_COMMITTER_DATE: isoDate
+    }
+  );
 }
 
 test("discovers the active SN60 lane from the central pack registry", async () => {
@@ -1153,6 +1181,65 @@ test("leaderboard falls back to round entrants when github history is unavailabl
   const charlie = status.leaderboard.rows.find((row) => row.author === "charlie");
   assert.equal(charlie.totalSubmissions, 1);
   assert.equal(charlie.closedSubmissions, 1);
+});
+
+test("leaderboard reconstructs promoted winners from local git history", async () => {
+  const root = makeKataRoot();
+  git(root, ["init", "-q"]);
+  git(root, ["config", "user.name", "kata-bot"]);
+  git(root, ["config", "user.email", "kata-bot@users.noreply.github.com"]);
+
+  commitEmpty(
+    root,
+    "feat(sn60): depth-first matcher-tuned bitsec miner (nickmopen-20260705-01) (#47)",
+    "2026-07-05T18:28:36Z",
+    "Nick M",
+    "nickmelnikov82@proton.me"
+  );
+  commitEmpty(
+    root,
+    "chore: promote king from PR #47",
+    "2026-07-05T20:27:20Z",
+    "kata-bot",
+    "kata-bot@users.noreply.github.com"
+  );
+  commitEmpty(
+    root,
+    "feat(sn60): jonathan -20260707-01 (#76)",
+    "2026-07-07T16:46:35Z",
+    "Jonathan Chang",
+    "55106972+jonathanchang31@users.noreply.github.com"
+  );
+  commitEmpty(
+    root,
+    "chore: promote king from PR #76",
+    "2026-07-07T16:46:38Z",
+    "kata-bot",
+    "kata-bot@users.noreply.github.com"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_REPO_SLUG: "",
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.leaderboard.source, "local-git+runs");
+  const jonathan = status.leaderboard.rows.find(
+    (row) => row.author === "jonathanchang31"
+  );
+  const nick = status.leaderboard.rows.find((row) => row.author === "nickmopen");
+  assert.ok(jonathan);
+  assert.ok(nick);
+  assert.equal(jonathan.wins, 1);
+  assert.equal(nick.wins, 1);
+  assert.ok(jonathan.gittensorScore > 0);
+  assert.ok(nick.gittensorScore > 0);
+  assert.ok(jonathan.gittensorScore >= nick.gittensorScore);
+  assert.equal(
+    status.leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,
+    "jonathanchang31"
+  );
 });
 
 test("exposes the current competition round from round-status.json", async () => {

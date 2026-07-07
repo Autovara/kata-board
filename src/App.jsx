@@ -1490,10 +1490,10 @@ function DocMiner({ links }) {
       <DocSteps
         items={[
           ["Create a branch", "Work in the public Kata repo on a normal branch. You only ever touch submissions/."],
-          ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<id>/ with agent.py, agent_manifest.json, and submission.json. You may have only one open PR at a time."],
+          ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json. The github-user prefix must match the PR author. You may have only one open PR at a time."],
           ["Validate locally", "Run `kata submission validate` to catch shape and contract errors before you open the PR."],
           ["Open the PR", "Target the default competition branch and touch only your one submission directory."],
-          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending — it now waits for the next round. A push to a benched kata:stale PR re-enters it. No scoring happens yet."],
+          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending only after it passes. Identity mismatches are closed kata:invalid before pending. A push to a benched kata:stale PR re-enters it. No scoring happens yet."],
           ["Round: screen & execute", "When a round runs, it locks the pending PRs, keeps one per contributor, re-screens your locked commit, and labels it kata:executing while it competes."],
           ["Round: score", "Your agent and the king are scored on the same sampled Bitsec projects. Scoring is resilient: a bad, empty, or slow problem is just a 0 for that problem, never a rejection. The king is cached, so it isn't re-run for every candidate."],
           ["Decide & promote", "The top candidate that strictly out-detects the king is merged and becomes the new king. Beat the king but not the top? You stay open (kata:pending) for next round. Didn't beat it? Closed kata:losing."]
@@ -1512,6 +1512,10 @@ function DocMiner({ links }) {
       </p>
       <CodeBlock value={`submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # which pack/mode you compete in`} />
       <CodeBlock value={`{\n  "schema_version": 2,\n  "subnet_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
+      <DocCallout
+        title="Identity must match your GitHub account"
+        text="The <github-user> prefix in the directory name, submission_id, and submission.json author must match the GitHub account that opens the PR. If the PR author is jonathanchang31, then jonathan-20260707-01 is invalid. kata-bot closes mismatches as kata:invalid before adding kata:pending, so they never enter a round."
+      />
 
       <h2>2. Your agent (agent.py)</h2>
       <p>
@@ -1551,6 +1555,7 @@ function DocMiner({ links }) {
           "agent_main returns a dict with a top-level `vulnerabilities` list — not a stub that returns an empty list without any analysis.",
           "agent_manifest.json uses schema_version 1, runtime python, entrypoint agent.py.",
           "submission.json uses schema_version 2, subnet_pack sn60__bitsec, mode miner, and a unique submission_id.",
+          "The submission directory/id prefix and submission.json author match the PR author's GitHub username.",
           "The PR targets the default branch and touches exactly one submission directory."
         ]}
       />
@@ -1662,7 +1667,7 @@ function DocValidator({ links, selectedLane }) {
       <h2>// the round pipeline</h2>
       <DocSteps
         items={[
-          ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending, or closes it kata:invalid. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
+          ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending only after it passes. If the submission id or submission.json author does not match the PR author's GitHub username, it is closed kata:invalid before pending. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
           ["Lock entrants", "The round snapshots the open PRs at their commits, keeps one per contributor (extras closed kata:invalid), and skips a PR only if its commit AND the king are unchanged since it last competed (kata:stale)."],
           ["Screen & execute", "Each entrant is re-screened on its locked commit; survivors are labeled kata:executing while the round runs."],
           ["Score vs cached king", "The king is scored once per problem and cached; every candidate is scored on the SAME secret-sampled set (one replica) in the pinned Bitsec sandbox. Scoring is resilient: one bad project never aborts the rest."],

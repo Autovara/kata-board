@@ -183,22 +183,18 @@ async function fetchSubmissionFiles(repoSlug, pullNumber, githubToken) {
 }
 
 export async function githubRequest(path, githubToken) {
-  const headers = {
-    "User-Agent": "kata-board",
-    Accept: "application/vnd.github+json"
-  };
-  if (githubToken) {
-    headers.Authorization = `Bearer ${githubToken}`;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
   let response;
   try {
-    response = await fetch(`https://api.github.com${path}`, {
-      headers,
-      signal: controller.signal
-    });
+    response = await fetchGithubResponse(path, githubToken);
+    if (
+      githubToken &&
+      (response.status === 401 || response.status === 403)
+    ) {
+      const publicResponse = await fetchGithubResponse(path, "");
+      if (publicResponse.ok) {
+        return publicResponse.json();
+      }
+    }
     if (!response.ok) {
       throw new Error(
         `GitHub API request failed: ${response.status} ${response.statusText}`
@@ -212,6 +208,25 @@ export async function githubRequest(path, githubToken) {
       );
     }
     throw error;
+  }
+}
+
+async function fetchGithubResponse(path, githubToken) {
+  const headers = {
+    "User-Agent": "kata-board",
+    Accept: "application/vnd.github+json"
+  };
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(`https://api.github.com${path}`, {
+      headers,
+      signal: controller.signal
+    });
   } finally {
     clearTimeout(timeoutId);
   }

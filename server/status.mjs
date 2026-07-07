@@ -32,13 +32,14 @@ export async function loadBoardStatus(env) {
     return cachedStatus;
   }
   const validator = await loadValidatorStatus(env, roots);
-  const round = loadRoundStatus(roots.roundStatusPath);
+  let round = loadRoundStatus(roots.roundStatusPath);
   if (round) {
     round.liveProgress = loadRoundProgress(roots.roundProgressPath);
   }
   const roundHistory = loadRoundHistory(roots.roundHistoryPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
   const identityAliases = buildIdentityAliases({ validator, round });
+  round = applyRoundIdentityAliases(round, identityAliases);
   const leaderboard = augmentLeaderboardWithActivity(
     await loadLeaderboard(env),
     activity,
@@ -1998,6 +1999,19 @@ function resolveAuthorAlias(author, aliases = new Map()) {
     return author;
   }
   return aliases.get(value) || aliases.get(value.toLowerCase()) || author;
+}
+
+function applyRoundIdentityAliases(round, identityAliases = new Map()) {
+  if (!round) {
+    return round;
+  }
+  return {
+    ...round,
+    entrants: (round.entrants || []).map((entrant) => ({
+      ...entrant,
+      author: resolveAuthorAlias(entrant.author, identityAliases)
+    }))
+  };
 }
 
 function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases = new Map()) {

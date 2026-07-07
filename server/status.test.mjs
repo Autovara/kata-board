@@ -1115,6 +1115,7 @@ test("leaderboard uses completed validator identity when github history is unava
   assert.ok(row);
   assert.equal(row.wins, 1);
   assert.equal(status.lanes[0].king.author, "bob-github");
+  assert.equal(status.round.entrants[0].author, "bob-github");
 });
 
 test("exposes the current competition round from round-status.json", async () => {

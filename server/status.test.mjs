@@ -995,6 +995,128 @@ test("accepts subnet_pack in event log leaderboard entries", async () => {
   assert.ok(alice.gittensorScore <= 1);
 });
 
+test("leaderboard does not split a known PR winner by submission id prefix", async () => {
+  const root = makeKataRoot();
+  const eventLogPath = path.join(root, "events.jsonl");
+  fs.writeFileSync(
+    eventLogPath,
+    JSON.stringify({
+      created_at: "2026-07-02T01:02:00Z",
+      author: "bob-github",
+      repo_pack: "sn60__bitsec",
+      mode: "miner",
+      final_action: "merge",
+      pull_number: 12
+    }) + "\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOARD_EVENT_LOG: eventLogPath,
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(
+    status.leaderboard.rows.some((row) => row.author === "bob"),
+    false
+  );
+  const row = status.leaderboard.rows.find((item) => item.author === "bob-github");
+  assert.ok(row);
+  assert.equal(row.wins, 1);
+  assert.ok(row.gittensorScore > 0);
+  assert.ok(row.gittensorScore <= 1);
+  assert.deepEqual(row.winnerPulls, [
+    {
+      pullNumber: 12,
+      mergedAt: "2026-07-02T01:02:00Z"
+    }
+  ]);
+});
+
+test("leaderboard uses completed validator identity when github history is unavailable", async () => {
+  const root = makeKataRoot();
+  const botStateRoot = path.join(root, "bot", "state");
+  const queuePath = path.join(botStateRoot, "queue.json");
+  const liveStatusPath = path.join(botStateRoot, "live-status.json");
+  const roundStatusPath = path.join(botStateRoot, "round-status.json");
+  writeJson(botStateRoot, "queue.json", {
+    schema_version: 1,
+    jobs: [
+      {
+        schema_version: 1,
+        job_id: "owner__kata-pr12-abc",
+        kata_repo: "owner/kata",
+        pull_number: 12,
+        head_sha: "a".repeat(40),
+        status: "completed",
+        attempts: 1,
+        enqueued_at: "2026-07-02T01:00:00Z",
+        started_at: "2026-07-02T01:01:00Z",
+        finished_at: "2026-07-02T01:03:00Z",
+        final_action: "merge"
+      }
+    ]
+  });
+  writeJson(botStateRoot, "live-status.json", {
+    schema_version: 1,
+    source: "kata-bot",
+    state: "completed",
+    phase: "completed",
+    updated_at: "2026-07-02T01:03:00Z",
+    final_action: "merge",
+    candidate_github_login: "bob-github",
+    job: {
+      job_id: "owner__kata-pr12-abc",
+      kata_repo: "owner/kata",
+      pull_number: 12,
+      head_sha: "a".repeat(40),
+      status: "completed",
+      attempts: 1,
+      enqueued_at: "2026-07-02T01:00:00Z",
+      started_at: "2026-07-02T01:01:00Z",
+      finished_at: "2026-07-02T01:03:00Z"
+    }
+  });
+  writeJson(botStateRoot, "round-status.json", {
+    schema_version: 1,
+    state: "completed",
+    winner_submission_id: "bob-20260702-01",
+    entrants: [
+      {
+        pull_number: 12,
+        submission_id: "bob-20260702-01",
+        status: "winner"
+      }
+    ]
+  });
+  writeJson(path.join(root, "lanes", "sn60__bitsec"), "king.json", {
+    schema_version: 1,
+    current_king_submission_id: "bob-20260702-01",
+    current_king_artifact_hash: "candidate-hash",
+    promotion_source_pr: null,
+    promotion_timestamp: "2026-07-02T01:03:00Z",
+    updated_at: "2026-07-02T01:03:00Z"
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_LIVE_STATUS_PATH: liveStatusPath,
+    KATA_ROUND_STATUS_PATH: roundStatusPath,
+    KATA_REPO_SLUG: "",
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(
+    status.leaderboard.rows.some((row) => row.author === "bob"),
+    false
+  );
+  const row = status.leaderboard.rows.find((item) => item.author === "bob-github");
+  assert.ok(row);
+  assert.equal(row.wins, 1);
+  assert.equal(status.lanes[0].king.author, "bob-github");
+});
+
 test("exposes the current competition round from round-status.json", async () => {
   const root = makeKataRoot();
   writeJson(root, "round-status.json", {

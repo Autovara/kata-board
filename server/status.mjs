@@ -38,13 +38,16 @@ export async function loadBoardStatus(env) {
   }
   const roundHistory = loadRoundHistory(roots.roundHistoryPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
+  const identityAliases = buildIdentityAliases({ validator, round });
   const leaderboard = augmentLeaderboardWithActivity(
     await loadLeaderboard(env),
-    activity
+    activity,
+    identityAliases
   );
   const lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
-    latestLaneWinners: leaderboard.latestLaneWinners
+    latestLaneWinners: leaderboard.latestLaneWinners,
+    identityAliases
   });
   const notes = buildNotes({
     leaderboard,
@@ -215,7 +218,7 @@ function resolveExistingRoot(explicitPath, fallbackPath) {
 
 
 
-function loadEvaluatorLanes({ kataRoot, latestLaneWinners }) {
+function loadEvaluatorLanes({ kataRoot, latestLaneWinners, identityAliases = new Map() }) {
   const lanesRoot = path.join(kataRoot, "lanes");
   const registry = readJsonSafe(path.join(lanesRoot, "registry.json"));
   const laneIds = Array.isArray(registry?.packs)
@@ -225,12 +228,14 @@ function loadEvaluatorLanes({ kataRoot, latestLaneWinners }) {
         .filter(Boolean)
     : listDirectories(lanesRoot);
   return laneIds
-    .map((laneId) => loadEvaluatorLane(kataRoot, laneId, latestLaneWinners))
+    .map((laneId) =>
+      loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
+    )
     .filter(Boolean);
 }
 
-function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
-  const state = loadEvaluatorLaneState(kataRoot, laneId);
+function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases) {
+  const state = loadEvaluatorLaneState(kataRoot, laneId, identityAliases);
   const lane = state?.lane || null;
   if (!lane?.active) {
     return null;
@@ -239,9 +244,13 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
   const repoPack = subnetPack;
   const mode = lane.mode || "miner";
   const latestWinner = latestLaneWinners?.[`${subnetPack}::${mode}`] || null;
+  const kingAuthor = resolveAuthorAlias(
+    inferSubmissionAuthorFromId(state.king?.current_king_submission_id),
+    identityAliases
+  );
   const king = {
     submissionId: state.king?.current_king_submission_id || null,
-    author: inferSubmissionAuthorFromId(state.king?.current_king_submission_id),
+    author: kingAuthor,
     challengeRunId: null,
     artifactHash: state.king?.current_king_artifact_hash || null,
     source: state.king?.promotion_source_pr || "evaluator lane",
@@ -288,7 +297,7 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners) {
   };
 }
 
-function loadEvaluatorLaneState(kataRoot, laneId) {
+function loadEvaluatorLaneState(kataRoot, laneId, identityAliases = new Map()) {
   const laneRoot = path.join(kataRoot, "lanes", laneId);
   const lane = readJsonSafe(path.join(laneRoot, "lane.json"));
   if (!lane) {
@@ -310,7 +319,8 @@ function loadEvaluatorLaneState(kataRoot, laneId) {
       king,
       benchmarkSnapshot,
       challengeState,
-      promotionRecord
+      promotionRecord,
+      identityAliases
     })
   };
 }
@@ -320,7 +330,8 @@ function buildEvaluatorCurrentState({
   king,
   benchmarkSnapshot,
   challengeState,
-  promotionRecord
+  promotionRecord,
+  identityAliases = new Map()
 }) {
   if (!lane) {
     return null;
@@ -334,7 +345,10 @@ function buildEvaluatorCurrentState({
     candidateSubmissionId: challengeState?.candidate_submission_id || null,
     candidateAuthor: inferSubmissionAuthorFromId(challengeState?.candidate_submission_id),
     kingSubmissionId: king?.current_king_submission_id || null,
-    kingAuthor: inferSubmissionAuthorFromId(king?.current_king_submission_id),
+    kingAuthor: resolveAuthorAlias(
+      inferSubmissionAuthorFromId(king?.current_king_submission_id),
+      identityAliases
+    ),
     screeningStatus: screening?.status || null,
     screeningStage: screening?.stage || null,
     screeningReasons: Array.isArray(screening?.reasons) ? screening.reasons : [],
@@ -1945,9 +1959,53 @@ function loadEventLeaderboard(eventLogPath) {
   };
 }
 
-function augmentLeaderboardWithActivity(leaderboard, activity) {
+function buildIdentityAliases({ validator, round }) {
+  const aliases = new Map();
+  const active = validator?.activeEvaluation || null;
+  const login = active?.candidateGithubLogin || active?.candidateAuthor || null;
+  const pullNumber = active?.pullNumber || null;
+  if (!login || !pullNumber || active?.finalAction !== "merge") {
+    return aliases;
+  }
+  const winnerEntrant = (round?.entrants || []).find(
+    (entrant) => entrant?.pull_number === pullNumber
+  );
+  if (!winnerEntrant?.submission_id) {
+    return aliases;
+  }
+  addIdentityAlias(aliases, winnerEntrant.submission_id, login);
+  addIdentityAlias(
+    aliases,
+    inferSubmissionAuthorFromId(winnerEntrant.submission_id),
+    login
+  );
+  return aliases;
+}
+
+function addIdentityAlias(aliases, from, to) {
+  const source = String(from || "").trim();
+  const target = String(to || "").trim();
+  if (!source || !target || source === target) {
+    return;
+  }
+  aliases.set(source, target);
+  aliases.set(source.toLowerCase(), target);
+}
+
+function resolveAuthorAlias(author, aliases = new Map()) {
+  const value = String(author || "").trim();
+  if (!value) {
+    return author;
+  }
+  return aliases.get(value) || aliases.get(value.toLowerCase()) || author;
+}
+
+function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases = new Map()) {
   const byAuthor = new Map(
-    (leaderboard.rows || []).map((row) => [row.author, { ...row }])
+    (leaderboard.rows || []).map((row) => [
+      resolveAuthorAlias(row.author, identityAliases),
+      { ...row, author: resolveAuthorAlias(row.author, identityAliases) }
+    ])
   );
   const latestLaneWinners = new Map(
     Object.entries(leaderboard.latestLaneWinners || {})
@@ -1955,7 +2013,16 @@ function augmentLeaderboardWithActivity(leaderboard, activity) {
   const activityByAuthor = new Map();
 
   for (const item of activity || []) {
+    const laneKey = item.laneId ? item.laneId.replace(":", "::") : null;
+    const knownLaneWinner =
+      item.promotionReady && laneKey ? latestLaneWinners.get(laneKey) : null;
     const author =
+      knownLaneWinner?.author ||
+      resolveAuthorAlias(item.candidateAuthor, identityAliases) ||
+      resolveAuthorAlias(
+        inferSubmissionAuthorFromId(item.candidateSubmissionId),
+        identityAliases
+      ) ||
       item.candidateAuthor ||
       inferSubmissionAuthorFromId(item.candidateSubmissionId) ||
       "unknown";
@@ -1963,18 +2030,19 @@ function augmentLeaderboardWithActivity(leaderboard, activity) {
     entry.totalSubmissions += 1;
     if (item.promotionReady) {
       entry.wins += 1;
-      entry.winnerPulls.push({
-        pullNumber: null,
-        mergedAt: item.createdAt
-      });
+      if (!knownLaneWinner?.pullNumber) {
+        entry.winnerPulls.push({
+          pullNumber: null,
+          mergedAt: item.createdAt
+        });
+      }
     } else {
       entry.closedSubmissions += 1;
     }
     entry.lastActivityAt = maxDate(entry.lastActivityAt, item.createdAt);
     activityByAuthor.set(author, entry);
 
-    if (item.promotionReady && item.laneId) {
-      const laneKey = item.laneId.replace(":", "::");
+    if (item.promotionReady && laneKey) {
       const current = latestLaneWinners.get(laneKey);
       if (!current || new Date(item.createdAt) > new Date(current.mergedAt || 0)) {
         latestLaneWinners.set(laneKey, {

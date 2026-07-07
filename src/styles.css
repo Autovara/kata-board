@@ -3869,6 +3869,21 @@ html { scroll-behavior: smooth; }
   border-bottom: 1px solid var(--line);
   background: var(--panel-2);
 }
+.round-note {
+  padding: 13px 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--line);
+}
+.round-note-warn {
+  color: #f4c651;
+  background: rgba(244, 198, 81, 0.08);
+  border-left: 3px solid #f4c651;
+}
+.round-note-info {
+  color: var(--muted);
+  background: var(--panel-2);
+}
 .round-banner-state {
   display: flex;
   align-items: center;

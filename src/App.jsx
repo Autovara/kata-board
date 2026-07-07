@@ -401,6 +401,11 @@ const ROUND_STATE_BANNER = {
     label: "round complete",
     tone: "ok",
     text: "Scoring finished — see the result below."
+  },
+  skipped: {
+    label: "round skipped",
+    tone: "warn",
+    text: "The round did not run. See the reason below."
   }
 };
 
@@ -605,6 +610,12 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               ) : null}
             </div>
           </div>
+
+          {round.note ? (
+            <div className={`round-note round-note-${state === "skipped" ? "warn" : "info"}`}>
+              {round.note}
+            </div>
+          ) : null}
 
           {round.winnerSubmissionId ? (
             <div className="round-verdict round-verdict-win">

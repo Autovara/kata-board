@@ -1046,6 +1046,23 @@ test("exposes the current competition round from round-status.json", async () =>
   assert.equal(status.round.screenedOut[0].pull_number, 6);
 });
 
+test("exposes a skipped round and its note for the dashboard", async () => {
+  const root = makeKataRoot();
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "skipped",
+    note: "Round skipped: the OpenRouter key limit was exceeded.",
+    entrants: [],
+  });
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+  });
+  assert.equal(status.round.state, "skipped");
+  assert.equal(status.round.note, "Round skipped: the OpenRouter key limit was exceeded.");
+  assert.equal(status.round.entrants.length, 0);
+});
+
 test("round is null when no round-status file exists", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));

@@ -272,6 +272,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
   const latestChallenge = recentActivity[0] || null;
   const latestStatus = buildDashboardLatestStatus(activeEvaluation, latestChallenge);
   const topMiner = payload.leaderboard?.rows?.[0] || null;
+  const currentWinnerScore = overview.currentWinnerGittensorScore || 0;
 
   return (
     <div className="stack">
@@ -308,7 +309,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
           <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
           <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
-          <TerminalLine label="gittensor" value={`${formatNumber(overview.totalGittensorScore || 0)} winner score`} />
+          <TerminalLine label="gittensor" value={`${formatNumber(currentWinnerScore)} current winner score`} />
           <TerminalLine label="goal" value="one-click mining" />
         </div>
       </section>
@@ -336,8 +337,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
         />
         <Stat
           label="winner score"
-          value={formatNumber(overview.totalGittensorScore || 0)}
-          sub="merged winner score after local time decay"
+          value={formatNumber(currentWinnerScore)}
+          sub="current king score after local time decay"
         />
       </section>
 

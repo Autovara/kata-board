@@ -1237,6 +1237,14 @@ test("leaderboard falls back to round entrants when github history is unavailabl
 
 test("leaderboard reconstructs promoted winners from local git history", async () => {
   const root = makeKataRoot();
+  writeJson(path.join(root, "lanes", "sn60__bitsec"), "king.json", {
+    schema_version: 1,
+    current_king_submission_id: "jonathanchang31-20260707-01",
+    current_king_artifact_hash: "candidate-hash",
+    promotion_source_pr: null,
+    promotion_timestamp: "2026-07-07T16:46:38Z",
+    updated_at: "2026-07-07T16:46:38Z"
+  });
   git(root, ["init", "-q"]);
   git(root, ["config", "user.name", "kata-bot"]);
   git(root, ["config", "user.email", "kata-bot@users.noreply.github.com"]);
@@ -1288,6 +1296,8 @@ test("leaderboard reconstructs promoted winners from local git history", async (
   assert.ok(jonathan.gittensorScore > 0);
   assert.ok(nick.gittensorScore > 0);
   assert.ok(jonathan.gittensorScore >= nick.gittensorScore);
+  assert.equal(status.overview.currentWinnerGittensorScore, jonathan.gittensorScore);
+  assert.ok(status.overview.totalGittensorScore > status.overview.currentWinnerGittensorScore);
   assert.equal(
     status.leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,
     "jonathanchang31"

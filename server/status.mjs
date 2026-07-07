@@ -2560,6 +2560,7 @@ function buildOverview(lanes, activity, leaderboard, validator) {
     (total, row) => total + Number(row.gittensorScore || row.score || 0),
     0
   );
+  const currentWinnerGittensorScore = calculateCurrentWinnerGittensorScore(lanes, rows);
 
   return {
     activeSubnetPacks: new Set(lanes.map((lane) => lane.subnetPack || lane.repoPack)).size,
@@ -2573,11 +2574,42 @@ function buildOverview(lanes, activity, leaderboard, validator) {
     uniqueChallengers: rows.length,
     totalSubmissions,
     totalGittensorScore: Number(totalGittensorScore.toFixed(4)),
+    currentWinnerGittensorScore: Number(currentWinnerGittensorScore.toFixed(4)),
     validatorPendingJobs: validator.queue.counts.pending,
     validatorRunningJobs: validator.queue.counts.running,
     validatorCompletedJobs: validator.queue.counts.completed,
     validatorFailedJobs: validator.queue.counts.failed
   };
+}
+
+function calculateCurrentWinnerGittensorScore(lanes, rows) {
+  const rowByAuthor = new Map(
+    rows.map((row) => [String(row.author || "").toLowerCase(), row])
+  );
+  const rowByWinnerPull = new Map();
+  for (const row of rows) {
+    for (const pull of row.winnerPulls || []) {
+      if (pull?.pullNumber) {
+        rowByWinnerPull.set(Number(pull.pullNumber), row);
+      }
+    }
+  }
+
+  const seenAuthors = new Set();
+  let total = 0;
+  for (const lane of lanes) {
+    const row =
+      (lane.currentHolderPullNumber
+        ? rowByWinnerPull.get(Number(lane.currentHolderPullNumber))
+        : null) ||
+      rowByAuthor.get(String(lane.king?.author || lane.currentHolder || "").toLowerCase());
+    if (!row || seenAuthors.has(row.author)) {
+      continue;
+    }
+    seenAuthors.add(row.author);
+    total += Number(row.gittensorScore || row.score || 0);
+  }
+  return total;
 }
 
 function summarizeReplicaStability(localReplicaScores) {

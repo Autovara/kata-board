@@ -1548,7 +1548,7 @@ function DocOverview({ selectedLane, links }) {
         <DocCard title="Kata" text="Public miner-facing repo. Holds submissions, current kings, evaluator commands, and promotion logic." />
         <DocCard title="Pack registry" text="Central registry of subnet packs. Each pack pins its own benchmark snapshot, scoring rules, and current king." />
         <DocCard title="Bitsec sandbox" text="Pinned SN60 evaluation mirror. Agents run in Docker against selected projects from the pinned benchmark snapshot." />
-        <DocCard title="kata-bot" text="GitHub automation. Intakes PRs (screen + label kata:pending), runs competition rounds that score all pending agents against the king, and merges + promotes the winner." />
+        <DocCard title="kata-bot" text="GitHub automation. Intakes PRs, closes hard-invalid submissions before pending, holds suspicious PRs as kata:review, runs competition rounds, and merges + promotes the verified winner." />
       </DocGrid>
       <div className="doc-metrics">
         <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
@@ -1590,7 +1590,7 @@ function DocMiner({ links }) {
           ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json. The github-user prefix must match the PR author. You may have only one open PR at a time."],
           ["Validate locally", "Run `kata submission validate` to catch shape and contract errors before you open the PR."],
           ["Open the PR", "Target the default competition branch and touch only your one submission directory."],
-          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending only after it passes. Identity mismatches and concrete replay are closed kata:invalid before pending. Suspicious but non-conclusive cases are held kata:review; maintainers can approve with /kata approve-review. No scoring happens yet."],
+          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending only after it passes. Identity mismatches and concrete replay are closed kata:invalid before pending. Suspicious but non-conclusive cases are held kata:review; maintainers can approve with /kata approve. No scoring happens yet."],
           ["Round: screen & execute", "When a round runs, it locks the pending PRs, keeps one per contributor, re-screens your locked commit, and labels it kata:executing while it competes."],
           ["Round: score", "Your agent and the king are scored on the same sampled Bitsec projects. Scoring is resilient: a bad, empty, or slow problem is just a 0 for that problem, never a rejection. The king is cached, so it isn't re-run for every candidate."],
           ["Decide & promote", "The top candidate that strictly out-detects the king is merged and becomes the new king. Beat the king but not the top? You stay open (kata:pending) for next round. Didn't beat it? Closed kata:losing."]
@@ -1624,7 +1624,7 @@ function DocMiner({ links }) {
       <CodeBlock value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # Bitsec-compatible findings for the target project\n        ]\n    }`} />
       <DocGrid>
         <DocCard title="project_dir" text="The target smart-contract project checkout mounted inside the sandbox container." />
-        <DocCard title="inference_api" text="The sandbox inference endpoint. Authenticate with the INFERENCE_API_KEY env var injected for your run." />
+        <DocCard title="inference_api" text="The sandbox inference endpoint. Call POST <inference_api>/inference with x-inference-api-key from INFERENCE_API_KEY." />
         <DocCard title="Sync only" text="agent_main must be synchronous and callable with no arguments; the runner does not await coroutines." />
         <DocCard title="Self-contained" text="SN60 V1 bundles must stay self-contained in agent.py. Helper modules and symlinks are rejected." />
       </DocGrid>
@@ -1645,6 +1645,10 @@ function DocMiner({ links }) {
         title="Only two ways a PR ends without merging"
         text="1) Static screening fails (a cheating or no-op agent, or a second open PR from you) — closed early with a clear reason and no scoring cost. 2) A round scores your agent and it does not out-detect the king (kata:losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and scoring continues. If you beat the king but weren't the top challenger, your PR stays open (kata:pending) for the next round."
       />
+      <DocCallout
+        title="Review is a hold, not a score"
+        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round until a maintainer approves with /kata approve or the miner pushes a clean update. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
+      />
       <RequirementList
         title="Validation rules"
         items={[
@@ -1653,7 +1657,7 @@ function DocMiner({ links }) {
           "agent_manifest.json uses schema_version 1, runtime python, entrypoint agent.py.",
           "submission.json uses schema_version 2, subnet_pack sn60__bitsec, mode miner, and a unique submission_id.",
           "The submission directory/id prefix and submission.json author match the PR author's GitHub username.",
-          "The PR targets the default branch and touches exactly one submission directory."
+          "The PR targets the default branch, touches exactly one submission directory, and changes at least one agent bundle file."
         ]}
       />
       <RequirementList
@@ -1664,7 +1668,7 @@ function DocMiner({ links }) {
           "No model or sampling overrides (model, temperature, top_p, seed); the validator pins and strips them.",
           "No benchmark answers, dataset leakage tokens, or hardcoded benchmark replay (project IDs, finding IDs, known report titles, or prewritten project-specific findings).",
           "No helper files or symlinks; SN60 V1 bundles must be self-contained in agent.py.",
-          "No exact copy of the current king bundle."
+          "No exact or AST-equivalent copy of the current king bundle."
         ]}
       />
       <DocLinks links={[["Full submission contract", links.submissions], ["End-to-end workflow", links.systemWorkflow]]} />
@@ -1766,7 +1770,7 @@ function DocValidator({ links, selectedLane }) {
       <h2>// the round pipeline</h2>
       <DocSteps
         items={[
-          ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending only after it passes. If the submission id or submission.json author does not match the PR author's GitHub username, it is closed kata:invalid before pending. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
+          ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending only after it passes. If the submission id or submission.json author does not match the PR author's GitHub username, it is closed kata:invalid before pending. Suspicious but non-conclusive cases are labeled kata:review and cannot enter a round. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
           ["Lock entrants", "The round snapshots the open PRs at their commits, keeps one per contributor (extras closed kata:invalid), and skips a PR only if its commit AND the king are unchanged since it last competed (kata:stale)."],
           ["Screen & execute", "Each entrant is re-screened on its locked commit; survivors are labeled kata:executing while the round runs."],
           ["Score vs cached king", "The king is scored once per problem and cached; every candidate is scored on the SAME secret-sampled set (one replica) in the pinned Bitsec sandbox. Scoring is resilient: one bad project never aborts the rest."],
@@ -1783,7 +1787,7 @@ function DocValidator({ links, selectedLane }) {
       </p>
       <DocGrid>
         <DocCard title="Pinned model" text="qwen3.6 (qwen/qwen3.6-35b-a3b). The relay forces this exact model on every request so the king and every challenger are judged on identical footing." />
-        <DocCard title="Relay" text="Strips any model / sampling knobs the agent sends and raises max_tokens to a safe ceiling so the reasoning model has room to think and answer." />
+        <DocCard title="Relay" text="Forces the pinned model, blocks sampling knobs, enforces 3 successful calls and 24,000 output tokens per problem, and returns 429 after the budget is spent." />
         <DocCard title="Proxy" text="Routes the pinned request to the provider and meters cost. It sits on a separate Docker network from the agents." />
         <DocCard title="Network isolation" text="Agents run on an internet-blocked network and can only reach the relay — they cannot bypass it to hit a provider or a different model directly." />
       </DocGrid>
@@ -1813,7 +1817,7 @@ function DocValidator({ links, selectedLane }) {
         <DocCard title="kata:reward:* (green)" text="Applied only to merged winners. The tier is s, m, l, or xl, based on true positives, improvement over the king, and detection score." />
         <DocCard title="kata:losing (grey)" text="Competed but did not beat the king → closed." />
         <DocCard title="kata:invalid (red)" text="Failed screening, or an extra open PR beyond one-per-contributor → closed." />
-        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. Optional Codex-backed LLM review can add evidence, but only deterministic checks hard-reject. It cannot enter a round until approved with /kata approve-review or updated cleanly." />
+        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. Optional Codex-backed LLM review can add evidence, but only deterministic checks hard-reject. It cannot enter a round until approved with /kata approve or updated cleanly." />
         <DocCard title="kata:stale (orange)" text="Benched: unchanged since it last competed → push to re-enter." />
         <DocCard title="kata:hold (purple)" text="Won, but the merge is currently blocked → needs attention." />
         <DocCard title="Provenance" text="Every round records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />

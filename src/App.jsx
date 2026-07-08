@@ -677,8 +677,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         <div className="round-empty">
           <Status label="no round running" tone="neutral" />
           <p>
-            No competition round has run yet. When the maintainer starts one, every candidate
-            appears here with its live detection score, true-positive count, and result.
+            No round is running. Once started, live candidate scores and results will appear here.
           </p>
         </div>
       ) : (

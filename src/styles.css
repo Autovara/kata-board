@@ -3203,6 +3203,10 @@ html { scroll-behavior: smooth; }
     white-space: normal;
   }
 
+  .round-empty p {
+    white-space: normal;
+  }
+
   .battle-compare > :nth-child(1),
   .battle-compare > :nth-child(2) {
     grid-column: auto;
@@ -3964,8 +3968,11 @@ html { scroll-behavior: smooth; }
 }
 .round-empty p {
   margin: 0;
-  max-width: 640px;
+  max-width: none;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* round banner (state + meta) */

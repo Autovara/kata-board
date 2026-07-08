@@ -1449,6 +1449,62 @@ test("exposes a skipped round and its note for the dashboard", async () => {
   assert.equal(status.round.entrants.length, 0);
 });
 
+test("exposes submission label counts and review approvals without internal fields", async () => {
+  const root = makeKataRoot();
+  const botRoot = path.join(root, "bot");
+  writeJson(botRoot, "queue.json", { schema_version: 1, jobs: [] });
+  writeJson(botRoot, "review-approvals.json", {
+    schema_version: 1,
+    approvals: [
+      {
+        repo: "Owner/kata",
+        pull_number: 85,
+        head_sha: "secret-sha",
+        submission_id: "reviewer-20260707-01",
+        submission_path_key: "submissions/sn60__bitsec/miner/reviewer-20260707-01",
+        reason_fingerprint: "secret-fingerprint",
+        reason: "Manual screening review required: benchmark replay signal.",
+        approved_by: "maintainer",
+        approved_at: "2026-07-07T18:10:00Z"
+      }
+    ]
+  });
+
+  const eventLogPath = path.join(root, "events.jsonl");
+  fs.writeFileSync(
+    eventLogPath,
+    [
+      JSON.stringify({
+        created_at: "2026-07-07T18:00:00Z",
+        author: "reviewer",
+        repo_pack: "sn60__bitsec",
+        mode: "miner",
+        final_action: "hold-review",
+        pull_number: 85
+      })
+    ].join("\n") + "\n"
+  );
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_BOT_ROOT: botRoot,
+    KATA_QUEUE_STATE_PATH: path.join(botRoot, "queue.json"),
+    KATA_REVIEW_APPROVALS_PATH: path.join(botRoot, "review-approvals.json"),
+    KATA_BOARD_EVENT_LOG: eventLogPath,
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.validator.reviewApprovals.count, 1);
+  assert.equal(status.submissionStatus.counts.approvedReview, 1);
+  assert.equal(status.submissionStatus.reviewApprovals.recent[0].pullNumber, 85);
+  assert.equal(status.submissionStatus.reviewApprovals.recent[0].approvedBy, "maintainer");
+  assert.equal(status.submissionStatus.reviewApprovals.recent[0].head_sha, undefined);
+  assert.equal(
+    status.submissionStatus.reviewApprovals.recent[0].reason_fingerprint,
+    undefined
+  );
+});
+
 test("round is null when no round-status file exists", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));

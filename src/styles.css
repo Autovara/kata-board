@@ -3762,7 +3762,97 @@ html { scroll-behavior: smooth; }
 
 .table-head,
 .table-row {
-  grid-template-columns: 72px minmax(190px, 1fr) 90px 120px 90px 150px;
+  grid-template-columns: 72px minmax(190px, 1fr) 70px 100px 70px 80px 80px 80px 130px;
+}
+
+.submission-status-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.submission-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.status-metric {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-2);
+  padding: 16px;
+}
+
+.status-metric span {
+  display: block;
+  color: var(--soft);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-metric strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 28px;
+}
+
+.status-metric-ok strong { color: var(--green); }
+.status-metric-warn strong { color: var(--orange); }
+.status-metric-bad strong { color: var(--red); }
+
+.submission-status-lists {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.status-list-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel-2) 78%, transparent);
+  padding: 16px;
+}
+
+.status-list-card > strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.status-list-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.status-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--text);
+  text-decoration: none;
+  border-top: 1px solid var(--line);
+}
+
+.status-list-row:first-of-type {
+  border-top: 0;
+}
+
+.status-list-row span {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--green);
+}
+
+.status-list-row small {
+  color: var(--soft);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lb-rank {
@@ -3798,7 +3888,12 @@ html { scroll-behavior: smooth; }
 
   .table-head,
   .table-row {
-    grid-template-columns: 56px minmax(160px, 1fr) 70px 96px 70px 118px;
+    grid-template-columns: 56px minmax(160px, 1fr) 64px 84px 64px 70px 70px 70px 110px;
+  }
+
+  .submission-status-grid,
+  .submission-status-lists {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -3824,6 +3919,11 @@ html { scroll-behavior: smooth; }
 
   .table-row {
     padding: 16px;
+  }
+
+  .submission-status-grid,
+  .submission-status-lists {
+    grid-template-columns: 1fr;
   }
 }
 

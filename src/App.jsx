@@ -267,6 +267,7 @@ function DiscordIcon() {
 
 function Dashboard({ payload, selectedLane, validator, onNavigate }) {
   const overview = payload.overview || {};
+  const submissionStatus = payload.submissionStatus || null;
   const activeEvaluation = validator?.activeEvaluation || null;
   const recentActivity = payload.activity || [];
   const latestChallenge = recentActivity[0] || null;
@@ -342,6 +343,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
         />
       </section>
 
+      <SubmissionStatusPanel submissionStatus={submissionStatus} />
+
       <section className="section-block how-block">
         <SectionTitle title="How it works" />
         <div className="how-row">
@@ -373,6 +376,91 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           <KeyValue label="updated" value={formatDateTime(latestStatus.updatedAt || payload.generatedAt)} />
         </div>
       </section>
+    </div>
+  );
+}
+
+function SubmissionStatusPanel({ submissionStatus }) {
+  const counts = submissionStatus?.counts || {};
+  const reviewPulls = submissionStatus?.reviewPulls || [];
+  const invalidPulls = submissionStatus?.invalidPulls || [];
+  const approvals = submissionStatus?.reviewApprovals?.recent || [];
+  return (
+    <section className="section-block submission-status-panel">
+      <SectionTitle title="Submission screening status" />
+      <div className="submission-status-grid">
+        <StatusMetric label="pending" value={counts.pending || 0} tone="ok" />
+        <StatusMetric label="review" value={counts.review || 0} tone="warn" />
+        <StatusMetric label="approved reviews" value={counts.approvedReview || 0} tone="ok" />
+        <StatusMetric label="invalid" value={counts.invalid || 0} tone="bad" />
+      </div>
+      <div className="submission-status-lists">
+        <StatusPullList
+          title="Held for review"
+          emptyText="No PRs are currently visible with kata:review."
+          items={reviewPulls}
+        />
+        <StatusPullList
+          title="Recently invalid"
+          emptyText="No recent submission PRs are visible with kata:invalid."
+          items={invalidPulls}
+        />
+        <StatusApprovalList approvals={approvals} />
+      </div>
+    </section>
+  );
+}
+
+function StatusMetric({ label, value, tone }) {
+  return (
+    <div className={`status-metric status-metric-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function StatusPullList({ title, emptyText, items }) {
+  return (
+    <div className="status-list-card">
+      <strong>{title}</strong>
+      {items.length ? (
+        items.slice(0, 4).map((item) => (
+          <a
+            className="status-list-row"
+            href={item.htmlUrl || undefined}
+            key={`${item.statusLabel}-${item.pullNumber}-${item.author}`}
+            target={item.htmlUrl ? "_blank" : undefined}
+            rel={item.htmlUrl ? "noreferrer" : undefined}
+          >
+            <span>{item.pullNumber ? `#${item.pullNumber}` : "PR"}</span>
+            <small>{item.author || "unknown"}</small>
+          </a>
+        ))
+      ) : (
+        <p>{emptyText}</p>
+      )}
+    </div>
+  );
+}
+
+function StatusApprovalList({ approvals }) {
+  return (
+    <div className="status-list-card">
+      <strong>Maintainer approvals</strong>
+      {approvals.length ? (
+        approvals.slice(0, 4).map((approval) => (
+          <div
+            className="status-list-row"
+            key={`${approval.repo}-${approval.pullNumber}-${approval.approvedAt}`}
+          >
+            <span>{approval.pullNumber ? `#${approval.pullNumber}` : "PR"}</span>
+            <small>{approval.approvedBy || "maintainer"}</small>
+          </div>
+        ))
+      ) : (
+        <p>No review approvals are recorded yet.</p>
+      )}
     </div>
   );
 }
@@ -1338,6 +1426,9 @@ function Leaderboard({ leaderboard }) {
           <span>kings</span>
           <span>submissions</span>
           <span>open</span>
+          <span>pending</span>
+          <span>review</span>
+          <span>invalid</span>
           <span>score</span>
         </div>
         {rows.length ? (
@@ -1358,6 +1449,9 @@ function Leaderboard({ leaderboard }) {
               <span className="lb-num">{row.wins}</span>
               <span className="lb-num">{row.totalSubmissions}</span>
               <span className="lb-num">{row.openSubmissions}</span>
+              <span className="lb-num">{row.pendingSubmissions || 0}</span>
+              <span className="lb-num">{row.reviewSubmissions || 0}</span>
+              <span className="lb-num">{row.invalidSubmissions || 0}</span>
               <strong className="lb-score">
                 {formatNumber(row.gittensorScore ?? row.score)}
               </strong>

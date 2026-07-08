@@ -58,6 +58,7 @@ export async function loadGithubLeaderboard({
       updatedAt: pull.updated_at,
       htmlUrl: pull.html_url,
       author: pull.user?.login || "unknown",
+      labels: normalizeLabelNames(pull.labels),
       winnerEligible: isKataWinnerPull(pull),
       laneKeys,
       submissionPaths: touchedSubmissions
@@ -117,6 +118,7 @@ export function loadGithubCliLeaderboard({ repoSlug, run = execFileSync }) {
         updatedAt: pull.updatedAt || pull.mergedAt || null,
         htmlUrl: pull.url || null,
         author: pull.author?.login || "unknown",
+        labels: normalizeLabelNames(pull.labels),
         winnerEligible: isKataWinnerPull(pull),
         laneKeys,
         submissionPaths: touchedSubmissions
@@ -133,6 +135,7 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
   for (const pull of relevantPulls) {
     const entry = byAuthor.get(pull.author) || createAuthorRow(pull.author);
     entry.totalSubmissions += 1;
+    incrementStatusCounts(entry, pull.labels);
     if (pull.state === "open") {
       entry.openSubmissions += 1;
     } else if (pull.mergedAt && pull.winnerEligible) {
@@ -153,6 +156,7 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
         title: pull.title,
         htmlUrl: pull.htmlUrl,
         state: pull.mergedAt ? "merged" : pull.state,
+        statusLabel: primaryKataStatusLabel(pull.labels),
         updatedAt: pull.updatedAt
       });
     }
@@ -188,8 +192,60 @@ function normalizePullState(state) {
 }
 
 function isKataWinnerPull(pull) {
-  const labels = Array.isArray(pull?.labels) ? pull.labels : [];
-  return labels.some((label) => String(label?.name || "").startsWith("kata:winner:"));
+  const labels = normalizeLabelNames(pull?.labels);
+  return labels.some((label) => label.startsWith("kata:winner:"));
+}
+
+function normalizeLabelNames(labels) {
+  return (Array.isArray(labels) ? labels : [])
+    .map((label) => String(label?.name || label || "").trim())
+    .filter(Boolean);
+}
+
+function incrementStatusCounts(entry, labels) {
+  const status = new Set(normalizeLabelNames(labels));
+  if (status.has("kata:pending")) {
+    entry.pendingSubmissions += 1;
+  }
+  if (status.has("kata:review")) {
+    entry.reviewSubmissions += 1;
+  }
+  if (status.has("kata:invalid")) {
+    entry.invalidSubmissions += 1;
+  }
+  if (status.has("kata:executing")) {
+    entry.executingSubmissions += 1;
+  }
+  if (status.has("kata:stale")) {
+    entry.staleSubmissions += 1;
+  }
+  if (status.has("kata:hold")) {
+    entry.holdSubmissions += 1;
+  }
+  if (status.has("kata:losing")) {
+    entry.losingSubmissions += 1;
+  }
+  if ([...status].some((label) => label.startsWith("kata:winner:"))) {
+    entry.winnerSubmissions += 1;
+  }
+}
+
+function primaryKataStatusLabel(labels) {
+  const status = new Set(normalizeLabelNames(labels));
+  for (const label of [
+    "kata:executing",
+    "kata:review",
+    "kata:pending",
+    "kata:hold",
+    "kata:invalid",
+    "kata:stale",
+    "kata:losing"
+  ]) {
+    if (status.has(label)) {
+      return label;
+    }
+  }
+  return normalizeLabelNames(labels).find((label) => label.startsWith("kata:winner:")) || null;
 }
 
 function emptyLeaderboard(source) {

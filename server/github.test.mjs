@@ -55,6 +55,17 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       files: [{ path: "submissions/sn60__bitsec/miner/davion-knight-20260707-01/agent.py" }]
     },
     {
+      number: 85,
+      title: "feat(sn60): add review miner",
+      state: "OPEN",
+      mergedAt: null,
+      updatedAt: "2026-07-07T18:00:00Z",
+      url: "https://github.com/Autovara/kata/pull/85",
+      author: { login: "reviewer" },
+      labels: [{ name: "kata:review" }],
+      files: [{ path: "submissions/sn60__bitsec/miner/reviewer-20260707-01/agent.py" }]
+    },
+    {
       number: 80,
       title: "docs only",
       state: "CLOSED",
@@ -75,12 +86,17 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
   assert.equal(leaderboard.source, "github-cli");
   assert.deepEqual(
     leaderboard.rows.map((row) => row.author),
-    ["jonathanchang31", "davion-knight"]
+    ["jonathanchang31", "davion-knight", "reviewer"]
   );
   assert.equal(leaderboard.rows[0].wins, 1);
   assert.ok(leaderboard.rows[0].gittensorScore > 0);
   assert.ok(leaderboard.rows[0].gittensorScore <= 1);
-  assert.equal(leaderboard.rows[1].closedSubmissions, 1);
+  const reviewer = leaderboard.rows.find((row) => row.author === "reviewer");
+  const davion = leaderboard.rows.find((row) => row.author === "davion-knight");
+  assert.equal(reviewer.reviewSubmissions, 1);
+  assert.equal(reviewer.recentPulls[0].statusLabel, "kata:review");
+  assert.equal(davion.closedSubmissions, 1);
+  assert.equal(davion.losingSubmissions, 1);
   assert.equal(
     leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,
     "jonathanchang31"

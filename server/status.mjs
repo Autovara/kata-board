@@ -55,6 +55,7 @@ export async function loadBoardStatus(env) {
     activity,
     identityAliases
   );
+  const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   round = enrichRoundKingIdentity(round, leaderboard);
   const lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
@@ -79,8 +80,9 @@ export async function loadBoardStatus(env) {
       validatorQueue: Boolean(validator.queue.available),
       validatorHealth: Boolean(validator.health.configured)
     },
-    overview: buildOverview(lanes, activity, leaderboard, validator),
+    overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus),
     validator,
+    submissionStatus,
     round,
     roundHistory,
     lanes,
@@ -157,6 +159,15 @@ function resolveRoots(env) {
             env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
           ),
           "round-progress.json"
+        )
+    ),
+    reviewApprovalsPath: path.resolve(
+      env.KATA_REVIEW_APPROVALS_PATH ||
+        path.join(
+          path.dirname(
+            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
+          ),
+          "review-approvals.json"
         )
     )
   };
@@ -627,6 +638,7 @@ function loadGithubCliLeaderboardSafe(env) {
 async function loadValidatorStatus(env, roots) {
   const health = await loadValidatorHealth(env.KATA_VALIDATOR_HEALTH_URL);
   const queue = loadQueueStatus(roots.queueStatePath, health.payload?.queue || null);
+  const reviewApprovals = loadReviewApprovals(roots.reviewApprovalsPath);
   const benchmarkExpectedCounts = loadSn60BenchmarkExpectedCounts(roots.sn60BenchmarkFile);
   const visibleJob = queue.activeJob || queue.latestJob;
   const activeEvaluation = loadActiveEvaluationProgress(
@@ -639,11 +651,36 @@ async function loadValidatorStatus(env, roots) {
   return {
     mode: "resident",
     queue,
+    reviewApprovals,
     health,
     activeEvaluation: enrichActiveEvaluationWithPullAuthor(
       activeEvaluation,
       activePullAuthor
     )
+  };
+}
+
+function loadReviewApprovals(reviewApprovalsPath) {
+  const payload = readJsonSafe(reviewApprovalsPath);
+  const approvals = Array.isArray(payload?.approvals) ? payload.approvals : [];
+  const sanitized = approvals
+    .filter((approval) => approval && typeof approval === "object")
+    .map((approval) => ({
+      repo: typeof approval.repo === "string" ? approval.repo : null,
+      pullNumber: numberOrNull(approval.pull_number),
+      submissionId:
+        typeof approval.submission_id === "string" ? approval.submission_id : null,
+      reason: typeof approval.reason === "string" ? approval.reason : null,
+      approvedBy:
+        typeof approval.approved_by === "string" ? approval.approved_by : null,
+      approvedAt:
+        typeof approval.approved_at === "string" ? approval.approved_at : null
+    }))
+    .sort((left, right) => new Date(right.approvedAt || 0) - new Date(left.approvedAt || 0));
+  return {
+    available: Boolean(payload),
+    count: sanitized.length,
+    recent: sanitized.slice(0, 8)
   };
 }
 
@@ -2546,7 +2583,79 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
   };
 }
 
-function buildOverview(lanes, activity, leaderboard, validator) {
+function buildSubmissionStatus(leaderboard, validator) {
+  const rows = Array.isArray(leaderboard?.rows) ? leaderboard.rows : [];
+  const counts = {
+    total: 0,
+    open: 0,
+    pending: 0,
+    review: 0,
+    approvedReview: Number(validator?.reviewApprovals?.count || 0),
+    invalid: 0,
+    executing: 0,
+    stale: 0,
+    hold: 0,
+    losing: 0,
+    winner: 0,
+    closed: 0
+  };
+  const pendingPulls = [];
+  const reviewPulls = [];
+  const invalidPulls = [];
+
+  for (const row of rows) {
+    counts.total += Number(row.totalSubmissions || 0);
+    counts.open += Number(row.openSubmissions || 0);
+    counts.pending += Number(row.pendingSubmissions || 0);
+    counts.review += Number(row.reviewSubmissions || 0);
+    counts.invalid += Number(row.invalidSubmissions || 0);
+    counts.executing += Number(row.executingSubmissions || 0);
+    counts.stale += Number(row.staleSubmissions || 0);
+    counts.hold += Number(row.holdSubmissions || 0);
+    counts.losing += Number(row.losingSubmissions || 0);
+    counts.winner += Number(row.winnerSubmissions || 0);
+    counts.closed += Number(row.closedSubmissions || 0);
+
+    for (const pull of row.recentPulls || []) {
+      const summary = {
+        author: row.author,
+        pullNumber: pull.number || null,
+        title: pull.title || null,
+        htmlUrl: pull.htmlUrl || null,
+        updatedAt: pull.updatedAt || null,
+        statusLabel: pull.statusLabel || null
+      };
+      if (pull.statusLabel === "kata:pending") {
+        pendingPulls.push(summary);
+      } else if (pull.statusLabel === "kata:review") {
+        reviewPulls.push(summary);
+      } else if (pull.statusLabel === "kata:invalid") {
+        invalidPulls.push(summary);
+      }
+    }
+  }
+
+  return {
+    source: leaderboard?.source || "unknown",
+    counts,
+    pendingPulls: sortRecentSummaries(pendingPulls).slice(0, 8),
+    reviewPulls: sortRecentSummaries(reviewPulls).slice(0, 8),
+    invalidPulls: sortRecentSummaries(invalidPulls).slice(0, 8),
+    reviewApprovals: validator?.reviewApprovals || {
+      available: false,
+      count: 0,
+      recent: []
+    }
+  };
+}
+
+function sortRecentSummaries(items) {
+  return [...items].sort(
+    (left, right) => new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0)
+  );
+}
+
+function buildOverview(lanes, activity, leaderboard, validator, submissionStatus) {
   const projectCount = lanes.reduce(
     (accumulator, lane) => accumulator + (lane.projects?.length || 0),
     0
@@ -2575,6 +2684,10 @@ function buildOverview(lanes, activity, leaderboard, validator) {
     totalSubmissions,
     totalGittensorScore: Number(totalGittensorScore.toFixed(4)),
     currentWinnerGittensorScore: Number(currentWinnerGittensorScore.toFixed(4)),
+    submissionPending: submissionStatus.counts.pending,
+    submissionReview: submissionStatus.counts.review,
+    submissionApprovedReview: submissionStatus.counts.approvedReview,
+    submissionInvalid: submissionStatus.counts.invalid,
     validatorPendingJobs: validator.queue.counts.pending,
     validatorRunningJobs: validator.queue.counts.running,
     validatorCompletedJobs: validator.queue.counts.completed,

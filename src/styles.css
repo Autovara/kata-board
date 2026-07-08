@@ -3199,6 +3199,10 @@ html { scroll-behavior: smooth; }
     width: min(100%, 320px);
   }
 
+  .round-lead {
+    white-space: normal;
+  }
+
   .battle-compare > :nth-child(1),
   .battle-compare > :nth-child(2) {
     grid-column: auto;
@@ -3942,6 +3946,12 @@ html { scroll-behavior: smooth; }
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+.round-lead {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .round-empty {
   display: grid;

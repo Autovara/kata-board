@@ -495,6 +495,11 @@ const ROUND_STATE_BANNER = {
     label: "round skipped",
     tone: "warn",
     text: "The round did not run. See the reason below."
+  },
+  failed: {
+    label: "round failed",
+    tone: "bad",
+    text: "The round stopped before validation. See the reason below."
   }
 };
 
@@ -663,10 +668,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
     <div className="round-block">
       <div className="round-block-head">
         <SectionTitle title="Current round" />
-        <p className="section-lead">
-          A round locks every open candidate pull request and scores each one against the
-          reigning king on the same secret-sampled Bitsec problems. The maintainer starts
-          each round; only a candidate that strictly beats the king is promoted.
+        <p className="section-lead round-lead">
+          Live round status: candidates are scored against the current king on the same secret Bitsec problems.
         </p>
       </div>
 
@@ -703,7 +706,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
           </div>
 
           {round.note ? (
-            <div className={`round-note round-note-${state === "skipped" ? "warn" : "info"}`}>
+            <div className={`round-note round-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}>
               {round.note}
             </div>
           ) : null}

@@ -222,7 +222,8 @@ function loadRoundStatus(roundStatusPath) {
     })),
     screenedOut: Array.isArray(status.screened_out) ? status.screened_out : [],
     closedExtras: Array.isArray(status.closed_extras) ? status.closed_extras : [],
-    skippedStale: Array.isArray(status.skipped_stale) ? status.skipped_stale : []
+    skippedStale: Array.isArray(status.skipped_stale) ? status.skipped_stale : [],
+    preflight: status.preflight && typeof status.preflight === "object" ? status.preflight : null
   };
 }
 

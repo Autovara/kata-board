@@ -1434,20 +1434,25 @@ test("exposes the current competition round from round-status.json", async () =>
   assert.equal(status.round.screenedOut[0].pull_number, 6);
 });
 
-test("exposes a skipped round and its note for the dashboard", async () => {
+test("exposes a failed preflight round and its note for the dashboard", async () => {
   const root = makeKataRoot();
   writeJson(root, "round-status.json", {
     schema_version: 1,
-    state: "skipped",
-    note: "Round skipped: the OpenRouter key limit was exceeded.",
+    state: "failed",
+    note: "Round failed preflight: chutes_scoring unavailable.",
+    preflight: {
+      ok: false,
+      checks: [{ name: "chutes_scoring", ok: false, status: 503 }]
+    },
     entrants: [],
   });
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
   });
-  assert.equal(status.round.state, "skipped");
-  assert.equal(status.round.note, "Round skipped: the OpenRouter key limit was exceeded.");
+  assert.equal(status.round.state, "failed");
+  assert.equal(status.round.note, "Round failed preflight: chutes_scoring unavailable.");
+  assert.equal(status.round.preflight.checks[0].status, 503);
   assert.equal(status.round.entrants.length, 0);
 });
 

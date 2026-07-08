@@ -1568,7 +1568,7 @@ function DocMiner({ links }) {
           "No validator scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
           "No hardcoded provider endpoints, API keys, or secret tokens (sk-..., ghp_..., cpk_...).",
           "No model or sampling overrides (model, temperature, top_p, seed); the validator pins and strips them.",
-          "No benchmark answers or dataset leakage tokens (expected_findings, ground_truth, scabench, curated-highs-only).",
+          "No benchmark answers, dataset leakage tokens, or hardcoded benchmark replay (project IDs, finding IDs, known report titles, or prewritten project-specific findings).",
           "No helper files or symlinks; SN60 V1 bundles must be self-contained in agent.py.",
           "No exact copy of the current king bundle."
         ]}
@@ -1624,8 +1624,10 @@ function DocScoring({ selectedLane }) {
       <p>
         Only <strong>static</strong> screening runs before scoring, and it is the
         only thing that can close a PR early. Cheap source-only checks reject
-        no-op stub agents, helper files, leaked benchmark-answer hints, and secret
-        references — no model calls, so no scoring cost is spent. There is no separate
+        no-op stub agents, helper files, leaked benchmark-answer hints, hardcoded
+        benchmark replay, and secret references — no model calls, so no scoring cost
+        is spent. General reusable analysis heuristics are allowed; recognizing a known
+        benchmark project and returning prewritten findings is not. There is no separate
         "screener run": each agent runs once per project when the round scores it,
         and an empty, unparsable, or slow result on a project simply scores 0 for
         that project instead of rejecting the PR. Findings are matched to the
@@ -1774,7 +1776,7 @@ function DocPrivacy() {
         <DocCard title="Lane state" text="Central pack registry, per-lane king, benchmark snapshot, challenge state, and promotion record." />
         <DocCard title="Validator" text="Pinned Bitsec sandbox mirror, scorer, and the validator scoring key — kept separate from miner execution keys." />
         <DocCard title="Dashboard" text="Shows duel metrics, provenance hashes, and fingerprints, not scoring keys or raw benchmark answers." />
-        <DocCard title="Benchmark answers" text="Expected findings live validator-side in the pinned snapshot; agents that embed answer maps are rejected at screening." />
+        <DocCard title="Benchmark answers" text="Expected findings live validator-side in the pinned snapshot; agents that embed answer maps, known project fingerprints, finding IDs, or prewritten project-specific reports are rejected at screening." />
       </DocGrid>
       <DocCallout
         title="Important"

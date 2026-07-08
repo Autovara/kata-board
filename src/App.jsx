@@ -1592,7 +1592,7 @@ function DocMiner({ links }) {
           ["Add one bundle", "Add exactly one directory: submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json. The github-user prefix must match the PR author. You may have only one open PR at a time."],
           ["Validate locally", "Run `kata submission validate` to catch shape and contract errors before you open the PR."],
           ["Open the PR", "Target the default competition branch and touch only your one submission directory."],
-          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending only after it passes. Identity mismatches and concrete replay are closed kata:invalid before pending. Suspicious but non-conclusive cases are held kata:review; maintainers can approve with /kata approve. No scoring happens yet."],
+          ["Intake → pending", "On open/push, kata-bot screens your PR and labels it kata:pending only after it passes. Identity mismatches and concrete replay are closed kata:invalid before pending. Suspicious but non-conclusive cases are held kata:review; maintainers can approve with /kata approve, re-run screening with /kata review, or close with /kata close. No scoring happens yet."],
           ["Round: screen & execute", "When a round runs, it locks the pending PRs, keeps one per contributor, re-screens your locked commit, and labels it kata:executing while it competes."],
           ["Round: score", "Your agent and the king are scored on the same sampled Bitsec projects. Scoring is resilient: a bad, empty, or slow problem is just a 0 for that problem, never a rejection. The king is cached, so it isn't re-run for every candidate."],
           ["Decide & promote", "The top candidate that strictly out-detects the king is merged and becomes the new king. Beat the king but not the top? You stay open (kata:pending) for next round. Didn't beat it? Closed kata:losing."]
@@ -1649,7 +1649,7 @@ function DocMiner({ links }) {
       />
       <DocCallout
         title="Review is a hold, not a score"
-        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round until a maintainer approves with /kata approve or the miner pushes a clean update. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
+        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round until a maintainer approves with /kata approve or the miner pushes a clean update. Maintainers can also re-run screening with /kata review or close the PR with /kata close. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
       />
       <RequirementList
         title="Validation rules"
@@ -1819,7 +1819,7 @@ function DocValidator({ links, selectedLane }) {
         <DocCard title="kata:reward:* (green)" text="Applied only to merged winners. The tier is s, m, l, or xl, based on true positives, improvement over the king, and detection score." />
         <DocCard title="kata:losing (grey)" text="Competed but did not beat the king → closed." />
         <DocCard title="kata:invalid (red)" text="Failed screening, or an extra open PR beyond one-per-contributor → closed." />
-        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. Optional Codex-backed LLM review can add evidence, but only deterministic checks hard-reject. It cannot enter a round until approved with /kata approve or updated cleanly." />
+        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. Optional Codex-backed LLM review can add evidence, but only deterministic checks hard-reject. It cannot enter a round until approved with /kata approve, re-run with /kata review, closed with /kata close, or updated cleanly." />
         <DocCard title="kata:stale (orange)" text="Benched: unchanged since it last competed → push to re-enter." />
         <DocCard title="kata:hold (purple)" text="Won, but the merge is currently blocked → needs attention." />
         <DocCard title="Provenance" text="Every round records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />

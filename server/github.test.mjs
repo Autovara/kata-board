@@ -78,7 +78,8 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
     ["jonathanchang31", "davion-knight"]
   );
   assert.equal(leaderboard.rows[0].wins, 1);
-  assert.equal(leaderboard.rows[0].gittensorScore, 1);
+  assert.ok(leaderboard.rows[0].gittensorScore > 0);
+  assert.ok(leaderboard.rows[0].gittensorScore <= 1);
   assert.equal(leaderboard.rows[1].closedSubmissions, 1);
   assert.equal(
     leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,

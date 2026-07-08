@@ -75,8 +75,8 @@ export async function loadBoardStatus(env) {
     },
     dataSources: {
       filesystem: true,
-      githubLeaderboard: leaderboard.source === "github",
-      eventFeed: leaderboard.source === "events",
+      githubLeaderboard: leaderboardSourceIncludes(leaderboard, "github"),
+      eventFeed: leaderboardSourceIncludes(leaderboard, "events"),
       validatorQueue: Boolean(validator.queue.available),
       validatorHealth: Boolean(validator.health.configured)
     },
@@ -92,6 +92,12 @@ export async function loadBoardStatus(env) {
   };
   cachedAt = Date.now();
   return cachedStatus;
+}
+
+function leaderboardSourceIncludes(leaderboard, sourceName) {
+  return String(leaderboard?.source || "")
+    .split("+")
+    .includes(sourceName);
 }
 
 function readCacheTtlMs(env) {

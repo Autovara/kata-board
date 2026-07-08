@@ -910,6 +910,7 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
   });
 
   assert.equal(status.leaderboard.source, "events+runs");
+  assert.equal(status.dataSources.eventFeed, true);
   const row = status.leaderboard.rows.find((item) => item.author === "alice");
   assert.ok(row);
   assert.equal(row.author, "alice");

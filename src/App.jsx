@@ -1719,7 +1719,7 @@ function DocValidator({ links, selectedLane }) {
         <DocCard title="kata:reward:* (green)" text="Applied only to merged winners. The tier is s, m, l, or xl, based on true positives, improvement over the king, and detection score." />
         <DocCard title="kata:losing (grey)" text="Competed but did not beat the king → closed." />
         <DocCard title="kata:invalid (red)" text="Failed screening, or an extra open PR beyond one-per-contributor → closed." />
-        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. It cannot enter a round until approved with /kata approve-review or updated cleanly." />
+        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. Optional Codex-backed LLM review can add evidence, but only deterministic checks hard-reject. It cannot enter a round until approved with /kata approve-review or updated cleanly." />
         <DocCard title="kata:stale (orange)" text="Benched: unchanged since it last competed → push to re-enter." />
         <DocCard title="kata:hold (purple)" text="Won, but the merge is currently blocked → needs attention." />
         <DocCard title="Provenance" text="Every round records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />

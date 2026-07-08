@@ -142,7 +142,8 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
       entry.wins += 1;
       entry.winnerPulls.push({
         pullNumber: pull.number,
-        mergedAt: pull.mergedAt
+        mergedAt: pull.mergedAt,
+        labels: pull.labels
       });
     } else {
       entry.closedSubmissions += 1;

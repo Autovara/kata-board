@@ -1109,7 +1109,8 @@ test("leaderboard does not split a known PR winner by submission id prefix", asy
   assert.deepEqual(row.winnerPulls, [
     {
       pullNumber: 12,
-      mergedAt: "2026-07-02T01:02:00Z"
+      mergedAt: "2026-07-02T01:02:00Z",
+      labels: ["kata:winner:sn60__bitsec"]
     }
   ]);
 });

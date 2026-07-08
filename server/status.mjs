@@ -2027,7 +2027,8 @@ function loadEventLeaderboard(eventLogPath) {
       entry.wins += 1;
       entry.winnerPulls.push({
         pullNumber: item.pull_number || null,
-        mergedAt: item.created_at
+        mergedAt: item.created_at,
+        labels: item.labels || [`kata:winner:${item.subnet_pack || item.repo_pack || "sn60__bitsec"}`]
       });
       latestLaneWinners.set(laneKey, {
         author,
@@ -2109,7 +2110,7 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
     const entry = byAuthor.get(author) || createAuthorRow(author);
     entry.totalSubmissions = Math.max(entry.totalSubmissions || 0, 1);
     entry.wins += 1;
-    entry.winnerPulls.push({ pullNumber, mergedAt });
+    entry.winnerPulls.push({ pullNumber, mergedAt, labels: ["kata:winner:sn60__bitsec"] });
     entry.lastActivityAt = maxDate(entry.lastActivityAt, mergedAt);
     if (entry.recentPulls.length < 4) {
       entry.recentPulls.push({
@@ -2472,7 +2473,8 @@ function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new M
         entry.winnerPulls = [
           {
             pullNumber: entrant.pull_number || null,
-            mergedAt: activityAt
+            mergedAt: activityAt,
+            labels: entrant.labels || ["kata:winner:sn60__bitsec"]
           }
         ];
       }
@@ -2534,7 +2536,8 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
       if (!knownLaneWinner?.pullNumber) {
         entry.winnerPulls.push({
           pullNumber: null,
-          mergedAt: item.createdAt
+          mergedAt: item.createdAt,
+          labels: item.labels || [`kata:winner:${String(item.laneId || "sn60__bitsec").split(":")[0]}`]
         });
       }
     } else {

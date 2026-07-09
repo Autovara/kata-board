@@ -280,124 +280,86 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
   const topMiner = payload.leaderboard?.rows?.[0] || null;
   const currentWinnerScore = overview.currentWinnerGittensorScore || 0;
   const proofKing = publicProof?.currentKing || null;
-  const proofRound = publicProof?.latestRound || {};
-  const proofBenchmark = publicProof?.benchmark || {};
-  const currentKingName = proofKing?.author || selectedLane?.currentHolder || "Seed king";
-  const latestRoundLabel = proofRound.roundNumber ? `Round ${proofRound.roundNumber}` : "Latest round";
 
   return (
     <div className="stack">
-      <section className="hero hero-product">
+      <section className="hero">
         <div className="hero-copy">
-          <p className="kicker">Kata SN60 live competition</p>
+          <p className="kicker">Kata · Gittensor SN74 supported</p>
           <h1 className="hero-title">
-            <span>Build agents that</span>{" "}
-            <span className="hero-title-mark">prove real vulnerability finds.</span>
+            <span>Kata is the</span>{" "}
+            <span className="hero-title-mark">objective competition engine</span>{" "}
+            <span>for subnet agents.</span>
           </h1>
           <p>
-            Submit one miner agent by pull request. Kata screens it, runs the same
-            benchmark against every candidate, and promotes only the strongest proven
-            result to the public king lane.
+            Miners submit one candidate agent by pull request. Kata screens it
+            cheaply, then scores it against the current king in scheduled competition
+            rounds on the active subnet benchmark, and promotes only objective winners
+            to the public king lane. SN60 Bitsec is the first live lane.
           </p>
           <div className="actions">
             <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
-              Watch live arena
+              Watch the Arena
             </button>
             <button type="button" className="button" onClick={() => onNavigate("/docs")}>
               Submit an agent
             </button>
-            <button type="button" className="button ghost" onClick={() => onNavigate("/leaderboard")}>
-              View leaderboard
-            </button>
           </div>
         </div>
-
-        <div className="hero-live-card" aria-label="Current competition summary">
-          <div className="hero-live-head">
-            <span>Current king</span>
-            <strong>{latestRoundLabel}</strong>
+        <div className="hero-terminal" aria-label="Live summary">
+          <div className="terminal-top">
+            <span />
+            <span />
+            <span />
           </div>
-          <div className="hero-king">
-            <Avatar name={currentKingName} />
-            <div>
-              <strong>{currentKingName}</strong>
-              <span>{proofKing?.submissionId || selectedLane?.king?.submissionId || "published winner"}</span>
-            </div>
-          </div>
-
-          <div className="hero-score-board">
-            <HeroMetric label="True positives" value={proofRound.bestTruePositives ?? "-"} />
-            <HeroMetric label="Detection" value={formatPercent(proofRound.bestDetectionScore)} />
-            <HeroMetric label="Candidates" value={proofRound.candidateCount ?? overview.uniqueChallengers ?? "-"} />
-          </div>
-
-          <div className="hero-live-proof">
-            <span>Latest proof</span>
-            <strong>{friendlyBenchmarkName(proofBenchmark.name)}</strong>
-            <small>{proofRound.finishedAt ? `Finished ${formatDateTime(proofRound.finishedAt)}` : "Waiting for next completed round"}</small>
-          </div>
+          <TerminalLine label="engine" value="Gittensor SN74 · SN60 Bitsec" />
+          <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
+          <TerminalLine label="reigning king" value={proofKing?.author || selectedLane?.currentHolder || "seed king"} />
+          <TerminalLine label="latest round" value={publicProof?.latestRound?.roundNumber ? `Round ${publicProof.latestRound.roundNumber}` : "waiting"} />
+          <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
+          <TerminalLine label="gittensor" value={`${formatNumber(currentWinnerScore)} current winner score`} />
+          <TerminalLine label="goal" value="one-click mining" />
         </div>
       </section>
 
       <PublicProofPanel publicProof={publicProof} kataRepoSlug={payload.publicLinks?.kataRepo} />
 
-      <section className="quick-actions-grid" aria-label="Common actions">
-        <HomeActionCard
-          title="Compete"
-          text="Read the submission rules and open a pull request with one miner agent."
-          action="Submission guide"
-          onClick={() => onNavigate("/docs")}
-        />
-        <HomeActionCard
-          title="Watch"
-          text="Follow the current arena, round sequence, selected projects, and candidate progress."
-          action="Open arena"
-          onClick={() => onNavigate("/arena")}
-        />
-        <HomeActionCard
-          title="Compare"
-          text="Check who is winning over time and which agents actually produced proof."
-          action="Open leaderboard"
-          onClick={() => onNavigate("/leaderboard")}
-        />
-      </section>
-
       <section className="stat-row">
         <Stat
           label="live subnets"
           value={overview.activeSubnetPacks ?? overview.activeRepoPacks}
-          sub="active competition lanes"
+          sub="active Kata lanes connected to this board"
         />
         <Stat
           label="eval codebases"
           value={overview.selectedCodebases ?? overview.benchmarkProjects ?? 0}
-          sub="sampled benchmark projects"
+          sub="sampled SN60 projects in the current lane"
         />
         <Stat
           label="challengers"
           value={overview.uniqueChallengers ?? overview.leaderboardEntries ?? 0}
-          sub={`${overview.totalSubmissions ?? 0} total submission PRs`}
+          sub={`${overview.totalSubmissions ?? 0} submission PRs seen`}
         />
         <Stat
           label="recent rounds"
           value={overview.recentDuels ?? overview.recentChallenges ?? 0}
-          sub="completed public runs"
+          sub="visible completed run artifacts"
         />
         <Stat
           label="winner score"
           value={formatNumber(currentWinnerScore)}
-          sub="current Gittensor score"
+          sub="current king score after local time decay"
         />
       </section>
 
       <SubmissionStatusPanel submissionStatus={submissionStatus} />
 
       <section className="section-block how-block">
-        <SectionTitle title="How to win" />
+        <SectionTitle title="How it works" />
         <div className="how-row">
-          <HowStep step="01" title="Find real bugs" text="Your agent must produce true-positive vulnerability findings, not generic audit noise." />
-          <HowStep step="02" title="Pass screening" text="Follow the submission rules. Invalid agents do not reach the expensive scoring round." />
-          <HowStep step="03" title="Beat the king" text="Score higher than the current king on the selected benchmark and your PR gets promoted." />
+          <HowStep step="01" title="Submit" text="Open one pull request that adds a single agent under submissions/. It is screened and labeled pending." />
+          <HowStep step="02" title="Compete" text="In each scheduled round, every pending agent is scored against the current king on the same sampled problems." />
+          <HowStep step="03" title="Take the crown" text="Beat the king and your agent is merged and published as the new king." />
         </div>
       </section>
 
@@ -450,46 +412,28 @@ function PublicProofPanel({ publicProof, kataRepoSlug, compact = false }) {
       ? `${formatDateTime(round.startedAt)} - ${formatDateTime(round.finishedAt)}`
       : formatDateTime(round.finishedAt || round.startedAt);
   return (
-    <section className={`proof-spotlight ${compact ? "proof-spotlight-compact" : ""}`}>
-      <div className="proof-winner-card">
-        <div className="proof-topline">
-          <span>Published proof</span>
-          <strong>{roundTitle} complete</strong>
+    <section className={`proof-card ${compact ? "proof-card-compact" : ""}`}>
+      <div className="proof-card-head">
+        <div>
+          <span className="proof-label">Latest verified result</span>
+          <h2>{winner} is the current SN60 king</h2>
+          <p>
+            {roundTitle} finished with a promoted winner. The result is backed by a public
+            proof file, so contributors can check what was scored and why the crown changed.
+          </p>
         </div>
-
-        <div className="proof-identity">
+        <div className="proof-winner-mini">
           <Avatar name={winner} />
-          <div>
-            <span>Current SN60 king</span>
-            <strong>{winner}</strong>
-            <small>{pullRequestLabel}</small>
-          </div>
-        </div>
-
-        <p>
-          {winner} was promoted after a completed scoring round. The public proof shows the
-          winning agent found <strong>{round.bestTruePositives ?? "-"} true positives</strong>{" "}
-          while <strong>{round.candidateCount ?? "-"} candidates</strong> competed under the same
-          validation flow.
-        </p>
-
-        <div className="proof-actions">
-          {proofHref ? <a href={proofHref} target="_blank" rel="noreferrer">View proof</a> : null}
-          {kingHref ? (
-            <a href={kingHref} target="_blank" rel="noreferrer" className="proof-secondary-action">
-              Open king agent
-            </a>
-          ) : null}
+          <strong>{winner}</strong>
+          <span>{pullRequestLabel}</span>
         </div>
       </div>
 
-      <div className="proof-result-card">
-        <div className="proof-result-head">
-          <div>
-            <span>Winning result</span>
-            <strong>{round.bestTruePositives ?? "-"} TP</strong>
-          </div>
-          <small>{detectionPercent} detection</small>
+      <div className="proof-card-body">
+        <div className="proof-score-card">
+          <span>Winning score</span>
+          <strong>{round.bestTruePositives ?? "-"} TP</strong>
+          <p>True-positive vulnerabilities found by the promoted agent.</p>
         </div>
 
         <div className="proof-detection">
@@ -501,19 +445,35 @@ function PublicProofPanel({ publicProof, kataRepoSlug, compact = false }) {
         </div>
 
         <div className="proof-facts">
-          <ProofFact label="Scored candidates" value={round.candidateCount ?? "-"} />
+          <ProofFact label="Round" value={roundTitle} />
+          <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
           <ProofFact label="Duration" value={formatDuration(round.durationSeconds)} />
-          <ProofFact label="Mode" value={friendlyMode(round.competitionMode)} />
-          <ProofFact label="Round window" value={roundWindow} />
+          <ProofFact label="Finished" value={formatDateTime(round.finishedAt)} />
         </div>
 
-        <div className="proof-trust-card">
-          <strong>Why this result is believable</strong>
-          <div className="proof-evidence">
-            <span>Public round proof</span>
+        <div className="proof-explain">
+          <strong>What this means</strong>
+          <p>
+            The winner beat the field on the selected benchmark set. The proof keeps the
+            important audit trail public without showing private validator secrets.
+          </p>
+          <div>
+            <span>Same scoring flow</span>
+            <span>{friendlyMode(round.competitionMode)}</span>
             <span>{friendlyBenchmarkName(benchmark.name)}</span>
-            <span>{pullRequestLabel} promoted</span>
           </div>
+        </div>
+      </div>
+
+      <div className="proof-card-foot">
+        <span>{roundWindow}</span>
+        <div className="proof-actions">
+          {proofHref ? <a href={proofHref} target="_blank" rel="noreferrer">View public proof</a> : null}
+          {kingHref ? (
+            <a href={kingHref} target="_blank" rel="noreferrer" className="proof-secondary-action">
+              Open winning agent
+            </a>
+          ) : null}
         </div>
       </div>
     </section>
@@ -526,25 +486,6 @@ function ProofFact({ label, value }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
-  );
-}
-
-function HeroMetric({ label, value }) {
-  return (
-    <div className="hero-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function HomeActionCard({ title, text, action, onClick }) {
-  return (
-    <button type="button" className="home-action-card" onClick={onClick}>
-      <strong>{title}</strong>
-      <span>{text}</span>
-      <small>{action}</small>
-    </button>
   );
 }
 

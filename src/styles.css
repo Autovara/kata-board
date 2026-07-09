@@ -3819,115 +3819,110 @@ html { scroll-behavior: smooth; }
 
 .public-proof-card {
   display: grid;
-  gap: 22px;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(185, 255, 93, 0.22);
-  border-radius: 24px;
-  padding: 24px;
+  grid-template-columns: minmax(280px, 1.15fr) minmax(360px, 0.85fr);
+  gap: 20px;
+  align-items: stretch;
+  border: 1px solid rgba(185, 255, 93, 0.18);
+  border-radius: 18px;
+  padding: 18px;
   background:
-    radial-gradient(circle at 8% 10%, rgba(185, 255, 93, 0.14), transparent 32%),
-    radial-gradient(circle at 100% 0%, rgba(37, 208, 171, 0.16), transparent 38%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%),
-    rgba(16, 19, 16, 0.88);
+    linear-gradient(135deg, rgba(185, 255, 93, 0.08), transparent 42%),
+    rgba(16, 19, 16, 0.9);
 }
 
-.proof-hero-main {
-  max-width: 920px;
+.proof-main {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  padding: 4px 0;
 }
 
-.proof-hero-main h2,
-.winners-proof-head h2 {
+.proof-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.proof-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid rgba(185, 255, 93, 0.42);
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--green);
+  background: rgba(185, 255, 93, 0.08);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.proof-muted {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+.proof-main h2 {
   margin: 0;
-  max-width: 960px;
-  font-size: clamp(32px, 5vw, 64px);
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  max-width: 720px;
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
 
-.proof-hero-main p,
-.winners-proof-head p {
-  margin: 14px 0 0;
-  max-width: 760px;
+.proof-main p {
+  margin: 0;
+  max-width: 700px;
   color: var(--soft);
-  font-size: 16px;
   line-height: 1.55;
 }
 
-.proof-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.proof-chips span {
-  border: 1px solid rgba(244, 247, 239, 0.14);
-  border-radius: 999px;
-  padding: 8px 11px;
-  color: var(--soft);
-  background: rgba(244, 247, 239, 0.06);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-}
-
-.proof-scoreboard {
-  display: grid;
-  grid-template-columns: 1.15fr repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.proof-score-card {
-  min-height: 128px;
-  display: grid;
-  align-content: end;
-  gap: 8px;
-  border: 1px solid rgba(244, 247, 239, 0.11);
-  border-radius: 18px;
-  padding: 16px;
-  background: rgba(8, 9, 8, 0.26);
-}
-
-.proof-score-card strong {
+.proof-main p strong {
   color: var(--text);
-  font-size: clamp(30px, 4vw, 48px);
-  line-height: 0.95;
-  letter-spacing: -0.04em;
+}
+
+.proof-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.proof-metric {
+  min-height: 96px;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  border: 1px solid rgba(244, 247, 239, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(8, 9, 8, 0.28);
+}
+
+.proof-metric-highlight {
+  border-color: rgba(185, 255, 93, 0.38);
+  background:
+    linear-gradient(135deg, rgba(185, 255, 93, 0.15), transparent 58%),
+    rgba(8, 9, 8, 0.32);
+}
+
+.proof-metric strong {
+  color: var(--text);
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1;
+  letter-spacing: -0.035em;
   overflow-wrap: anywhere;
 }
 
-.proof-score-card span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.proof-score-primary {
-  border-color: rgba(185, 255, 93, 0.38);
-  background:
-    linear-gradient(135deg, rgba(185, 255, 93, 0.17), transparent 52%),
-    rgba(8, 9, 8, 0.35);
-}
-
-.proof-score-primary strong {
+.proof-metric-highlight strong {
   color: var(--green);
 }
 
-.proof-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.proof-summary-grid > div {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.proof-summary-grid span {
-  display: block;
+.proof-metric span,
+.proof-context span {
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
@@ -3935,70 +3930,63 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.06em;
 }
 
-.proof-summary-grid strong {
-  display: block;
-  margin-top: 7px;
-  color: var(--text);
-  font-size: 18px;
-  overflow-wrap: anywhere;
-}
-
-.proof-summary-grid small {
-  display: block;
-  margin-top: 5px;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-.public-proof-head {
+.proof-context {
+  grid-column: 1 / -1;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
 }
 
-.public-proof-head .section-title {
-  margin-bottom: 8px;
+.proof-context span {
+  border: 1px solid rgba(244, 247, 239, 0.1);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(244, 247, 239, 0.045);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-.public-proof-head p {
-  margin: 0;
-  max-width: 780px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.public-proof-links {
+.proof-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.public-proof-links a {
+.proof-actions a {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(185, 255, 93, 0.34);
+  justify-content: center;
+  min-height: 40px;
+  border: 1px solid rgba(185, 255, 93, 0.38);
   border-radius: 999px;
-  padding: 9px 13px;
+  padding: 10px 14px;
   color: var(--green);
   background: rgba(185, 255, 93, 0.08);
   font-weight: 700;
   text-decoration: none;
 }
 
-.public-proof-links a:hover {
+.proof-actions a:hover {
   border-color: rgba(185, 255, 93, 0.6);
   background: rgba(185, 255, 93, 0.14);
 }
 
-.winner-proof-layout {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.55fr) minmax(0, 1.45fr);
-  gap: 22px;
-  align-items: start;
+.proof-secondary-action {
+  color: var(--soft) !important;
+  border-color: rgba(244, 247, 239, 0.16) !important;
+  background: rgba(244, 247, 239, 0.045) !important;
 }
 
-.winner-proof-scoreboard {
+.winners-proof-card {
+  grid-template-columns: minmax(280px, 0.85fr) minmax(360px, 1.15fr);
+}
+
+.winners-proof-card .miner-identity-large {
+  margin: 4px 0;
+}
+
+.winners-proof-metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -4065,9 +4053,13 @@ html { scroll-behavior: smooth; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .proof-scoreboard,
-  .proof-summary-grid,
-  .winner-proof-layout {
+  .public-proof-card,
+  .winners-proof-card {
+    grid-template-columns: 1fr;
+  }
+
+  .proof-metrics,
+  .winners-proof-metrics {
     grid-template-columns: 1fr;
   }
 

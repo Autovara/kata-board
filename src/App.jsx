@@ -402,70 +402,55 @@ function PublicProofPanel({ publicProof, kataRepoSlug }) {
   const winner = round.winnerAuthor || king.author || "current king";
   return (
     <section className="public-proof-card">
-      <div className="proof-hero-main">
-        <p className="kicker">Public result</p>
-        <h2>{roundTitle} promoted {winner}</h2>
+      <div className="proof-main">
+        <div className="proof-title-row">
+          <span className="proof-pill">Verified public result</span>
+          <span className="proof-muted">{roundTitle}</span>
+        </div>
+        <h2>Current SN60 king: {winner}</h2>
         <p>
-          A completed Kata round selected the current SN60 king. The public proof is
-          committed in the Kata repository, so this result does not depend on private bot logs.
+          {winner} won {roundTitle.toLowerCase()} with{" "}
+          <strong>{round.bestTruePositives ?? "-"} true positives</strong> across{" "}
+          <strong>{round.candidateCount ?? "-"} candidates</strong>. The result is backed by
+          a public proof file in the Kata repository.
         </p>
-        <div className="proof-chips">
-          <span>{friendlyMode(round.competitionMode)}</span>
-          <span>{friendlyBenchmarkName(benchmark.name)}</span>
-          <span>{formatDateTime(round.finishedAt)}</span>
+        <div className="proof-actions">
+          {proofHref ? (
+            <a href={proofHref} target="_blank" rel="noreferrer">
+              View proof
+            </a>
+          ) : null}
+          {kingHref ? (
+            <a href={kingHref} target="_blank" rel="noreferrer" className="proof-secondary-action">
+              Open king agent
+            </a>
+          ) : null}
         </div>
       </div>
 
-      <div className="proof-scoreboard" aria-label="Latest public result">
-        <div className="proof-score-card proof-score-primary">
-          <strong>{round.bestTruePositives != null ? round.bestTruePositives : "-"}</strong>
-          <span>true positives</span>
-        </div>
-        <div className="proof-score-card">
-          <strong>{formatPercent(round.bestDetectionScore)}</strong>
-          <span>detection score</span>
-        </div>
-        <div className="proof-score-card">
-          <strong>{round.candidateCount ?? "-"}</strong>
-          <span>candidates</span>
-        </div>
-        <div className="proof-score-card">
-          <strong>{formatDuration(round.durationSeconds)}</strong>
-          <span>round duration</span>
-        </div>
+      <div className="proof-metrics" aria-label="Latest public result">
+        <ProofMetric label="True positives" value={round.bestTruePositives ?? "-"} highlight />
+        <ProofMetric label="Detection" value={formatPercent(round.bestDetectionScore)} />
+        <ProofMetric label="Candidates" value={round.candidateCount ?? "-"} />
+        <ProofMetric label="Duration" value={formatDuration(round.durationSeconds)} />
       </div>
 
-      <div className="proof-summary-grid">
-        <div>
-          <span>winner</span>
-          <strong>{winner}</strong>
-          <small>{king.submissionId || round.winnerSubmissionId || "published king"}</small>
-        </div>
-        <div>
-          <span>result</span>
-          <strong>{humanizeOutcome(round.outcome || "completed")}</strong>
-          <small>{round.winnerPullRequest ? `PR #${round.winnerPullRequest}` : "round winner"}</small>
-        </div>
-        <div>
-          <span>benchmark</span>
-          <strong>{friendlyBenchmarkName(benchmark.name)}</strong>
-          <small>same selected projects for every candidate</small>
-        </div>
-      </div>
-
-      <div className="public-proof-links">
-        {proofHref ? (
-          <a href={proofHref} target="_blank" rel="noreferrer">
-            View public proof
-          </a>
-        ) : null}
-        {kingHref ? (
-          <a href={kingHref} target="_blank" rel="noreferrer">
-            Open current king
-          </a>
-        ) : null}
+      <div className="proof-context">
+        <span>{friendlyMode(round.competitionMode)}</span>
+        <span>{friendlyBenchmarkName(benchmark.name)}</span>
+        <span>Finished {formatDateTime(round.finishedAt)}</span>
+        {round.winnerPullRequest ? <span>PR #{round.winnerPullRequest}</span> : null}
       </div>
     </section>
+  );
+}
+
+function ProofMetric({ label, value, highlight = false }) {
+  return (
+    <div className={`proof-metric ${highlight ? "proof-metric-highlight" : ""}`}>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
   );
 }
 
@@ -1504,50 +1489,36 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
       />
 
       {proofKing ? (
-        <section className="section-block public-proof-card">
-          <div className="public-proof-head winners-proof-head">
-            <div>
-              <p className="kicker">Current king</p>
-              <h2>{proofKing.author || "Current king"}</h2>
-              <p>
-                Published from {proofRound?.roundNumber ? `Round ${proofRound.roundNumber}` : "the latest round"}
-                {proofKing.sourcePullRequest ? ` after PR #${proofKing.sourcePullRequest} won.` : "."}
-              </p>
+        <section className="public-proof-card winners-proof-card">
+          <div className="proof-main">
+            <div className="proof-title-row">
+              <span className="proof-pill">Current king</span>
+              <span className="proof-muted">{proofRound?.roundNumber ? `Round ${proofRound.roundNumber}` : "Latest round"}</span>
             </div>
-            <Status label="proof-backed" tone="ok" />
-          </div>
-          <div className="winner-proof-layout">
             <MinerIdentity
               name={proofKing.author || "current king"}
               sub={proofKing.submissionId || "published king"}
               size="large"
             />
-            <div className="proof-scoreboard winner-proof-scoreboard">
-              <div className="proof-score-card proof-score-primary">
-                <strong>{proofRound?.bestTruePositives ?? "-"}</strong>
-                <span>true positives</span>
+            <p>
+              {proofKing.author || "The current king"} is the active SN60 king.
+              {proofKing.sourcePullRequest ? ` It came from PR #${proofKing.sourcePullRequest}.` : ""}
+            </p>
+            {proofHref ? (
+              <div className="proof-actions">
+                <a href={proofHref} target="_blank" rel="noreferrer">
+                  View proof
+                </a>
               </div>
-              <div className="proof-score-card">
-                <strong>{formatPercent(proofRound?.bestDetectionScore)}</strong>
-                <span>detection score</span>
-              </div>
-              <div className="proof-score-card">
-                <strong>{proofRound?.candidateCount ?? "-"}</strong>
-                <span>candidates</span>
-              </div>
-              <div className="proof-score-card">
-                <strong>{friendlyBenchmarkName(proofBenchmark?.name)}</strong>
-                <span>benchmark</span>
-              </div>
-            </div>
+            ) : null}
           </div>
-          {proofHref ? (
-            <div className="public-proof-links">
-              <a href={proofHref} target="_blank" rel="noreferrer">
-                View public proof
-              </a>
-            </div>
-          ) : null}
+
+          <div className="proof-metrics winners-proof-metrics">
+            <ProofMetric label="True positives" value={proofRound?.bestTruePositives ?? "-"} highlight />
+            <ProofMetric label="Detection" value={formatPercent(proofRound?.bestDetectionScore)} />
+            <ProofMetric label="Candidates" value={proofRound?.candidateCount ?? "-"} />
+            <ProofMetric label="Benchmark" value={friendlyBenchmarkName(proofBenchmark?.name)} />
+          </div>
         </section>
       ) : null}
 

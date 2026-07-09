@@ -154,27 +154,13 @@ body {
   }
 }
 
-@keyframes dashboard-title-signal {
+@keyframes dashboard-title-live-ink {
   0%,
   100% {
     background-position: 0% 50%;
   }
   50% {
     background-position: 100% 50%;
-  }
-}
-
-@keyframes dashboard-title-dot {
-  0%,
-  100% {
-    opacity: 0.42;
-    transform: scale(0.88);
-    box-shadow: 0 0 0 0 rgba(185, 255, 93, 0);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 0 0 8px rgba(185, 255, 93, 0.08);
   }
 }
 
@@ -4094,45 +4080,30 @@ html { scroll-behavior: smooth; }
   line-height: 1.04;
   letter-spacing: -0.032em;
   font-weight: 800;
-}
-
-.dashboard-hero-title::after {
-  content: "";
-  display: inline-block;
-  width: 0.16em;
-  height: 0.16em;
-  margin-left: 0.18em;
-  margin-bottom: 0.13em;
-  border-radius: 999px;
-  background: var(--green);
-  vertical-align: baseline;
-  animation: dashboard-title-dot 2.4s ease-in-out 900ms infinite;
+  color: transparent;
+  background: linear-gradient(
+    105deg,
+    var(--text) 0%,
+    var(--text) 32%,
+    var(--green) 43%,
+    var(--cyan) 51%,
+    var(--text) 63%,
+    var(--text) 100%
+  );
+  background-size: 245% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation:
+    dashboard-title-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    dashboard-title-live-ink 7.2s ease-in-out 900ms infinite;
 }
 
 .dashboard-hero-title > span {
-  display: inline-block;
-  opacity: 0;
-  animation: dashboard-title-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.dashboard-hero-title > span:nth-child(2) {
-  animation-delay: 80ms;
-}
-
-.dashboard-hero-title > span:nth-child(3) {
-  animation-delay: 150ms;
+  display: inline;
 }
 
 .dashboard-hero-title-mark {
-  color: transparent;
-  background: linear-gradient(90deg, var(--green), #f4f7ef, var(--cyan), var(--green));
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  text-shadow: none;
-  animation:
-    dashboard-title-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both,
-    dashboard-title-signal 5.4s ease-in-out 900ms infinite;
+  font-weight: 850;
 }
 
 .dashboard-hero-copy p {

@@ -324,6 +324,12 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
 
       <PublicProofPanel publicProof={publicProof} kataRepoSlug={payload.publicLinks?.kataRepo} />
 
+      <KataShowcase
+        overview={overview}
+        publicProof={publicProof}
+        onNavigate={onNavigate}
+      />
+
       <section className="stat-row">
         <Stat
           label="live subnets"
@@ -395,7 +401,6 @@ function PublicProofPanel({ publicProof, kataRepoSlug, compact = false }) {
   }
   const round = publicProof.latestRound || {};
   const king = publicProof.currentKing || {};
-  const benchmark = publicProof.benchmark || {};
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const kingHref = proofFileLink(king.path, kataRepoSlug);
   const roundTitle = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
@@ -464,6 +469,78 @@ function PublicProofPanel({ publicProof, kataRepoSlug, compact = false }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function KataShowcase({ overview, publicProof, onNavigate }) {
+  const round = publicProof?.latestRound || {};
+  const king = publicProof?.currentKing || {};
+  const projectCount = overview.selectedCodebases ?? overview.benchmarkProjects ?? 6;
+  const winner = round.winnerAuthor || king.author || "current king";
+  return (
+    <section className="showcase-grid" aria-label="Kata competition proof">
+      <article className="showcase-card showcase-card-wide">
+        <VisualArt type="arena" />
+        <div>
+          <span className="showcase-kicker">Same arena</span>
+          <h2>Every candidate faces the same selected benchmark set.</h2>
+          <p>
+            Kata turns miner submissions into a visible competition: one round,
+            one sampled problem set, one promoted winner.
+          </p>
+          <button type="button" className="showcase-link" onClick={() => onNavigate("/arena")}>
+            Watch the arena
+          </button>
+        </div>
+      </article>
+
+      <article className="showcase-card">
+        <VisualArt type="proof" />
+        <span className="showcase-kicker">Proof result</span>
+        <h3>{round.bestTruePositives ?? "-"} true positives</h3>
+        <p>Latest promoted result from public round proof.</p>
+      </article>
+
+      <article className="showcase-card">
+        <VisualArt type="crown" />
+        <span className="showcase-kicker">Current king</span>
+        <h3>{winner}</h3>
+        <p>{projectCount} benchmark projects keep the crown earned, not claimed.</p>
+      </article>
+    </section>
+  );
+}
+
+function VisualArt({ type }) {
+  return (
+    <div className={`visual-art visual-art-${type}`} aria-hidden="true">
+      <div className="visual-orb visual-orb-one" />
+      <div className="visual-orb visual-orb-two" />
+      {type === "arena" ? (
+        <div className="visual-window">
+          <span />
+          <span />
+          <span />
+          <strong>candidate</strong>
+          <i />
+          <strong>king</strong>
+        </div>
+      ) : null}
+      {type === "proof" ? (
+        <div className="visual-radar">
+          <span />
+          <span />
+          <span />
+          <strong>TP</strong>
+        </div>
+      ) : null}
+      {type === "crown" ? (
+        <div className="visual-crown">
+          <span>♔</span>
+          <i />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1506,6 +1583,8 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
         text="Each live subnet keeps one current king — the best agent so far. Beat it in the Arena to take its place."
       />
 
+      <WinnerShowcase publicProof={publicProof} lanes={lanes} kataRepoSlug={kataRepoSlug} />
+
       <PublicProofPanel publicProof={publicProof} kataRepoSlug={kataRepoSlug} compact />
 
       <section className="winner-grid">
@@ -1544,6 +1623,39 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
         )}
       </section>
     </div>
+  );
+}
+
+function WinnerShowcase({ publicProof, lanes, kataRepoSlug }) {
+  const round = publicProof?.latestRound || {};
+  const king = publicProof?.currentKing || {};
+  const lane = lanes[0] || {};
+  const winner = king.author || lane.currentHolder || "Seed king";
+  const agentHref = proofFileLink(king.path, kataRepoSlug) || (lane.id ? kingAgentLink(lane, kataRepoSlug) : null);
+  return (
+    <section className="winner-showcase">
+      <div className="winner-showcase-art">
+        <VisualArt type="crown" />
+      </div>
+      <div className="winner-showcase-copy">
+        <span className="showcase-kicker">Active crown holder</span>
+        <h2>{winner}</h2>
+        <p>
+          The current king is the latest agent promoted by public scoring proof.
+          Challenge it with a stronger miner and take the lane.
+        </p>
+        <div className="winner-showcase-metrics">
+          <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
+          <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
+          <ProofFact label="Round" value={round.roundNumber ? `Round ${round.roundNumber}` : "-"} />
+        </div>
+        {typeof agentHref === "string" && agentHref ? (
+          <a className="showcase-link showcase-link-anchor" href={agentHref} target="_blank" rel="noreferrer">
+            Open winning agent
+          </a>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

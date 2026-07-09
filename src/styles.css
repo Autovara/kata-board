@@ -4429,15 +4429,20 @@ html { scroll-behavior: smooth; }
 
 .winners-page {
   display: grid;
-  justify-items: center;
-  align-items: center;
-  min-height: calc(100vh - 150px);
+  gap: 18px;
+}
+
+.king-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+  align-items: start;
 }
 
 .king-card {
   display: grid;
   justify-items: center;
-  width: min(560px, 100%);
+  min-width: 0;
   border: 1px solid rgba(185, 255, 93, 0.22);
   border-radius: 28px;
   background:
@@ -4453,7 +4458,7 @@ html { scroll-behavior: smooth; }
   justify-items: center;
   gap: 14px;
   width: 100%;
-  padding: clamp(24px, 3vw, 34px);
+  padding: clamp(22px, 2.4vw, 30px);
   text-align: center;
 }
 
@@ -4480,7 +4485,7 @@ html { scroll-behavior: smooth; }
 .king-card-identity h1 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(30px, 4.5vw, 50px);
+  font-size: clamp(28px, 3.5vw, 42px);
   line-height: 1;
   letter-spacing: -0.04em;
   overflow-wrap: anywhere;
@@ -4502,7 +4507,7 @@ html { scroll-behavior: smooth; }
 }
 
 .king-card-copy {
-  max-width: 760px;
+  max-width: 440px;
   font-size: 15px;
 }
 
@@ -4720,13 +4725,11 @@ html { scroll-behavior: smooth; }
     min-height: 260px;
   }
 
-  .king-card {
-    min-height: 640px;
+  .king-grid {
+    grid-template-columns: 1fr;
   }
 
   .king-card-body {
-    width: calc(100% - 24px);
-    margin: 160px auto 12px;
     padding: 18px;
   }
 

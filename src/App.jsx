@@ -1540,67 +1540,90 @@ function Arena({
 function Winners({ lanes, kataRepoSlug, publicProof }) {
   const round = publicProof?.latestRound || {};
   const king = publicProof?.currentKing || {};
-  const primaryLane = lanes[0] || {};
-  const winner = king.author || primaryLane.currentHolder || "Seed king";
+  const activePack = publicProof?.activePack || publicProof?.active_pack;
+  const activeLane =
+    lanes.find((lane) => lane.subnetPack === activePack || lane.repoPack === activePack) ||
+    lanes[0] ||
+    {};
+  const visibleLanes = lanes.length ? lanes : [activeLane];
+  return (
+    <section className="winners-page">
+      <div className="king-grid">
+        {visibleLanes.map((lane, index) => (
+          <KingCard
+            key={lane.id || activePack || index}
+            lane={lane}
+            kataRepoSlug={kataRepoSlug}
+            publicProof={index === 0 ? publicProof : null}
+            round={index === 0 ? round : {}}
+            king={index === 0 ? king : {}}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function KingCard({ lane, kataRepoSlug, publicProof, round, king }) {
+  const winner = king.author || lane.currentHolder || "Seed king";
   const packName = formatPackLabel(
     publicProof?.activePack ||
       publicProof?.active_pack ||
-      primaryLane.subnetPack ||
-      primaryLane.repoPack ||
-      primaryLane.repoName ||
+      lane.subnetPack ||
+      lane.repoPack ||
+      lane.repoName ||
       "SN60 Bitsec"
   );
   const agentHref =
     proofFileLink(king.path, kataRepoSlug) ||
-    (primaryLane.id ? kingAgentLink(primaryLane, kataRepoSlug) : null);
+    (lane.id ? kingAgentLink(lane, kataRepoSlug) : null);
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const roundLabel = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
+  const mode = lane.mode || publicProof?.activeMode || publicProof?.active_mode || "miner";
   return (
-    <section className="winners-page">
-      <article className="king-card">
-        <div className="king-card-body">
-          <div className="king-card-crown" aria-hidden="true">
-            ♔
-          </div>
-          <div className="king-card-identity">
-            <Avatar name={winner} />
-            <div>
-              <h1>{winner}</h1>
-              <p>{king.submissionId || primaryLane.king?.submissionId || "current king"}</p>
-            </div>
-          </div>
-          <div className="king-card-tags">
-            <span>{packName}</span>
-            <span>{primaryLane.mode || publicProof?.activeMode || publicProof?.active_mode || "miner"}</span>
-            <Status label={primaryLane.king?.seeded ? "seed king" : "promoted"} tone={primaryLane.king?.seeded ? "neutral" : "ok"} />
-          </div>
-          <p className="king-card-copy">
-            {winner} is the published {packName} miner agent that currently owns the lane.
-            The crown comes from Kata scoring proof, not review opinion.
-          </p>
-          <div className="king-card-facts">
-            <ProofFact label="Subnet" value={packName} />
-            <ProofFact label="Round" value={roundLabel} />
-            <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
-            <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
-            <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
-            <ProofFact label="Promoted" value={formatDateTime(king.promotedAt || primaryLane.king?.updatedAt)} />
-          </div>
-          <div className="king-card-actions">
-            {typeof agentHref === "string" && agentHref ? (
-              <a className="button primary" href={agentHref} target="_blank" rel="noreferrer">
-                Open king agent
-              </a>
-            ) : null}
-            {typeof proofHref === "string" && proofHref ? (
-              <a className="button" href={proofHref} target="_blank" rel="noreferrer">
-                View proof
-              </a>
-            ) : null}
+    <article className="king-card">
+      <div className="king-card-body">
+        <div className="king-card-crown" aria-hidden="true">
+          ♔
+        </div>
+        <div className="king-card-identity">
+          <Avatar name={winner} />
+          <div>
+            <h1>{winner}</h1>
+            <p>{king.submissionId || lane.king?.submissionId || "current king"}</p>
           </div>
         </div>
-      </article>
-    </section>
+        <div className="king-card-tags">
+          <span>{packName}</span>
+          <span>{mode}</span>
+          <Status label={lane.king?.seeded ? "seed king" : "promoted"} tone={lane.king?.seeded ? "neutral" : "ok"} />
+        </div>
+        <p className="king-card-copy">
+          {winner} is the published {packName} miner agent that currently owns the lane.
+          The crown comes from Kata scoring proof, not review opinion.
+        </p>
+        <div className="king-card-facts">
+          <ProofFact label="Subnet" value={packName} />
+          <ProofFact label="Round" value={roundLabel} />
+          <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
+          <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
+          <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
+          <ProofFact label="Promoted" value={formatDateTime(king.promotedAt || lane.king?.updatedAt)} />
+        </div>
+        <div className="king-card-actions">
+          {typeof agentHref === "string" && agentHref ? (
+            <a className="button primary" href={agentHref} target="_blank" rel="noreferrer">
+              Open king agent
+            </a>
+          ) : null}
+          {typeof proofHref === "string" && proofHref ? (
+            <a className="button" href={proofHref} target="_blank" rel="noreferrer">
+              View proof
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </article>
   );
 }
 

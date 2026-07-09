@@ -318,9 +318,10 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
 function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
   const round = publicProof?.latestRound || {};
   const king = publicProof?.currentKing || {};
-  const currentWinnerScore = overview.currentWinnerGittensorScore || 0;
   const projectCount = overview.selectedCodebases ?? overview.benchmarkProjects ?? 0;
   const kingName = king.author || selectedLane?.currentHolder || "seed king";
+  const bestTp = round.bestTruePositives ?? "-";
+  const candidateCount = round.candidateCount ?? overview.uniqueChallengers ?? "-";
   return (
     <section className="dashboard-hero">
       <div className="dashboard-hero-copy">
@@ -350,7 +351,8 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
           <DashboardMiniMetric label="King" value={kingName} />
           <DashboardMiniMetric label="Round" value={round.roundNumber ? `Round ${round.roundNumber}` : "waiting"} />
           <DashboardMiniMetric label="Projects" value={projectCount || "-"} />
-          <DashboardMiniMetric label="Score" value={formatNumber(currentWinnerScore)} />
+          <DashboardMiniMetric label="Candidates" value={candidateCount} />
+          <DashboardMiniMetric label="Best TP" value={bestTp} />
         </div>
       </div>
     </section>

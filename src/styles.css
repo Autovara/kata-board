@@ -101,6 +101,48 @@ body {
   }
 }
 
+@keyframes dashboard-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dashboard-ambient-glow {
+  0%,
+  100% {
+    opacity: 0.44;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translate3d(12px, -10px, 0) scale(1.04);
+  }
+}
+
+@keyframes dashboard-live-scan {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes dashboard-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.01);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.025);
+  }
+}
+
 button {
   font: inherit;
 }
@@ -110,7 +152,7 @@ button {
 }
 
 .page {
-  width: min(1180px, calc(100vw - 32px));
+  width: min(1420px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 22px 0 64px;
   animation: page-rise 420ms ease-out both;
@@ -3944,7 +3986,8 @@ html { scroll-behavior: smooth; }
 
 .dashboard-page {
   display: grid;
-  gap: 30px;
+  gap: 24px;
+  width: 100%;
 }
 
 .dashboard-hero,
@@ -3958,45 +4001,81 @@ html { scroll-behavior: smooth; }
   background:
     linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent 42%),
     rgba(16, 19, 16, 0.84);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.2);
+  animation: dashboard-reveal 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dashboard-proof {
+  animation-delay: 90ms;
+}
+
+.dashboard-flow {
+  animation-delay: 170ms;
+}
+
+.dashboard-ops {
+  animation-delay: 250ms;
 }
 
 .dashboard-hero {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
-  gap: 28px;
+  grid-template-columns: minmax(420px, 0.95fr) minmax(520px, 1.05fr);
+  gap: clamp(24px, 3vw, 42px);
   align-items: center;
-  min-height: 540px;
-  padding: clamp(24px, 4vw, 42px);
+  min-height: 500px;
+  padding: clamp(24px, 3.4vw, 46px);
   background:
-    radial-gradient(circle at 20% 16%, rgba(185, 255, 93, 0.18), transparent 34%),
-    radial-gradient(circle at 86% 8%, rgba(37, 208, 171, 0.12), transparent 30%),
+    radial-gradient(circle at 20% 16%, rgba(185, 255, 93, 0.14), transparent 34%),
+    radial-gradient(circle at 86% 8%, rgba(37, 208, 171, 0.11), transparent 30%),
     linear-gradient(145deg, rgba(20, 25, 20, 0.96), rgba(8, 9, 8, 0.76));
+}
+
+.dashboard-hero::before {
+  content: "";
+  position: absolute;
+  width: 460px;
+  height: 460px;
+  right: 8%;
+  top: -160px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(185, 255, 93, 0.18), transparent 62%);
+  filter: blur(10px);
+  pointer-events: none;
+  animation: dashboard-ambient-glow 8s ease-in-out infinite;
+}
+
+.dashboard-hero-copy {
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-hero-copy h1 {
   margin: 0;
-  max-width: 860px;
+  max-width: 760px;
   text-wrap: balance;
-  font-size: clamp(42px, 6.2vw, 76px);
-  line-height: 1;
-  letter-spacing: -0.045em;
+  font-size: clamp(36px, 4.7vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.032em;
+  font-weight: 800;
 }
 
 .dashboard-hero-copy p {
-  max-width: 660px;
+  max-width: 620px;
   color: var(--soft);
-  font-size: clamp(16px, 1.45vw, 19px);
-  line-height: 1.58;
+  font-size: clamp(15px, 1.2vw, 17px);
+  line-height: 1.62;
 }
 
 .dashboard-hero-visual {
   position: relative;
+  z-index: 1;
 }
 
 .dashboard-hero-visual .asset-image {
-  min-height: 420px;
+  min-height: 400px;
   border-radius: 24px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
 }
 
 .dashboard-live-panel {
@@ -4005,7 +4084,7 @@ html { scroll-behavior: smooth; }
   right: 18px;
   bottom: 18px;
   display: grid;
-  grid-template-columns: auto repeat(4, minmax(0, 1fr));
+  grid-template-columns: auto repeat(5, minmax(0, 1fr));
   gap: 10px;
   align-items: stretch;
   border: 1px solid rgba(244, 247, 239, 0.13);
@@ -4013,9 +4092,21 @@ html { scroll-behavior: smooth; }
   padding: 12px;
   background: rgba(8, 9, 8, 0.78);
   backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.dashboard-live-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(185, 255, 93, 0.08), transparent);
+  pointer-events: none;
+  animation: dashboard-live-scan 5.6s ease-in-out infinite;
 }
 
 .dashboard-mini-metric {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   border-left: 1px solid rgba(244, 247, 239, 0.1);
   padding-left: 10px;
@@ -4026,13 +4117,16 @@ html { scroll-behavior: smooth; }
 .dashboard-flow-card > span {
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .dashboard-mini-metric strong {
   display: block;
   margin-top: 5px;
   color: var(--text);
+  font-size: 14px;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4040,14 +4134,14 @@ html { scroll-behavior: smooth; }
 
 .dashboard-proof {
   display: grid;
-  grid-template-columns: minmax(320px, 0.84fr) minmax(420px, 1.16fr);
-  gap: 24px;
+  grid-template-columns: minmax(360px, 0.76fr) minmax(520px, 1.24fr);
+  gap: 28px;
   align-items: center;
-  padding: 22px;
+  padding: clamp(18px, 2vw, 26px);
 }
 
 .dashboard-proof-image .asset-image {
-  min-height: 330px;
+  min-height: 300px;
 }
 
 .dashboard-proof-copy {
@@ -4059,9 +4153,10 @@ html { scroll-behavior: smooth; }
 .dashboard-section-head h2 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(30px, 4vw, 52px);
-  line-height: 1.04;
-  letter-spacing: -0.035em;
+  font-size: clamp(26px, 3vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.026em;
+  font-weight: 800;
   text-wrap: balance;
 }
 
@@ -4069,7 +4164,8 @@ html { scroll-behavior: smooth; }
   margin: 0;
   max-width: 680px;
   color: var(--soft);
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.58;
 }
 
 .dashboard-proof-metrics {
@@ -4078,11 +4174,24 @@ html { scroll-behavior: smooth; }
   gap: 10px;
 }
 
+.dashboard-proof .proof-fact,
+.dashboard-ops .status-metric {
+  border-color: rgba(244, 247, 239, 0.12);
+  background:
+    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
+    rgba(8, 9, 8, 0.34);
+}
+
+.dashboard-proof .proof-fact strong {
+  color: var(--green);
+  font-size: 16px;
+}
+
 .dashboard-flow,
 .dashboard-ops {
   display: grid;
-  gap: 18px;
-  padding: 22px;
+  gap: 16px;
+  padding: clamp(18px, 2vw, 26px);
 }
 
 .dashboard-section-head {
@@ -4093,37 +4202,50 @@ html { scroll-behavior: smooth; }
 .dashboard-flow-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .dashboard-flow-card {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 12px;
   border: 1px solid rgba(244, 247, 239, 0.1);
-  border-radius: 20px;
-  padding: 16px;
+  border-radius: 22px;
+  padding: 15px;
   background:
     radial-gradient(circle at 100% 0%, rgba(185, 255, 93, 0.08), transparent 38%),
     rgba(8, 9, 8, 0.28);
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.dashboard-flow-card:hover {
+  border-color: rgba(185, 255, 93, 0.28);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(185, 255, 93, 0.13), transparent 42%),
+    rgba(8, 9, 8, 0.36);
+  transform: translateY(-3px);
 }
 
 .dashboard-flow-card .asset-image {
-  min-height: 190px;
+  min-height: 178px;
 }
 
 .dashboard-flow-card h3 {
   margin: 0;
   color: var(--text);
-  font-size: 24px;
+  font-size: clamp(19px, 1.7vw, 23px);
   line-height: 1.12;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.012em;
   text-wrap: balance;
 }
 
 .dashboard-flow-card p {
   margin: 0;
   color: var(--soft);
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -4133,15 +4255,15 @@ html { scroll-behavior: smooth; }
 
 .dashboard-ops-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(420px, 1.15fr);
-  gap: 14px;
+  grid-template-columns: minmax(320px, 0.74fr) minmax(520px, 1.26fr);
+  gap: 16px;
   align-items: start;
 }
 
 .dashboard-latest-card {
   border: 1px solid rgba(244, 247, 239, 0.1);
   border-radius: 20px;
-  padding: 22px;
+  padding: 20px;
   background: rgba(8, 9, 8, 0.28);
 }
 
@@ -4236,6 +4358,10 @@ html { scroll-behavior: smooth; }
   object-fit: cover;
   transform: scale(1.01);
   transition: transform 260ms ease, filter 260ms ease;
+}
+
+.dashboard-hero-visual .asset-image img {
+  animation: dashboard-float 8s ease-in-out infinite;
 }
 
 .dashboard-flow-card:hover .asset-image img,

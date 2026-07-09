@@ -4080,22 +4080,8 @@ html { scroll-behavior: smooth; }
   line-height: 1.04;
   letter-spacing: -0.032em;
   font-weight: 800;
-  color: transparent;
-  background: linear-gradient(
-    105deg,
-    var(--text) 0%,
-    var(--text) 32%,
-    var(--green) 43%,
-    var(--cyan) 51%,
-    var(--text) 63%,
-    var(--text) 100%
-  );
-  background-size: 245% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  animation:
-    dashboard-title-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both,
-    dashboard-title-live-ink 7.2s ease-in-out 900ms infinite;
+  color: var(--text);
+  animation: dashboard-title-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .dashboard-hero-title > span {
@@ -4104,6 +4090,18 @@ html { scroll-behavior: smooth; }
 
 .dashboard-hero-title-mark {
   font-weight: 850;
+  color: transparent;
+  background: linear-gradient(
+    105deg,
+    var(--green) 0%,
+    #f4f7ef 36%,
+    var(--cyan) 52%,
+    var(--green) 100%
+  );
+  background-size: 230% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: dashboard-title-live-ink 6.8s ease-in-out 900ms infinite;
 }
 
 .dashboard-hero-copy p {

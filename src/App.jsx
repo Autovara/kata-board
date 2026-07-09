@@ -450,19 +450,6 @@ function PublicProofPanel({ publicProof, kataRepoSlug, compact = false }) {
           <ProofFact label="Duration" value={formatDuration(round.durationSeconds)} />
           <ProofFact label="Finished" value={formatDateTime(round.finishedAt)} />
         </div>
-
-        <div className="proof-explain">
-          <strong>What this means</strong>
-          <p>
-            The winner beat the field on the selected benchmark set. The proof keeps the
-            important audit trail public without showing private validator secrets.
-          </p>
-          <div>
-            <span>Same scoring flow</span>
-            <span>{friendlyMode(round.competitionMode)}</span>
-            <span>{friendlyBenchmarkName(benchmark.name)}</span>
-          </div>
-        </div>
       </div>
 
       <div className="proof-card-foot">

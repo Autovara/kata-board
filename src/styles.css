@@ -3844,8 +3844,7 @@ html { scroll-behavior: smooth; }
 }
 
 .proof-card-head p,
-.proof-score-card p,
-.proof-explain p {
+.proof-score-card p {
   margin: 0;
   color: var(--soft);
   line-height: 1.55;
@@ -3903,8 +3902,7 @@ html { scroll-behavior: smooth; }
 
 .proof-score-card,
 .proof-detection,
-.proof-fact,
-.proof-explain {
+.proof-fact {
   border: 1px solid rgba(244, 247, 239, 0.1);
   border-radius: 14px;
   padding: 15px;
@@ -3985,31 +3983,10 @@ html { scroll-behavior: smooth; }
   overflow-wrap: anywhere;
 }
 
-.proof-explain {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 9px;
-}
-
-.proof-explain strong {
-  color: var(--text);
-}
-
-.proof-explain div,
 .proof-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.proof-explain div span {
-  border: 1px solid rgba(244, 247, 239, 0.12);
-  border-radius: 999px;
-  padding: 6px 9px;
-  color: var(--soft);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-  background: rgba(8, 9, 8, 0.26);
 }
 
 .proof-actions {

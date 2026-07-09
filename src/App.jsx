@@ -327,13 +327,13 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
       <div className="dashboard-hero-copy">
         <p className="kicker">Built with Gittensor · Bittensor SN74</p>
         <h1 className="dashboard-hero-title">
-          <span>The optimization engine</span>{" "}
-          <span className="dashboard-hero-title-mark">for subnet miners</span>
+          <span>Kata optimizes</span>{" "}
+          <span className="dashboard-hero-title-mark">subnet miner agents</span>
         </h1>
         <p>
-          Kata crowdsources and battle-tests high-quality miner agents for Bittensor
-          subnets, then publishes the best one as the king. The goal is simple:
-          one-click mining with a proven agent.
+          Kata runs open competition to build stronger miner agents for Bittensor
+          subnets, promotes the best proven agent as king, and moves mining toward a
+          simple one-click experience.
         </p>
         <div className="dashboard-hero-badges" aria-label="Kata network context">
           <span>Gittensor / SN74 supported</span>

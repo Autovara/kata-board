@@ -212,6 +212,8 @@ function loadRoundStatus(roundStatusPath) {
     generatedAt: status.generated_at || null,
     runId: status.run_id || null,
     repo: status.repo || null,
+    competitionMode: status.competition_mode || "king_duel",
+    kingSkippedReason: status.king_skipped_reason || null,
     king: status.king || null,
     kingAuthor: status.king_author || status.king?.author || null,
     kingSubmissionId: status.king_submission_id || status.king?.submission_id || null,
@@ -237,6 +239,8 @@ function loadRoundProgress(roundProgressPath) {
   return {
     state: data.state || null,
     runId: data.run_id || null,
+    competitionMode: data.competition_mode || "king_duel",
+    kingSkippedReason: data.king_skipped_reason || null,
     updatedAt: data.updated_at || null,
     projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
     king: data.king && typeof data.king === "object" ? data.king : null,

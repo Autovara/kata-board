@@ -567,6 +567,13 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
+  const candidateOnly =
+    round?.competitionMode === "candidate_only" ||
+    round?.liveProgress?.competitionMode === "candidate_only";
+  const kingSkippedReason =
+    round?.kingSkippedReason ||
+    round?.liveProgress?.kingSkippedReason ||
+    "Candidate-only recovery mode is enabled. The current king was not evaluated in this round.";
   const roundKingAuthor = round?.kingAuthor || kingAuthor;
   const roundKingSubmissionId = round?.kingSubmissionId || kingSubmissionId;
   const selectedEntrant = entrants.find((entrant) => entrant.pull_number === selectedPull) || null;
@@ -596,7 +603,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       resultByPull[Number(match[1])] = candidate;
     }
   });
-  const kingResult = round?.liveProgress?.king || round?.king || null;
+  const kingResult = candidateOnly ? null : round?.liveProgress?.king || round?.king || null;
   const projectKeys = round?.liveProgress?.projectKeys || [];
 
   // Live-merge each entrant with its published result, then rank by the engine's
@@ -621,7 +628,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
 
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
-  if (hasRound && selectedPull === "king") {
+  if (hasRound && selectedPull === "king" && !candidateOnly) {
     return (
       <KingDetail
         king={kingResult}
@@ -669,7 +676,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       <div className="round-block-head">
         <SectionTitle title="Current round" />
         <p className="section-lead round-lead">
-          Live round status: candidates are scored against the current king on the same secret Bitsec problems.
+          {candidateOnly
+            ? "Recovery round: the current king is skipped, and candidates are scored against each other on the same secret Bitsec problems."
+            : "Live round status: candidates are scored against the current king on the same secret Bitsec problems."}
         </p>
       </div>
 
@@ -694,6 +703,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               {kingResult && kingResult.aggregated_score != null ? (
                 <RoundMeta label="king detection" value={formatDetection(kingResult.aggregated_score)} />
               ) : null}
+              {candidateOnly ? <RoundMeta label="mode" value="candidate-only recovery" /> : null}
               <RoundMeta label="candidates" value={entrants.length} />
               {round.generatedAt ? (
                 <RoundMeta
@@ -710,12 +720,22 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             </div>
           ) : null}
 
+          {candidateOnly ? (
+            <div className="round-note round-note-warn">
+              King skipped: {kingSkippedReason}
+            </div>
+          ) : null}
+
           {round.winnerSubmissionId ? (
             <div className="round-verdict round-verdict-win">
               <span className="round-verdict-crown" aria-hidden="true">♔</span>
               <div>
                 <strong>New king: {round.winnerSubmissionId}</strong>
-                <p>Beat the king this round and is being promoted.</p>
+                <p>
+                  {candidateOnly
+                    ? "Won the candidate-only recovery round and is being promoted."
+                    : "Beat the king this round and is being promoted."}
+                </p>
               </div>
             </div>
           ) : state === "completed" ? (
@@ -723,7 +743,11 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               <span className="round-verdict-crown" aria-hidden="true">♔</span>
               <div>
                 <strong>King held the crown</strong>
-                <p>No candidate strictly beat the king this round.</p>
+                <p>
+                  {candidateOnly
+                    ? "No candidate-only winner was selected."
+                    : "No candidate strictly beat the king this round."}
+                </p>
               </div>
             </div>
           ) : null}
@@ -733,11 +757,11 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
             <span>detection</span>
             <span>true positives</span>
-            <span>beats king</span>
+            <span>{candidateOnly ? "round result" : "beats king"}</span>
             <span>status</span>
           </div>
 
-          {kingResult || (live && live.king) ? (
+          {!candidateOnly && (kingResult || (live && live.king)) ? (
             <div
               className="table-row round-grid round-row-king round-row-clickable"
               role="button"
@@ -795,7 +819,17 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
                 </span>
                 <span>{formatDetection(entrant.aggregated_score)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
-                <span><BeatsKingBadge beats={entrant.beats_king} /></span>
+                <span>
+                  {candidateOnly ? (
+                    entrant.status === "winner" || entrant.selected_winner ? (
+                      <span className="beat-badge beat-yes">top candidate</span>
+                    ) : (
+                      <span className="beat-badge beat-no">not selected</span>
+                    )
+                  ) : (
+                    <BeatsKingBadge beats={entrant.beats_king} />
+                  )}
+                </span>
                 <span>{renderEntrantStatus(entrant, progressByPull[entrant.pull_number])}</span>
               </div>
             ))

@@ -327,19 +327,18 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
       <div className="dashboard-hero-copy">
         <p className="kicker">Built with Gittensor · Bittensor SN74</p>
         <h1 className="dashboard-hero-title">
-          <span>Kata is the</span>{" "}
-          <span className="dashboard-hero-title-mark">Gittensor-backed arena</span>{" "}
-          <span>for proven subnet miner agents</span>
+          <span>The optimization engine</span>{" "}
+          <span className="dashboard-hero-title-mark">for subnet miners</span>
         </h1>
         <p>
-          Kata runs objective king-of-the-hill rounds: one PR per challenger, identical
-          benchmark problems, verified promotion, and a published king agent miners can
-          trust. SN74 powers Kata development; SN60 Bitsec is the live target today.
+          Kata crowdsources and battle-tests high-quality miner agents for Bittensor
+          subnets, then publishes the best one as the king. The goal is simple:
+          one-click mining with a proven agent.
         </p>
         <div className="dashboard-hero-badges" aria-label="Kata network context">
           <span>Gittensor / SN74 supported</span>
           <span>Live target: SN60 Bitsec</span>
-          <span>Objective PR-to-king rounds</span>
+          <span>One-click mining roadmap</span>
         </div>
         <div className="actions">
           <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>

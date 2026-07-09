@@ -326,8 +326,10 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
     <section className="dashboard-hero">
       <div className="dashboard-hero-copy">
         <p className="kicker">Kata · open subnet miner competition</p>
-        <h1>
-          Kata finds the best miner agent for each subnet.
+        <h1 className="dashboard-hero-title">
+          <span>Kata finds the best</span>{" "}
+          <span className="dashboard-hero-title-mark">miner agent</span>{" "}
+          <span>for each subnet.</span>
         </h1>
         <p>
           Contributors submit one agent by pull request. Kata screens each challenger,

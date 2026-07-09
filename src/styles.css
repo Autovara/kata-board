@@ -143,6 +143,31 @@ body {
   }
 }
 
+@keyframes dashboard-title-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes dashboard-title-glow {
+  0%,
+  100% {
+    opacity: 0.46;
+    transform: scaleX(0.82);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scaleX(1);
+  }
+}
+
 button {
   font: inherit;
 }
@@ -4058,6 +4083,40 @@ html { scroll-behavior: smooth; }
   line-height: 1.04;
   letter-spacing: -0.032em;
   font-weight: 800;
+}
+
+.dashboard-hero-title > span {
+  display: inline-block;
+  opacity: 0;
+  animation: dashboard-title-rise 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dashboard-hero-title > span:nth-child(2) {
+  animation-delay: 110ms;
+}
+
+.dashboard-hero-title > span:nth-child(3) {
+  animation-delay: 210ms;
+}
+
+.dashboard-hero-title-mark {
+  position: relative;
+  color: var(--green);
+  text-shadow: 0 0 28px rgba(185, 255, 93, 0.16);
+}
+
+.dashboard-hero-title-mark::after {
+  content: "";
+  position: absolute;
+  left: 0.04em;
+  right: 0.04em;
+  bottom: 0.03em;
+  height: 0.14em;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(185, 255, 93, 0.12), rgba(37, 208, 171, 0.56), rgba(185, 255, 93, 0.12));
+  transform-origin: center;
+  z-index: -1;
+  animation: dashboard-title-glow 3.8s ease-in-out 900ms infinite;
 }
 
 .dashboard-hero-copy p {

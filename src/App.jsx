@@ -1557,15 +1557,22 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
   const roundLabel = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
   return (
     <section className="winners-page">
-      <article className="king-card" style={{ "--king-card-bg": `url(${KATA_IMAGES.currentKing})` }}>
+      <article className="king-card">
         <div className="king-card-body">
-          <span className="showcase-kicker">Current king</span>
+          <div className="king-card-crown" aria-hidden="true">
+            ♔
+          </div>
           <div className="king-card-identity">
             <Avatar name={winner} />
             <div>
               <h1>{winner}</h1>
               <p>{king.submissionId || primaryLane.king?.submissionId || "current king"}</p>
             </div>
+          </div>
+          <div className="king-card-tags">
+            <span>{packName}</span>
+            <span>{primaryLane.mode || publicProof?.activeMode || publicProof?.active_mode || "miner"}</span>
+            <Status label={primaryLane.king?.seeded ? "seed king" : "promoted"} tone={primaryLane.king?.seeded ? "neutral" : "ok"} />
           </div>
           <p className="king-card-copy">
             {winner} is the published {packName} miner agent that currently owns the lane.

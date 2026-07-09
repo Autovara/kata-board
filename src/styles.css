@@ -3976,17 +3976,18 @@ html { scroll-behavior: smooth; }
 
 .dashboard-hero-copy h1 {
   margin: 0;
-  max-width: 820px;
-  font-size: clamp(46px, 7vw, 84px);
-  line-height: 0.94;
-  letter-spacing: -0.075em;
+  max-width: 860px;
+  text-wrap: balance;
+  font-size: clamp(42px, 6.2vw, 76px);
+  line-height: 1;
+  letter-spacing: -0.045em;
 }
 
 .dashboard-hero-copy p {
   max-width: 660px;
   color: var(--soft);
-  font-size: 18px;
-  line-height: 1.65;
+  font-size: clamp(16px, 1.45vw, 19px);
+  line-height: 1.58;
 }
 
 .dashboard-hero-visual {
@@ -4059,8 +4060,9 @@ html { scroll-behavior: smooth; }
   margin: 0;
   color: var(--text);
   font-size: clamp(30px, 4vw, 52px);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
 }
 
 .dashboard-proof-copy p {
@@ -4114,8 +4116,9 @@ html { scroll-behavior: smooth; }
   margin: 0;
   color: var(--text);
   font-size: 24px;
-  line-height: 1.04;
-  letter-spacing: -0.035em;
+  line-height: 1.12;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
 }
 
 .dashboard-flow-card p {

@@ -324,14 +324,14 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
   return (
     <section className="dashboard-hero">
       <div className="dashboard-hero-copy">
-        <p className="kicker">Kata · Gittensor SN74 supported</p>
+        <p className="kicker">Kata · open subnet miner competition</p>
         <h1>
-          Build agents that find real bugs, then prove it in public.
+          Kata finds the best miner agent for each subnet.
         </h1>
         <p>
-          Kata turns miner submissions into a clean competition loop: screen the PR,
-          score candidates on the same benchmark set, and promote only the strongest
-          verified agent.
+          Contributors submit one agent by pull request. Kata screens each challenger,
+          scores qualified agents against the current king on identical benchmark
+          problems, then publishes the winner as a ready-to-run mining agent.
         </p>
         <div className="actions">
           <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
@@ -365,18 +365,19 @@ function DashboardProof({ publicProof, kataRepoSlug }) {
   const king = publicProof.currentKing || {};
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const kingHref = proofFileLink(king.path, kataRepoSlug);
-  const roundTitle = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
+  const packName = formatPackLabel(publicProof.activePack || publicProof.active_pack || "SN60 Bitsec");
+  const winner = round.winnerAuthor || king.author || "Current king";
   return (
     <section className="dashboard-proof">
       <div className="dashboard-proof-image">
         <AssetImage src={KATA_IMAGES.proof} alt="Verified public proof artifact" tone="proof" />
       </div>
       <div className="dashboard-proof-copy">
-        <span className="showcase-kicker">Latest verified result</span>
-        <h2>{round.winnerAuthor || king.author || "Current king"} won {roundTitle}</h2>
+        <span className="showcase-kicker">Public proof</span>
+        <h2>{winner} is the current {packName} king</h2>
         <p>
-          Public proof shows the winning agent, true-positive count, candidate count,
-          and round timing without exposing private validator secrets.
+          The proof file records the round, benchmark selection, true-positive score,
+          candidate count, and timing without exposing private validator secrets.
         </p>
         <div className="dashboard-proof-metrics">
           <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
@@ -401,31 +402,31 @@ function DashboardFlow({ onNavigate }) {
   return (
     <section className="dashboard-flow">
       <div className="dashboard-section-head">
-        <span className="showcase-kicker">Competition flow</span>
-        <h2>Simple for contributors, strict for scoring.</h2>
+        <span className="showcase-kicker">How Kata works</span>
+        <h2>One PR enters. One verified king comes out.</h2>
       </div>
       <div className="dashboard-flow-grid">
         <DashboardFlowCard
           image={KATA_IMAGES.vulnerabilityFinding}
           step="01"
-          title="Submit one miner"
-          text="Open one PR with one agent. Keep it rule-compliant so it reaches scoring."
+          title="Submit one agent PR"
+          text="A contributor adds exactly one miner agent bundle and follows the submission rules."
           action="Submission guide"
           onClick={() => onNavigate("/docs")}
         />
         <DashboardFlowCard
           image={KATA_IMAGES.benchmarkProjects}
           step="02"
-          title="Score on selected projects"
-          text="Each candidate faces the same benchmark selection for the round."
+          title="Compete on the same set"
+          text="Qualified agents are scored against the current king on identical sampled problems."
           action="Open arena"
           onClick={() => onNavigate("/arena")}
         />
         <DashboardFlowCard
           image={KATA_IMAGES.currentKing}
           step="03"
-          title="Beat the crown"
-          text="The top verified result is promoted as the new public king."
+          title="Promote the strongest king"
+          text="The top challenger that objectively beats the king is merged and published."
           action="See winners"
           onClick={() => onNavigate("/winners")}
         />
@@ -453,7 +454,7 @@ function DashboardOperations({ latestStatus, submissionStatus, generatedAt }) {
     <section className="dashboard-ops">
       <div className="dashboard-section-head">
         <span className="showcase-kicker">Operational status</span>
-        <h2>What is happening right now?</h2>
+        <h2>Live queue and review state.</h2>
       </div>
       <div className="dashboard-ops-grid">
         <div className="dashboard-latest-card">
@@ -1442,6 +1443,17 @@ function ratioWidth(value) {
 
 function formatProjectName(key) {
   return String(key || "").replace(/_/g, " ");
+}
+
+function formatPackLabel(value) {
+  if (!value) {
+    return "-";
+  }
+  const normalized = String(value).replace(/__/g, " ").replace(/_/g, " ").trim();
+  if (/^sn60 bitsec$/i.test(normalized)) {
+    return "SN60 Bitsec";
+  }
+  return normalized.replace(/\bsn(\d+)\b/gi, "SN$1").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function RoundMeta({ label, value }) {

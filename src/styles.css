@@ -4014,8 +4014,7 @@ html { scroll-behavior: smooth; }
 .dashboard-hero,
 .dashboard-proof,
 .dashboard-flow,
-.dashboard-ops,
-.winner-showcase {
+.dashboard-ops {
   overflow: hidden;
   border: 1px solid rgba(244, 247, 239, 0.12);
   border-radius: 28px;
@@ -4359,20 +4358,6 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.08em;
 }
 
-.winner-showcase h2 {
-  margin: 12px 0 10px;
-  color: var(--text);
-  font-size: clamp(30px, 4vw, 50px);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
-}
-
-.winner-showcase p {
-  margin: 0;
-  color: var(--soft);
-  line-height: 1.55;
-}
-
 .showcase-link {
   display: inline-flex;
   width: fit-content;
@@ -4437,42 +4422,227 @@ html { scroll-behavior: smooth; }
   animation: dashboard-float 8s ease-in-out infinite;
 }
 
-.dashboard-flow-card:hover .asset-image img,
-.winner-showcase:hover .asset-image img {
+.dashboard-flow-card:hover .asset-image img {
   filter: saturate(1.08);
   transform: scale(1.045);
 }
 
-.asset-image-winner {
-  min-height: 330px;
-}
-
-.winner-showcase {
+.winners-page {
   display: grid;
-  grid-template-columns: minmax(280px, 0.8fr) minmax(320px, 1.2fr);
-  gap: 20px;
-  align-items: center;
-  padding: 20px;
-  background:
-    radial-gradient(circle at 22% 24%, rgba(185, 255, 93, 0.12), transparent 30%),
-    linear-gradient(135deg, rgba(185, 255, 93, 0.07), transparent 40%),
-    rgba(16, 19, 16, 0.88);
+  gap: 24px;
 }
 
-.winner-showcase-copy {
+.winners-hero,
+.winners-proof,
+.winners-lanes {
+  overflow: hidden;
+  border: 1px solid rgba(244, 247, 239, 0.12);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent 42%),
+    rgba(16, 19, 16, 0.84);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.2);
+  animation: dashboard-reveal 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.winners-proof {
+  animation-delay: 90ms;
+}
+
+.winners-lanes {
+  animation-delay: 170ms;
+}
+
+.winners-hero {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.05fr) minmax(420px, 0.95fr);
+  gap: clamp(24px, 3vw, 42px);
+  align-items: center;
+  min-height: 500px;
+  padding: clamp(24px, 3.2vw, 42px);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(185, 255, 93, 0.14), transparent 36%),
+    radial-gradient(circle at 84% 4%, rgba(37, 208, 171, 0.1), transparent 30%),
+    linear-gradient(145deg, rgba(20, 25, 20, 0.96), rgba(8, 9, 8, 0.76));
+}
+
+.winners-hero-copy {
   display: grid;
   gap: 16px;
 }
 
-.winner-showcase-copy h2 {
-  margin-bottom: 0;
-  font-size: clamp(42px, 7vw, 86px);
+.winners-hero-copy h1 {
+  margin: 0;
+  max-width: 760px;
+  color: var(--text);
+  font-size: clamp(34px, 4.5vw, 62px);
+  line-height: 1.04;
+  letter-spacing: -0.032em;
+  text-wrap: balance;
 }
 
-.winner-showcase-metrics {
+.winners-hero-copy p,
+.winners-proof-copy p {
+  margin: 0;
+  max-width: 680px;
+  color: var(--soft);
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+.winners-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.winners-actions .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.winners-hero-card {
+  position: relative;
+}
+
+.winners-hero-card .asset-image {
+  min-height: 390px;
+  border-radius: 24px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+}
+
+.winners-king-panel {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(244, 247, 239, 0.13);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(8, 9, 8, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.winners-king-panel .avatar {
+  width: 52px;
+  height: 52px;
+  border-color: rgba(185, 255, 93, 0.46);
+}
+
+.winners-king-panel span,
+.winners-king-panel small,
+.winners-lane-foot,
+.winners-lane-meta .key-value span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+.winners-king-panel strong {
+  display: block;
+  margin: 3px 0;
+  color: var(--text);
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.winners-proof {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.72fr) minmax(520px, 1.28fr);
+  gap: 24px;
+  align-items: start;
+  padding: clamp(18px, 2vw, 26px);
+}
+
+.winners-proof-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.winners-proof-copy h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(26px, 3vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.026em;
+  text-wrap: balance;
+}
+
+.winners-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.winners-proof .proof-fact {
+  border-color: rgba(244, 247, 239, 0.12);
+  background:
+    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
+    rgba(8, 9, 8, 0.34);
+}
+
+.winners-proof .proof-fact strong {
+  color: var(--green);
+}
+
+.winners-lanes {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 2vw, 26px);
+}
+
+.winners-lane-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.winners-lane-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(244, 247, 239, 0.1);
+  border-radius: 22px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(185, 255, 93, 0.08), transparent 38%),
+    rgba(8, 9, 8, 0.28);
+}
+
+.winners-lane-head,
+.winners-lane-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.winners-lane-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.winners-lane-foot {
+  border-top: 1px solid rgba(244, 247, 239, 0.1);
+  padding-top: 14px;
+}
+
+.winners-lane-foot a {
+  color: var(--green);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.asset-image-winner {
+  min-height: 330px;
 }
 
 .status-list-card {
@@ -4542,8 +4712,13 @@ html { scroll-behavior: smooth; }
   .dashboard-proof,
   .dashboard-flow-grid,
   .dashboard-ops-grid,
-  .winner-showcase {
+  .winners-hero,
+  .winners-proof {
     grid-template-columns: 1fr;
+  }
+
+  .winners-proof-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboard-live-panel {
@@ -4560,10 +4735,6 @@ html { scroll-behavior: smooth; }
 
   .dashboard-proof-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .winner-showcase-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .proof-card-head,
@@ -4614,7 +4785,6 @@ html { scroll-behavior: smooth; }
   .stat-row,
   .dashboard-live-panel,
   .dashboard-proof-metrics,
-  .winner-showcase-metrics,
   .duel-command-top,
   .duel-snapshot,
   .duel-main-grid,
@@ -4628,13 +4798,40 @@ html { scroll-behavior: smooth; }
   .dashboard-flow,
   .dashboard-ops,
   .dashboard-flow-card,
-  .winner-showcase {
+  .winners-hero,
+  .winners-proof,
+  .winners-lanes,
+  .winners-lane-card {
     padding: 16px;
   }
 
   .dashboard-hero-visual .asset-image,
-  .dashboard-proof-image .asset-image {
+  .dashboard-proof-image .asset-image,
+  .winners-hero-card .asset-image {
     min-height: 260px;
+  }
+
+  .winners-king-panel {
+    position: static;
+    margin-top: 12px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .winners-king-panel .status {
+    grid-column: 1 / -1;
+    width: fit-content;
+  }
+
+  .winners-proof-grid,
+  .winners-lane-grid,
+  .winners-lane-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .winners-lane-head,
+  .winners-lane-foot {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .duel-panel-head,

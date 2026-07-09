@@ -4066,6 +4066,18 @@ html { scroll-behavior: smooth; }
 .round-hist-grid {
   grid-template-columns: minmax(200px, 1.4fr) minmax(180px, 1fr) 130px 200px;
 }
+.round-hist-title {
+  display: grid;
+  gap: 3px;
+}
+.round-hist-title strong {
+  color: var(--text);
+}
+.round-hist-title small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
 .round-hist-badges {
   display: flex;
   flex-wrap: wrap;

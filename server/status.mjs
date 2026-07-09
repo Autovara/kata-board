@@ -41,7 +41,8 @@ export async function loadBoardStatus(env) {
   if (round) {
     round.liveProgress = loadRoundProgress(roots.roundProgressPath);
   }
-  const roundHistory = loadRoundHistory(roots.roundHistoryPath);
+  let roundHistory = loadRoundHistory(roots.roundHistoryPath);
+  ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
   const activity = loadRecentActivity(roots.kataRoot, env);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
@@ -197,6 +198,34 @@ function loadRoundHistory(roundHistoryPath) {
       headline: entry.headline || null
     }))
     .reverse();
+}
+
+function assignRoundSequence(round, roundHistory) {
+  const numberedHistory = (Array.isArray(roundHistory) ? roundHistory : []).map(
+    (entry, index, entries) => ({
+      ...entry,
+      roundNumber: entries.length - index
+    })
+  );
+  if (!round) {
+    return { round, roundHistory: numberedHistory };
+  }
+
+  const matchingHistoryRound = numberedHistory.find(
+    (entry) => entry.runId && entry.runId === round.runId
+  );
+  const roundNumber = matchingHistoryRound?.roundNumber || numberedHistory.length + 1;
+  const numberedRound = {
+    ...round,
+    roundNumber,
+    liveProgress: round.liveProgress
+      ? {
+          ...round.liveProgress,
+          roundNumber
+        }
+      : round.liveProgress
+  };
+  return { round: numberedRound, roundHistory: numberedHistory };
 }
 
 function loadRoundStatus(roundStatusPath) {

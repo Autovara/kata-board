@@ -567,6 +567,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
+  const roundTitle = round?.roundNumber ? `Current round · Round ${round.roundNumber}` : "Current round";
   const candidateOnly =
     round?.competitionMode === "candidate_only" ||
     round?.liveProgress?.competitionMode === "candidate_only";
@@ -674,7 +675,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   return (
     <div className="round-block">
       <div className="round-block-head">
-        <SectionTitle title="Current round" />
+        <SectionTitle title={roundTitle} />
         <p className="section-lead round-lead">
           {candidateOnly
             ? "Recovery round: the current king is skipped, and candidates are scored against each other on the same secret Bitsec problems."
@@ -700,6 +701,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               <p>{(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).text}</p>
             </div>
             <div className="round-banner-meta">
+              {round.roundNumber ? <RoundMeta label="round" value={`#${round.roundNumber}`} /> : null}
               {kingResult && kingResult.aggregated_score != null ? (
                 <RoundMeta label="king detection" value={formatDetection(kingResult.aggregated_score)} />
               ) : null}
@@ -1339,7 +1341,10 @@ function RoundHistory({ rounds }) {
         </div>
         {rounds.slice(0, 12).map((round, index) => (
           <div className="table-row round-hist-grid" key={round.runId || index}>
-            <span>{round.headline || "Competition round"}</span>
+            <span className="round-hist-title">
+              <strong>{round.roundNumber ? `Round ${round.roundNumber}` : "Round"}</strong>
+              <small>{round.headline || "Competition round"}</small>
+            </span>
             <span className="round-hist-badges">
               {round.achievements?.length ? (
                 round.achievements.map((item) => (

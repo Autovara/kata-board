@@ -1415,23 +1415,44 @@ test("exposes the current competition round from round-status.json", async () =>
     closed_extras: [{ pull_number: 3, kept_pull_number: 1 }],
     skipped_stale: [4]
   });
+  writeJson(root, "round-history.json", {
+    schema_version: 1,
+    rounds: [
+      {
+        run_id: "sn60-round-old",
+        generated_at: "2026-07-05T12:00:00Z",
+        candidate_count: 1,
+        winner_submission_id: null
+      },
+      {
+        run_id: "sn60-round-x",
+        generated_at: "2026-07-06T12:00:00Z",
+        candidate_count: 2,
+        winner_submission_id: "m-1"
+      }
+    ]
+  });
 
   const status = await loadBoardStatus({
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
     KATA_STATUS_CACHE_TTL_MS: "0"
   });
 
   assert.equal(status.round.state, "completed");
   assert.equal(status.round.generatedAt, "2026-07-06T12:00:00Z");
   assert.equal(status.round.runId, "sn60-round-x");
+  assert.equal(status.round.roundNumber, 2);
   assert.equal(status.round.winnerSubmissionId, "m-1");
   assert.equal(status.round.king.aggregated_score, 0.2);
   assert.equal(status.round.entrants.length, 2);
   assert.equal(status.round.entrants[0].status, "winner");
   assert.equal(status.round.screenedOut[0].pull_number, 6);
+  assert.equal(status.roundHistory[0].roundNumber, 2);
+  assert.equal(status.roundHistory[1].roundNumber, 1);
 });
 
 test("exposes a failed preflight round and its note for the dashboard", async () => {
@@ -1533,6 +1554,17 @@ test("attaches live per-candidate progress while a round is executing", async ()
     king: { done: 4, total: 6 },
     candidates: [{ submission_id: "pr-5", done: 2, total: 6, state: "scoring" }]
   });
+  writeJson(root, "round-history.json", {
+    schema_version: 1,
+    rounds: [
+      {
+        run_id: "sn60-round-finished",
+        generated_at: "2026-07-06T12:00:00Z",
+        candidate_count: 2,
+        winner_submission_id: "pr-1"
+      }
+    ]
+  });
 
   const status = await loadBoardStatus({
     KATA_ROOT: root,
@@ -1540,11 +1572,14 @@ test("attaches live per-candidate progress while a round is executing", async ()
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
     KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
     KATA_STATUS_CACHE_TTL_MS: "0"
   });
 
   assert.equal(status.round.state, "executing");
+  assert.equal(status.round.roundNumber, 2);
   assert.equal(status.round.liveProgress.state, "executing");
+  assert.equal(status.round.liveProgress.roundNumber, 2);
   assert.equal(status.round.liveProgress.king.done, 4);
   assert.equal(status.round.liveProgress.candidates[0].submission_id, "pr-5");
   assert.equal(status.round.liveProgress.candidates[0].done, 2);
@@ -1555,6 +1590,16 @@ test("exposes the round-history feed from round-history.json", async () => {
   writeJson(root, "round-history.json", {
     schema_version: 1,
     rounds: [
+      {
+        run_id: "r0",
+        generated_at: "2026-07-05T00:00:00Z",
+        candidate_count: 1,
+        winner_submission_id: null,
+        best_detection: 0.0,
+        best_true_positives: 0,
+        achievements: [],
+        headline: "Round — no promotion"
+      },
       {
         run_id: "r1",
         generated_at: "2026-07-06T00:00:00Z",
@@ -1576,8 +1621,10 @@ test("exposes the round-history feed from round-history.json", async () => {
     KATA_STATUS_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.roundHistory.length, 1);
+  assert.equal(status.roundHistory.length, 2);
+  assert.equal(status.roundHistory[0].roundNumber, 2);
   assert.equal(status.roundHistory[0].winnerSubmissionId, "m-1");
   assert.equal(status.roundHistory[0].bestDetection, 0.5);
   assert.deepEqual(status.roundHistory[0].achievements, ["👑 New king", "🥇 First true positive"]);
+  assert.equal(status.roundHistory[1].roundNumber, 1);
 });

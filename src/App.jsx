@@ -1557,10 +1557,7 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
   const roundLabel = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
   return (
     <section className="winners-page">
-      <article className="king-card">
-        <div className="king-card-art">
-          <AssetImage src={KATA_IMAGES.currentKing} alt="Current Kata king agent" tone="winner" />
-        </div>
+      <article className="king-card" style={{ "--king-card-bg": `url(${KATA_IMAGES.currentKing})` }}>
         <div className="king-card-body">
           <span className="showcase-kicker">Current king</span>
           <div className="king-card-identity">

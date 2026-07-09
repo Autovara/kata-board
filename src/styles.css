@@ -4113,6 +4113,35 @@ html { scroll-behavior: smooth; }
   line-height: 1.62;
 }
 
+.dashboard-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 680px;
+  margin: 18px 0 2px;
+}
+
+.dashboard-hero-badges span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid rgba(244, 247, 239, 0.12);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--soft);
+  background:
+    linear-gradient(180deg, rgba(244, 247, 239, 0.055), transparent),
+    rgba(8, 9, 8, 0.24);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-hero-badges span:first-child {
+  border-color: rgba(185, 255, 93, 0.36);
+  color: var(--green);
+  background: rgba(185, 255, 93, 0.075);
+}
+
 .dashboard-hero-visual {
   position: relative;
   z-index: 1;

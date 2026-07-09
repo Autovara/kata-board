@@ -146,25 +146,35 @@ body {
 @keyframes dashboard-title-rise {
   from {
     opacity: 0;
-    transform: translateY(18px);
-    filter: blur(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-    filter: blur(0);
   }
 }
 
-@keyframes dashboard-title-glow {
+@keyframes dashboard-title-signal {
   0%,
   100% {
-    opacity: 0.46;
-    transform: scaleX(0.82);
+    background-position: 0% 50%;
   }
   50% {
-    opacity: 0.9;
-    transform: scaleX(1);
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes dashboard-title-dot {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.88);
+    box-shadow: 0 0 0 0 rgba(185, 255, 93, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(185, 255, 93, 0.08);
   }
 }
 
@@ -4076,6 +4086,7 @@ html { scroll-behavior: smooth; }
 }
 
 .dashboard-hero-copy h1 {
+  position: relative;
   margin: 0;
   max-width: 760px;
   text-wrap: balance;
@@ -4085,38 +4096,43 @@ html { scroll-behavior: smooth; }
   font-weight: 800;
 }
 
+.dashboard-hero-title::after {
+  content: "";
+  display: inline-block;
+  width: 0.16em;
+  height: 0.16em;
+  margin-left: 0.18em;
+  margin-bottom: 0.13em;
+  border-radius: 999px;
+  background: var(--green);
+  vertical-align: baseline;
+  animation: dashboard-title-dot 2.4s ease-in-out 900ms infinite;
+}
+
 .dashboard-hero-title > span {
   display: inline-block;
   opacity: 0;
-  animation: dashboard-title-rise 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: dashboard-title-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .dashboard-hero-title > span:nth-child(2) {
-  animation-delay: 110ms;
+  animation-delay: 80ms;
 }
 
 .dashboard-hero-title > span:nth-child(3) {
-  animation-delay: 210ms;
+  animation-delay: 150ms;
 }
 
 .dashboard-hero-title-mark {
-  position: relative;
-  color: var(--green);
-  text-shadow: 0 0 28px rgba(185, 255, 93, 0.16);
-}
-
-.dashboard-hero-title-mark::after {
-  content: "";
-  position: absolute;
-  left: 0.04em;
-  right: 0.04em;
-  bottom: 0.03em;
-  height: 0.14em;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(185, 255, 93, 0.12), rgba(37, 208, 171, 0.56), rgba(185, 255, 93, 0.12));
-  transform-origin: center;
-  z-index: -1;
-  animation: dashboard-title-glow 3.8s ease-in-out 900ms infinite;
+  color: transparent;
+  background: linear-gradient(90deg, var(--green), #f4f7ef, var(--cyan), var(--green));
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  animation:
+    dashboard-title-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both,
+    dashboard-title-signal 5.4s ease-in-out 900ms infinite;
 }
 
 .dashboard-hero-copy p {

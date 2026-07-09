@@ -398,53 +398,70 @@ function PublicProofPanel({ publicProof, kataRepoSlug }) {
   const benchmark = publicProof.benchmark || {};
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const kingHref = proofFileLink(king.path, kataRepoSlug);
+  const roundTitle = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
+  const winner = round.winnerAuthor || king.author || "current king";
   return (
-    <section className="section-block public-proof-card">
-      <div className="public-proof-head">
-        <div>
-          <SectionTitle title="Public proof" />
-          <p>
-            Committed proof from the public Kata repo. This is the completed-result source
-            the board can show without relying on private bot logs.
-          </p>
+    <section className="public-proof-card">
+      <div className="proof-hero-main">
+        <p className="kicker">Public result</p>
+        <h2>{roundTitle} promoted {winner}</h2>
+        <p>
+          A completed Kata round selected the current SN60 king. The public proof is
+          committed in the Kata repository, so this result does not depend on private bot logs.
+        </p>
+        <div className="proof-chips">
+          <span>{friendlyMode(round.competitionMode)}</span>
+          <span>{friendlyBenchmarkName(benchmark.name)}</span>
+          <span>{formatDateTime(round.finishedAt)}</span>
         </div>
-        <Status label="public" tone="ok" />
       </div>
-      <div className="public-proof-grid">
-        <Stat label="current king" value={king.author || "-"} sub={king.submissionId || "published agent"} />
-        <Stat
-          label="latest round"
-          value={round.roundNumber ? `Round ${round.roundNumber}` : "-"}
-          sub={round.competitionMode || "completed result"}
-        />
-        <Stat
-          label="best result"
-          value={round.bestTruePositives != null ? `${round.bestTruePositives} TP` : "-"}
-          sub={formatDetection(round.bestDetectionScore)}
-        />
-        <Stat
-          label="candidates"
-          value={round.candidateCount ?? "-"}
-          sub={round.outcome ? humanizeOutcome(round.outcome) : "round outcome"}
-        />
+
+      <div className="proof-scoreboard" aria-label="Latest public result">
+        <div className="proof-score-card proof-score-primary">
+          <strong>{round.bestTruePositives != null ? round.bestTruePositives : "-"}</strong>
+          <span>true positives</span>
+        </div>
+        <div className="proof-score-card">
+          <strong>{formatPercent(round.bestDetectionScore)}</strong>
+          <span>detection score</span>
+        </div>
+        <div className="proof-score-card">
+          <strong>{round.candidateCount ?? "-"}</strong>
+          <span>candidates</span>
+        </div>
+        <div className="proof-score-card">
+          <strong>{formatDuration(round.durationSeconds)}</strong>
+          <span>round duration</span>
+        </div>
       </div>
-      <div className="public-proof-details">
-        <KeyValue label="winner" value={round.winnerAuthor || king.author || "-"} />
-        <KeyValue label="finished" value={formatDateTime(round.finishedAt)} />
-        <KeyValue label="duration" value={formatDuration(round.durationSeconds)} />
-        <KeyValue label="benchmark" value={benchmark.name || "-"} />
-        <KeyValue label="benchmark hash" value={shortHash(benchmark.roundSha256)} />
-        <KeyValue label="sandbox" value={shortHash(benchmark.sandboxCommit)} />
+
+      <div className="proof-summary-grid">
+        <div>
+          <span>winner</span>
+          <strong>{winner}</strong>
+          <small>{king.submissionId || round.winnerSubmissionId || "published king"}</small>
+        </div>
+        <div>
+          <span>result</span>
+          <strong>{humanizeOutcome(round.outcome || "completed")}</strong>
+          <small>{round.winnerPullRequest ? `PR #${round.winnerPullRequest}` : "round winner"}</small>
+        </div>
+        <div>
+          <span>benchmark</span>
+          <strong>{friendlyBenchmarkName(benchmark.name)}</strong>
+          <small>same selected projects for every candidate</small>
+        </div>
       </div>
+
       <div className="public-proof-links">
         {proofHref ? (
           <a href={proofHref} target="_blank" rel="noreferrer">
-            View round proof
+            View public proof
           </a>
         ) : null}
         {kingHref ? (
           <a href={kingHref} target="_blank" rel="noreferrer">
-            View current king
+            Open current king
           </a>
         ) : null}
       </div>
@@ -1488,14 +1505,16 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
 
       {proofKing ? (
         <section className="section-block public-proof-card">
-          <div className="public-proof-head">
+          <div className="public-proof-head winners-proof-head">
             <div>
-              <SectionTitle title="Proof-backed current king" />
+              <p className="kicker">Current king</p>
+              <h2>{proofKing.author || "Current king"}</h2>
               <p>
-                This card is backed by committed public proof in the Kata repository.
+                Published from {proofRound?.roundNumber ? `Round ${proofRound.roundNumber}` : "the latest round"}
+                {proofKing.sourcePullRequest ? ` after PR #${proofKing.sourcePullRequest} won.` : "."}
               </p>
             </div>
-            <Status label="public proof" tone="ok" />
+            <Status label="proof-backed" tone="ok" />
           </div>
           <div className="winner-proof-layout">
             <MinerIdentity
@@ -1503,18 +1522,29 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
               sub={proofKing.submissionId || "published king"}
               size="large"
             />
-            <div className="public-proof-details">
-              <KeyValue label="source PR" value={proofKing.sourcePullRequest ? `#${proofKing.sourcePullRequest}` : "-"} />
-              <KeyValue label="promoted" value={formatDateTime(proofKing.promotedAt)} />
-              <KeyValue label="latest round" value={proofRound?.roundNumber ? `Round ${proofRound.roundNumber}` : "-"} />
-              <KeyValue label="best result" value={proofRound?.bestTruePositives != null ? `${proofRound.bestTruePositives} TP · ${formatDetection(proofRound.bestDetectionScore)}` : "-"} />
-              <KeyValue label="benchmark" value={proofBenchmark?.name || "-"} />
+            <div className="proof-scoreboard winner-proof-scoreboard">
+              <div className="proof-score-card proof-score-primary">
+                <strong>{proofRound?.bestTruePositives ?? "-"}</strong>
+                <span>true positives</span>
+              </div>
+              <div className="proof-score-card">
+                <strong>{formatPercent(proofRound?.bestDetectionScore)}</strong>
+                <span>detection score</span>
+              </div>
+              <div className="proof-score-card">
+                <strong>{proofRound?.candidateCount ?? "-"}</strong>
+                <span>candidates</span>
+              </div>
+              <div className="proof-score-card">
+                <strong>{friendlyBenchmarkName(proofBenchmark?.name)}</strong>
+                <span>benchmark</span>
+              </div>
             </div>
           </div>
           {proofHref ? (
             <div className="public-proof-links">
               <a href={proofHref} target="_blank" rel="noreferrer">
-                View round proof
+                View public proof
               </a>
             </div>
           ) : null}
@@ -2340,12 +2370,34 @@ function humanizeOutcome(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function shortHash(value) {
+function friendlyMode(value) {
+  if (value === "candidate_only") {
+    return "Candidate-only recovery";
+  }
+  if (value === "king_duel") {
+    return "King duel";
+  }
+  return humanizeOutcome(value || "Completed round");
+}
+
+function friendlyBenchmarkName(value) {
   if (!value) {
+    return "Benchmark";
+  }
+  if (String(value).includes("curated-highs-only")) {
+    return "Curated highs benchmark";
+  }
+  return String(value)
+    .replace(/\.json$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatPercent(value) {
+  if (value == null || Number.isNaN(Number(value))) {
     return "-";
   }
-  const text = String(value);
-  return text.length > 16 ? `${text.slice(0, 12)}...` : text;
+  return `${(Number(value) * 100).toFixed(2)}%`;
 }
 
 function formatDuration(seconds) {

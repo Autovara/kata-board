@@ -1598,16 +1598,10 @@ function KingCard({ lane, kataRepoSlug, publicProof, round, king }) {
           <span>{mode}</span>
           <Status label={lane.king?.seeded ? "seed king" : "promoted"} tone={lane.king?.seeded ? "neutral" : "ok"} />
         </div>
-        <p className="king-card-copy">
-          {winner} is the published {packName} miner agent that currently owns the lane.
-          The crown comes from Kata scoring proof, not review opinion.
-        </p>
         <div className="king-card-facts">
-          <ProofFact label="Subnet" value={packName} />
           <ProofFact label="Round" value={roundLabel} />
-          <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
+          <ProofFact label="TP" value={round.bestTruePositives ?? "-"} />
           <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
-          <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
           <ProofFact label="Promoted" value={formatDateTime(king.promotedAt || lane.king?.updatedAt)} />
         </div>
         <div className="king-card-actions">

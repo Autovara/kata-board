@@ -4429,22 +4429,26 @@ html { scroll-behavior: smooth; }
 
 .winners-page {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .king-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
+  display: flex;
+  gap: 14px;
   align-items: start;
+  overflow-x: auto;
+  padding: 2px 2px 14px;
+  scroll-snap-type: x proximity;
 }
 
 .king-card {
   display: grid;
   justify-items: center;
-  min-width: 0;
+  flex: 0 0 300px;
+  width: 300px;
+  min-height: 430px;
   border: 1px solid rgba(185, 255, 93, 0.22);
-  border-radius: 28px;
+  border-radius: 22px;
   background:
     radial-gradient(circle at 50% -8%, rgba(185, 255, 93, 0.16), transparent 36%),
     linear-gradient(180deg, rgba(244, 247, 239, 0.05), transparent 42%),
@@ -4456,15 +4460,16 @@ html { scroll-behavior: smooth; }
 .king-card-body {
   display: grid;
   justify-items: center;
-  gap: 14px;
+  align-content: start;
+  gap: 10px;
   width: 100%;
-  padding: clamp(22px, 2.4vw, 30px);
+  padding: 18px;
   text-align: center;
 }
 
 .king-card-crown {
   color: var(--green);
-  font-size: 38px;
+  font-size: 28px;
   line-height: 1;
   text-shadow: 0 0 28px rgba(185, 255, 93, 0.18);
 }
@@ -4472,12 +4477,12 @@ html { scroll-behavior: smooth; }
 .king-card-identity {
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .king-card-identity .avatar {
-  width: 92px;
-  height: 92px;
+  width: 70px;
+  height: 70px;
   border-color: rgba(185, 255, 93, 0.5);
   box-shadow: 0 0 0 8px rgba(185, 255, 93, 0.08), 0 18px 42px rgba(0, 0, 0, 0.28);
 }
@@ -4485,7 +4490,7 @@ html { scroll-behavior: smooth; }
 .king-card-identity h1 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(28px, 3.5vw, 42px);
+  font-size: 28px;
   line-height: 1;
   letter-spacing: -0.04em;
   overflow-wrap: anywhere;
@@ -4502,13 +4507,8 @@ html { scroll-behavior: smooth; }
   margin-top: 6px;
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
-  font-size: 13px;
+  font-size: 11px;
   overflow-wrap: anywhere;
-}
-
-.king-card-copy {
-  max-width: 440px;
-  font-size: 15px;
 }
 
 .king-card-tags {
@@ -4522,7 +4522,7 @@ html { scroll-behavior: smooth; }
 .king-card-tags > span:not(.status) {
   border: 1px solid rgba(244, 247, 239, 0.12);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   color: var(--soft);
   background: rgba(8, 9, 8, 0.28);
   font-family: "IBM Plex Mono", monospace;
@@ -4531,13 +4531,17 @@ html { scroll-behavior: smooth; }
 
 .king-card-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 8px;
   width: 100%;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .king-card-facts .proof-fact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   border-color: rgba(244, 247, 239, 0.12);
   background:
     linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
@@ -4546,23 +4550,27 @@ html { scroll-behavior: smooth; }
 
 .king-card-facts .proof-fact strong {
   color: var(--green);
+  font-size: 13px;
+  text-align: right;
 }
 
 .king-card-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  margin-top: 4px;
+  margin-top: auto;
   border-top: 1px solid rgba(244, 247, 239, 0.1);
-  padding-top: 16px;
+  padding-top: 12px;
 }
 
 .king-card-actions .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: 38px;
+  padding: 0 12px;
   text-decoration: none;
 }
 
@@ -4725,21 +4733,18 @@ html { scroll-behavior: smooth; }
     min-height: 260px;
   }
 
-  .king-grid {
-    grid-template-columns: 1fr;
-  }
-
   .king-card-body {
     padding: 18px;
   }
 
-  .king-card-facts {
-    grid-template-columns: 1fr;
+  .king-card {
+    flex-basis: 280px;
+    width: 280px;
   }
 
   .king-card-identity .avatar {
-    width: 76px;
-    height: 76px;
+    width: 64px;
+    height: 64px;
   }
 
   .duel-panel-head,

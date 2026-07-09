@@ -13,6 +13,9 @@ loadDotEnv(path.join(projectRoot, ".env"));
 
 const app = express();
 const port = Number.parseInt(process.env.PORT || "8787", 10);
+const kataAssetsRoot = path.resolve(
+  process.env.KATA_ASSETS_DIR || path.join(projectRoot, "..", "kata", "assets")
+);
 
 app.get("/api/health", (_request, response) => {
   response.json({
@@ -82,6 +85,17 @@ app.get("/api/stream", async (_request, response) => {
 app.use("/api", (_request, response) => {
   response.status(404).json({ status: "error", message: "unknown endpoint" });
 });
+
+if (fs.existsSync(kataAssetsRoot)) {
+  app.use(
+    "/kata-assets",
+    express.static(kataAssetsRoot, {
+      fallthrough: true,
+      immutable: false,
+      maxAge: "10m"
+    })
+  );
+}
 
 if (fs.existsSync(distRoot)) {
   app.use(express.static(distRoot));

@@ -3,6 +3,7 @@ import GridBackground from "./GridBackground.jsx";
 
 const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
 const STREAM_URL = import.meta.env.VITE_STREAM_URL || "/api/stream";
+const KATA_ASSET_BASE = import.meta.env.VITE_KATA_ASSET_BASE || "/kata-assets";
 const POLL_INTERVAL_MS = 2000;
 const PAGES = [
   { path: "/", label: "Dashboard" },
@@ -11,6 +12,17 @@ const PAGES = [
   { path: "/leaderboard", label: "Leaderboard" },
   { path: "/docs", label: "Docs" }
 ];
+const KATA_IMAGES = {
+  heroDashboard: assetUrl("hero-dashboard.png"),
+  proof: assetUrl("proof.png"),
+  benchmarkProjects: assetUrl("BenchmarkProjects.png"),
+  vulnerabilityFinding: assetUrl("VulnerabilityFinding.png"),
+  currentKing: assetUrl("CurrentKing.png")
+};
+
+function assetUrl(filename) {
+  return `${KATA_ASSET_BASE}/${encodeURIComponent(filename)}`;
+}
 
 export default function App() {
   const [pathname, setPathname] = useState(readCurrentRoute);
@@ -480,7 +492,7 @@ function KataShowcase({ overview, publicProof, onNavigate }) {
   return (
     <section className="showcase-grid" aria-label="Kata competition proof">
       <article className="showcase-card showcase-card-wide">
-        <VisualArt type="arena" />
+        <AssetImage src={KATA_IMAGES.heroDashboard} alt="Kata arena with competing miner agents" tone="wide" />
         <div>
           <span className="showcase-kicker">Same arena</span>
           <h2>Every candidate faces the same selected benchmark set.</h2>
@@ -495,52 +507,34 @@ function KataShowcase({ overview, publicProof, onNavigate }) {
       </article>
 
       <article className="showcase-card">
-        <VisualArt type="proof" />
+        <AssetImage src={KATA_IMAGES.proof} alt="Public proof and verified scoring result" />
         <span className="showcase-kicker">Proof result</span>
         <h3>{round.bestTruePositives ?? "-"} true positives</h3>
         <p>Latest promoted result from public round proof.</p>
       </article>
 
       <article className="showcase-card">
-        <VisualArt type="crown" />
+        <AssetImage src={KATA_IMAGES.benchmarkProjects} alt="Selected benchmark projects for the scoring round" />
+        <span className="showcase-kicker">Benchmark set</span>
+        <h3>{projectCount} projects</h3>
+        <p>Selected problems keep the crown earned, not claimed by vibes.</p>
+      </article>
+
+      <article className="showcase-card">
+        <AssetImage src={KATA_IMAGES.vulnerabilityFinding} alt="AI miner finding a real vulnerability" />
         <span className="showcase-kicker">Current king</span>
         <h3>{winner}</h3>
-        <p>{projectCount} benchmark projects keep the crown earned, not claimed.</p>
+        <p>The winner needs real true positives, not audit-flavored poetry.</p>
       </article>
     </section>
   );
 }
 
-function VisualArt({ type }) {
+function AssetImage({ src, alt, tone = "default" }) {
   return (
-    <div className={`visual-art visual-art-${type}`} aria-hidden="true">
-      <div className="visual-orb visual-orb-one" />
-      <div className="visual-orb visual-orb-two" />
-      {type === "arena" ? (
-        <div className="visual-window">
-          <span />
-          <span />
-          <span />
-          <strong>candidate</strong>
-          <i />
-          <strong>king</strong>
-        </div>
-      ) : null}
-      {type === "proof" ? (
-        <div className="visual-radar">
-          <span />
-          <span />
-          <span />
-          <strong>TP</strong>
-        </div>
-      ) : null}
-      {type === "crown" ? (
-        <div className="visual-crown">
-          <span>♔</span>
-          <i />
-        </div>
-      ) : null}
-    </div>
+    <figure className={`asset-image asset-image-${tone}`}>
+      <img src={src} alt={alt} loading="lazy" />
+    </figure>
   );
 }
 
@@ -1635,7 +1629,7 @@ function WinnerShowcase({ publicProof, lanes, kataRepoSlug }) {
   return (
     <section className="winner-showcase">
       <div className="winner-showcase-art">
-        <VisualArt type="crown" />
+        <AssetImage src={KATA_IMAGES.currentKing} alt="Current Kata king agent" tone="winner" />
       </div>
       <div className="winner-showcase-copy">
         <span className="showcase-kicker">Active crown holder</span>

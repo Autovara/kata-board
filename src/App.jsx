@@ -327,8 +327,9 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
       <div className="dashboard-hero-copy">
         <p className="kicker">Built with Gittensor · Bittensor SN74</p>
         <h1 className="dashboard-hero-title">
-          <span>Kata optimizes</span>{" "}
-          <span className="dashboard-hero-title-mark">subnet miner agents</span>
+          <span>Kata is an</span>{" "}
+          <span className="dashboard-hero-title-mark">optimization engine</span>{" "}
+          <span>for miner agents</span>
         </h1>
         <p>
           Kata runs open competition to build stronger miner agents for Bittensor

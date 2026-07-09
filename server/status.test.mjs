@@ -1455,6 +1455,56 @@ test("exposes the current competition round from round-status.json", async () =>
   assert.equal(status.roundHistory[1].roundNumber, 1);
 });
 
+test("exposes public proof from kata public-results/current.json", async () => {
+  const root = makeKataRoot();
+  writeJson(path.join(root, "public-results"), "current.json", {
+    schema_version: 1,
+    updated_at: "2026-07-09T17:30:15Z",
+    active_pack: "sn60__bitsec",
+    active_mode: "miner",
+    dashboard_url: "https://dashboardking.ngrok.app",
+    current_king: {
+      author: "kiannidev",
+      submission_id: "kiannidev-20260708-01",
+      source_pull_request: 98,
+      path: "kings/sn60__bitsec/miner",
+      artifact_hash: "king-hash",
+      promoted_at: "2026-07-09T16:14:37Z"
+    },
+    latest_round: {
+      round_id: "sn60-round-x",
+      round_number: 2,
+      competition_mode: "candidate_only",
+      started_at: "2026-07-09T14:51:04Z",
+      finished_at: "2026-07-09T16:14:08Z",
+      duration_seconds: 4984,
+      candidate_count: 7,
+      outcome: "king_promoted",
+      winner_pull_request: 98,
+      winner_author: "kiannidev",
+      winner_submission_id: "kiannidev-20260708-01",
+      best_true_positives: 4,
+      best_detection_score: 0.14814814814814814,
+      proof: "public-results/rounds/sn60-round-x.json"
+    },
+    benchmark: {
+      name: "curated-highs-only-2025-08-08.json",
+      round_sha256: "benchmark-sha",
+      sandbox_commit: "sandbox-commit",
+      scorer_version: "ScaBenchScorerV2"
+    }
+  });
+
+  const status = await loadBoardStatus(boardEnv(root));
+
+  assert.equal(status.publicProof.currentKing.author, "kiannidev");
+  assert.equal(status.publicProof.currentKing.sourcePullRequest, 98);
+  assert.equal(status.publicProof.latestRound.roundNumber, 2);
+  assert.equal(status.publicProof.latestRound.durationSeconds, 4984);
+  assert.equal(status.publicProof.latestRound.bestTruePositives, 4);
+  assert.equal(status.publicProof.benchmark.roundSha256, "benchmark-sha");
+});
+
 test("exposes a failed preflight round and its note for the dashboard", async () => {
   const root = makeKataRoot();
   writeJson(root, "round-status.json", {

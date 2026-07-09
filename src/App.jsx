@@ -168,6 +168,7 @@ export default function App() {
             payload={payload}
             selectedLane={selectedLane}
             validator={payload.validator}
+            publicProof={payload.publicProof}
             onNavigate={navigate}
           />
         ) : null}
@@ -182,7 +183,11 @@ export default function App() {
           />
         ) : null}
         {payload && (pathname === "/winners" || pathname === "/champions") ? (
-          <Winners lanes={lanes} kataRepoSlug={payload.publicLinks?.kataRepo} />
+          <Winners
+            lanes={lanes}
+            kataRepoSlug={payload.publicLinks?.kataRepo}
+            publicProof={payload.publicProof}
+          />
         ) : null}
         {payload && pathname === "/leaderboard" ? (
           <Leaderboard leaderboard={payload.leaderboard} />
@@ -265,7 +270,7 @@ function DiscordIcon() {
   );
 }
 
-function Dashboard({ payload, selectedLane, validator, onNavigate }) {
+function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }) {
   const overview = payload.overview || {};
   const submissionStatus = payload.submissionStatus || null;
   const activeEvaluation = validator?.activeEvaluation || null;
@@ -274,6 +279,7 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
   const latestStatus = buildDashboardLatestStatus(activeEvaluation, latestChallenge);
   const topMiner = payload.leaderboard?.rows?.[0] || null;
   const currentWinnerScore = overview.currentWinnerGittensorScore || 0;
+  const proofKing = publicProof?.currentKing || null;
 
   return (
     <div className="stack">
@@ -308,7 +314,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
           </div>
           <TerminalLine label="engine" value="Gittensor SN74 · SN60 Bitsec" />
           <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
-          <TerminalLine label="reigning king" value={selectedLane?.currentHolder || "seed king"} />
+          <TerminalLine label="reigning king" value={proofKing?.author || selectedLane?.currentHolder || "seed king"} />
+          <TerminalLine label="latest round" value={publicProof?.latestRound?.roundNumber ? `Round ${publicProof.latestRound.roundNumber}` : "waiting"} />
           <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
           <TerminalLine label="gittensor" value={`${formatNumber(currentWinnerScore)} current winner score`} />
           <TerminalLine label="goal" value="one-click mining" />
@@ -345,6 +352,8 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
 
       <SubmissionStatusPanel submissionStatus={submissionStatus} />
 
+      <PublicProofPanel publicProof={publicProof} kataRepoSlug={payload.publicLinks?.kataRepo} />
+
       <section className="section-block how-block">
         <SectionTitle title="How it works" />
         <div className="how-row">
@@ -358,14 +367,14 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
         <div className="section-block">
           <SectionTitle title="Reigning king" />
           <MinerIdentity
-            name={selectedLane?.currentHolder || "Seed king"}
-            sub={selectedLane?.king?.submissionId || "current king"}
+            name={proofKing?.author || selectedLane?.currentHolder || "Seed king"}
+            sub={proofKing?.submissionId || selectedLane?.king?.submissionId || "current king"}
             size="large"
           />
           <KeyValue label="subnet" value={selectedLane?.repoName || "-"} />
           <KeyValue label="mode" value={selectedLane?.mode || "-"} />
           <KeyValue label="benchmark" value={selectedLane ? duelFormat(selectedLane) : "-"} />
-          <KeyValue label="crowned" value={formatDateTime(selectedLane?.king?.updatedAt)} />
+          <KeyValue label="crowned" value={formatDateTime(proofKing?.promotedAt || selectedLane?.king?.updatedAt)} />
         </div>
         <div className="section-block">
           <SectionTitle title="Latest challenge" />
@@ -377,6 +386,69 @@ function Dashboard({ payload, selectedLane, validator, onNavigate }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function PublicProofPanel({ publicProof, kataRepoSlug }) {
+  if (!publicProof) {
+    return null;
+  }
+  const round = publicProof.latestRound || {};
+  const king = publicProof.currentKing || {};
+  const benchmark = publicProof.benchmark || {};
+  const proofHref = proofFileLink(round.proof, kataRepoSlug);
+  const kingHref = proofFileLink(king.path, kataRepoSlug);
+  return (
+    <section className="section-block public-proof-card">
+      <div className="public-proof-head">
+        <div>
+          <SectionTitle title="Public proof" />
+          <p>
+            Committed proof from the public Kata repo. This is the completed-result source
+            the board can show without relying on private bot logs.
+          </p>
+        </div>
+        <Status label="public" tone="ok" />
+      </div>
+      <div className="public-proof-grid">
+        <Stat label="current king" value={king.author || "-"} sub={king.submissionId || "published agent"} />
+        <Stat
+          label="latest round"
+          value={round.roundNumber ? `Round ${round.roundNumber}` : "-"}
+          sub={round.competitionMode || "completed result"}
+        />
+        <Stat
+          label="best result"
+          value={round.bestTruePositives != null ? `${round.bestTruePositives} TP` : "-"}
+          sub={formatDetection(round.bestDetectionScore)}
+        />
+        <Stat
+          label="candidates"
+          value={round.candidateCount ?? "-"}
+          sub={round.outcome ? humanizeOutcome(round.outcome) : "round outcome"}
+        />
+      </div>
+      <div className="public-proof-details">
+        <KeyValue label="winner" value={round.winnerAuthor || king.author || "-"} />
+        <KeyValue label="finished" value={formatDateTime(round.finishedAt)} />
+        <KeyValue label="duration" value={formatDuration(round.durationSeconds)} />
+        <KeyValue label="benchmark" value={benchmark.name || "-"} />
+        <KeyValue label="benchmark hash" value={shortHash(benchmark.roundSha256)} />
+        <KeyValue label="sandbox" value={shortHash(benchmark.sandboxCommit)} />
+      </div>
+      <div className="public-proof-links">
+        {proofHref ? (
+          <a href={proofHref} target="_blank" rel="noreferrer">
+            View round proof
+          </a>
+        ) : null}
+        {kingHref ? (
+          <a href={kingHref} target="_blank" rel="noreferrer">
+            View current king
+          </a>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -1401,7 +1473,11 @@ function Arena({
   );
 }
 
-function Winners({ lanes, kataRepoSlug }) {
+function Winners({ lanes, kataRepoSlug, publicProof }) {
+  const proofKing = publicProof?.currentKing || null;
+  const proofRound = publicProof?.latestRound || null;
+  const proofBenchmark = publicProof?.benchmark || null;
+  const proofHref = proofFileLink(proofRound?.proof, kataRepoSlug);
   return (
     <div className="stack">
       <PageIntro
@@ -1409,6 +1485,41 @@ function Winners({ lanes, kataRepoSlug }) {
         title="Reigning champions"
         text="Each live subnet keeps one current king — the best agent so far. Beat it in the Arena to take its place."
       />
+
+      {proofKing ? (
+        <section className="section-block public-proof-card">
+          <div className="public-proof-head">
+            <div>
+              <SectionTitle title="Proof-backed current king" />
+              <p>
+                This card is backed by committed public proof in the Kata repository.
+              </p>
+            </div>
+            <Status label="public proof" tone="ok" />
+          </div>
+          <div className="winner-proof-layout">
+            <MinerIdentity
+              name={proofKing.author || "current king"}
+              sub={proofKing.submissionId || "published king"}
+              size="large"
+            />
+            <div className="public-proof-details">
+              <KeyValue label="source PR" value={proofKing.sourcePullRequest ? `#${proofKing.sourcePullRequest}` : "-"} />
+              <KeyValue label="promoted" value={formatDateTime(proofKing.promotedAt)} />
+              <KeyValue label="latest round" value={proofRound?.roundNumber ? `Round ${proofRound.roundNumber}` : "-"} />
+              <KeyValue label="best result" value={proofRound?.bestTruePositives != null ? `${proofRound.bestTruePositives} TP · ${formatDetection(proofRound.bestDetectionScore)}` : "-"} />
+              <KeyValue label="benchmark" value={proofBenchmark?.name || "-"} />
+            </div>
+          </div>
+          {proofHref ? (
+            <div className="public-proof-links">
+              <a href={proofHref} target="_blank" rel="noreferrer">
+                View round proof
+              </a>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="winner-grid">
         {lanes.length ? (
@@ -2208,6 +2319,50 @@ function kingAgentLink(lane, repoSlug) {
     return path;
   }
   return `https://github.com/${repoSlug}/blob/main/${path}`;
+}
+
+function proofFileLink(relativePath, repoSlug) {
+  if (!relativePath) {
+    return null;
+  }
+  if (String(relativePath).startsWith("https://")) {
+    return relativePath;
+  }
+  if (!repoSlug) {
+    return relativePath;
+  }
+  return `https://github.com/${repoSlug}/blob/main/${relativePath}`;
+}
+
+function humanizeOutcome(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function shortHash(value) {
+  if (!value) {
+    return "-";
+  }
+  const text = String(value);
+  return text.length > 16 ? `${text.slice(0, 12)}...` : text;
+}
+
+function formatDuration(seconds) {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total < 0) {
+    return "-";
+  }
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = Math.floor(total % 60);
+  if (hours) {
+    return `${hours}h ${minutes}m ${secs}s`;
+  }
+  if (minutes) {
+    return `${minutes}m ${secs}s`;
+  }
+  return `${secs}s`;
 }
 
 function avatarUrl(name) {

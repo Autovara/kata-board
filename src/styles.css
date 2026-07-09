@@ -3817,6 +3817,75 @@ html { scroll-behavior: smooth; }
   gap: 12px;
 }
 
+.public-proof-card {
+  display: grid;
+  gap: 18px;
+  border-color: rgba(185, 255, 93, 0.2);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(185, 255, 93, 0.1), transparent 34%),
+    rgba(16, 19, 16, 0.88);
+}
+
+.public-proof-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.public-proof-head .section-title {
+  margin-bottom: 8px;
+}
+
+.public-proof-head p {
+  margin: 0;
+  max-width: 780px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.public-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.public-proof-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 22px;
+}
+
+.public-proof-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.public-proof-links a {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(185, 255, 93, 0.34);
+  border-radius: 999px;
+  padding: 9px 13px;
+  color: var(--green);
+  background: rgba(185, 255, 93, 0.08);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.public-proof-links a:hover {
+  border-color: rgba(185, 255, 93, 0.6);
+  background: rgba(185, 255, 93, 0.14);
+}
+
+.winner-proof-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  gap: 22px;
+  align-items: start;
+}
+
 .status-list-card {
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -3878,6 +3947,12 @@ html { scroll-behavior: smooth; }
 @media (max-width: 980px) {
   .stat-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-proof-grid,
+  .public-proof-details,
+  .winner-proof-layout {
+    grid-template-columns: 1fr;
   }
 
   .duel-command-top,

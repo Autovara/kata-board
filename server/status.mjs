@@ -43,6 +43,7 @@ export async function loadBoardStatus(env) {
   }
   let roundHistory = loadRoundHistory(roots.roundHistoryPath);
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
+  const publicProof = loadPublicProof(roots.publicResultsCurrentPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
@@ -79,10 +80,12 @@ export async function loadBoardStatus(env) {
       githubLeaderboard: leaderboardSourceIncludes(leaderboard, "github"),
       eventFeed: leaderboardSourceIncludes(leaderboard, "events"),
       validatorQueue: Boolean(validator.queue.available),
-      validatorHealth: Boolean(validator.health.configured)
+      validatorHealth: Boolean(validator.health.configured),
+      publicProof: Boolean(publicProof)
     },
     overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus),
     validator,
+    publicProof,
     submissionStatus,
     round,
     roundHistory,
@@ -119,9 +122,10 @@ function resolveRoots(env) {
     env.KATA_BOT_ROOT,
     path.join(boardRoot, "kata-bot")
   );
+  const kataRoot = resolveExistingRoot(env.KATA_ROOT, path.join(boardRoot, "kata"));
   return {
     boardRoot,
-    kataRoot: resolveExistingRoot(env.KATA_ROOT, path.join(boardRoot, "kata")),
+    kataRoot,
     kataBotRoot,
     sn60BenchmarkFile: env.KATA_SN60_BENCHMARK_FILE
       ? path.resolve(env.KATA_SN60_BENCHMARK_FILE)
@@ -176,6 +180,10 @@ function resolveRoots(env) {
           ),
           "review-approvals.json"
         )
+    ),
+    publicResultsCurrentPath: path.resolve(
+      env.KATA_PUBLIC_RESULTS_CURRENT_PATH ||
+        path.join(kataRoot, "public-results", "current.json")
     )
   };
 }
@@ -198,6 +206,56 @@ function loadRoundHistory(roundHistoryPath) {
       headline: entry.headline || null
     }))
     .reverse();
+}
+
+function loadPublicProof(publicResultsCurrentPath) {
+  const data = readJsonSafe(publicResultsCurrentPath);
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  const currentKing =
+    data.current_king && typeof data.current_king === "object" ? data.current_king : {};
+  const latestRound =
+    data.latest_round && typeof data.latest_round === "object" ? data.latest_round : {};
+  const benchmark =
+    data.benchmark && typeof data.benchmark === "object" ? data.benchmark : {};
+  return {
+    schemaVersion: data.schema_version ?? null,
+    updatedAt: data.updated_at || null,
+    activePack: data.active_pack || null,
+    activeMode: data.active_mode || null,
+    dashboardUrl: data.dashboard_url || null,
+    currentKing: {
+      author: currentKing.author || inferSubmissionAuthorFromId(currentKing.submission_id),
+      submissionId: currentKing.submission_id || null,
+      sourcePullRequest: currentKing.source_pull_request ?? null,
+      path: currentKing.path || null,
+      artifactHash: currentKing.artifact_hash || null,
+      promotedAt: currentKing.promoted_at || null
+    },
+    latestRound: {
+      roundId: latestRound.round_id || null,
+      roundNumber: latestRound.round_number ?? null,
+      competitionMode: latestRound.competition_mode || null,
+      startedAt: latestRound.started_at || null,
+      finishedAt: latestRound.finished_at || null,
+      durationSeconds: latestRound.duration_seconds ?? null,
+      candidateCount: latestRound.candidate_count ?? null,
+      outcome: latestRound.outcome || null,
+      winnerPullRequest: latestRound.winner_pull_request ?? null,
+      winnerAuthor: latestRound.winner_author || null,
+      winnerSubmissionId: latestRound.winner_submission_id || null,
+      bestTruePositives: latestRound.best_true_positives ?? null,
+      bestDetectionScore: latestRound.best_detection_score ?? null,
+      proof: latestRound.proof || null
+    },
+    benchmark: {
+      name: benchmark.name || null,
+      roundSha256: benchmark.round_sha256 || null,
+      sandboxCommit: benchmark.sandbox_commit || null,
+      scorerVersion: benchmark.scorer_version || null
+    }
+  };
 }
 
 function assignRoundSequence(round, roundHistory) {

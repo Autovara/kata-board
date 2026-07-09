@@ -289,120 +289,191 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
   const recentActivity = payload.activity || [];
   const latestChallenge = recentActivity[0] || null;
   const latestStatus = buildDashboardLatestStatus(activeEvaluation, latestChallenge);
-  const topMiner = payload.leaderboard?.rows?.[0] || null;
-  const currentWinnerScore = overview.currentWinnerGittensorScore || 0;
-  const proofKing = publicProof?.currentKing || null;
 
   return (
-    <div className="stack">
-      <section className="hero">
-        <div className="hero-copy">
-          <p className="kicker">Kata · Gittensor SN74 supported</p>
-          <h1 className="hero-title">
-            <span>Kata is the</span>{" "}
-            <span className="hero-title-mark">objective competition engine</span>{" "}
-            <span>for subnet agents.</span>
-          </h1>
-          <p>
-            Miners submit one candidate agent by pull request. Kata screens it
-            cheaply, then scores it against the current king in scheduled competition
-            rounds on the active subnet benchmark, and promotes only objective winners
-            to the public king lane. SN60 Bitsec is the first live lane.
-          </p>
-          <div className="actions">
-            <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
-              Watch the Arena
-            </button>
-            <button type="button" className="button" onClick={() => onNavigate("/docs")}>
-              Submit an agent
-            </button>
-          </div>
-        </div>
-        <div className="hero-terminal" aria-label="Live summary">
-          <div className="terminal-top">
-            <span />
-            <span />
-            <span />
-          </div>
-          <TerminalLine label="engine" value="Gittensor SN74 · SN60 Bitsec" />
-          <TerminalLine label="live subnet" value={selectedLane?.repoName || "SN60 Bitsec"} />
-          <TerminalLine label="reigning king" value={proofKing?.author || selectedLane?.currentHolder || "seed king"} />
-          <TerminalLine label="latest round" value={publicProof?.latestRound?.roundNumber ? `Round ${publicProof.latestRound.roundNumber}` : "waiting"} />
-          <TerminalLine label="eval set" value={`${overview.selectedCodebases ?? overview.benchmarkProjects ?? 0} sampled codebases`} />
-          <TerminalLine label="gittensor" value={`${formatNumber(currentWinnerScore)} current winner score`} />
-          <TerminalLine label="goal" value="one-click mining" />
-        </div>
-      </section>
-
-      <PublicProofPanel publicProof={publicProof} kataRepoSlug={payload.publicLinks?.kataRepo} />
-
-      <KataShowcase
+    <div className="dashboard-page">
+      <DashboardHero
         overview={overview}
+        selectedLane={selectedLane}
         publicProof={publicProof}
         onNavigate={onNavigate}
       />
 
-      <section className="stat-row">
-        <Stat
-          label="live subnets"
-          value={overview.activeSubnetPacks ?? overview.activeRepoPacks}
-          sub="active Kata lanes connected to this board"
-        />
-        <Stat
-          label="eval codebases"
-          value={overview.selectedCodebases ?? overview.benchmarkProjects ?? 0}
-          sub="sampled SN60 projects in the current lane"
-        />
-        <Stat
-          label="challengers"
-          value={overview.uniqueChallengers ?? overview.leaderboardEntries ?? 0}
-          sub={`${overview.totalSubmissions ?? 0} submission PRs seen`}
-        />
-        <Stat
-          label="recent rounds"
-          value={overview.recentDuels ?? overview.recentChallenges ?? 0}
-          sub="visible completed run artifacts"
-        />
-        <Stat
-          label="winner score"
-          value={formatNumber(currentWinnerScore)}
-          sub="current king score after local time decay"
-        />
-      </section>
+      <DashboardProof
+        publicProof={publicProof}
+        kataRepoSlug={payload.publicLinks?.kataRepo}
+      />
 
-      <SubmissionStatusPanel submissionStatus={submissionStatus} />
+      <DashboardFlow onNavigate={onNavigate} />
 
-      <section className="section-block how-block">
-        <SectionTitle title="How it works" />
-        <div className="how-row">
-          <HowStep step="01" title="Submit" text="Open one pull request that adds a single agent under submissions/. It is screened and labeled pending." />
-          <HowStep step="02" title="Compete" text="In each scheduled round, every pending agent is scored against the current king on the same sampled problems." />
-          <HowStep step="03" title="Take the crown" text="Beat the king and your agent is merged and published as the new king." />
+      <DashboardOperations
+        latestStatus={latestStatus}
+        submissionStatus={submissionStatus}
+        generatedAt={payload.generatedAt}
+      />
+    </div>
+  );
+}
+
+function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
+  const round = publicProof?.latestRound || {};
+  const king = publicProof?.currentKing || {};
+  const currentWinnerScore = overview.currentWinnerGittensorScore || 0;
+  const projectCount = overview.selectedCodebases ?? overview.benchmarkProjects ?? 0;
+  const kingName = king.author || selectedLane?.currentHolder || "seed king";
+  return (
+    <section className="dashboard-hero">
+      <div className="dashboard-hero-copy">
+        <p className="kicker">Kata · Gittensor SN74 supported</p>
+        <h1>
+          Build agents that find real bugs, then prove it in public.
+        </h1>
+        <p>
+          Kata turns miner submissions into a clean competition loop: screen the PR,
+          score candidates on the same benchmark set, and promote only the strongest
+          verified agent.
+        </p>
+        <div className="actions">
+          <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
+            Watch the Arena
+          </button>
+          <button type="button" className="button" onClick={() => onNavigate("/docs")}>
+            Submit an agent
+          </button>
         </div>
-      </section>
+      </div>
 
-      <section className="split">
-        <div className="section-block">
-          <SectionTitle title="Reigning king" />
-          <MinerIdentity
-            name={proofKing?.author || selectedLane?.currentHolder || "Seed king"}
-            sub={proofKing?.submissionId || selectedLane?.king?.submissionId || "current king"}
-            size="large"
-          />
-          <KeyValue label="subnet" value={selectedLane?.repoName || "-"} />
-          <KeyValue label="mode" value={selectedLane?.mode || "-"} />
-          <KeyValue label="benchmark" value={selectedLane ? duelFormat(selectedLane) : "-"} />
-          <KeyValue label="crowned" value={formatDateTime(proofKing?.promotedAt || selectedLane?.king?.updatedAt)} />
+      <div className="dashboard-hero-visual">
+        <AssetImage src={KATA_IMAGES.heroDashboard} alt="Kata dashboard competition arena" tone="hero" />
+        <div className="dashboard-live-panel">
+          <Status label="live" tone="ok" />
+          <DashboardMiniMetric label="King" value={kingName} />
+          <DashboardMiniMetric label="Round" value={round.roundNumber ? `Round ${round.roundNumber}` : "waiting"} />
+          <DashboardMiniMetric label="Projects" value={projectCount || "-"} />
+          <DashboardMiniMetric label="Score" value={formatNumber(currentWinnerScore)} />
         </div>
-        <div className="section-block">
-          <SectionTitle title="Latest challenge" />
+      </div>
+    </section>
+  );
+}
+
+function DashboardProof({ publicProof, kataRepoSlug }) {
+  if (!publicProof) {
+    return null;
+  }
+  const round = publicProof.latestRound || {};
+  const king = publicProof.currentKing || {};
+  const proofHref = proofFileLink(round.proof, kataRepoSlug);
+  const kingHref = proofFileLink(king.path, kataRepoSlug);
+  const roundTitle = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
+  return (
+    <section className="dashboard-proof">
+      <div className="dashboard-proof-image">
+        <AssetImage src={KATA_IMAGES.proof} alt="Verified public proof artifact" tone="proof" />
+      </div>
+      <div className="dashboard-proof-copy">
+        <span className="showcase-kicker">Latest verified result</span>
+        <h2>{round.winnerAuthor || king.author || "Current king"} won {roundTitle}</h2>
+        <p>
+          Public proof shows the winning agent, true-positive count, candidate count,
+          and round timing without exposing private validator secrets.
+        </p>
+        <div className="dashboard-proof-metrics">
+          <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
+          <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
+          <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
+          <ProofFact label="Duration" value={formatDuration(round.durationSeconds)} />
+        </div>
+        <div className="proof-actions">
+          {proofHref ? <a href={proofHref} target="_blank" rel="noreferrer">View public proof</a> : null}
+          {kingHref ? (
+            <a href={kingHref} target="_blank" rel="noreferrer" className="proof-secondary-action">
+              Open winning agent
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardFlow({ onNavigate }) {
+  return (
+    <section className="dashboard-flow">
+      <div className="dashboard-section-head">
+        <span className="showcase-kicker">Competition flow</span>
+        <h2>Simple for contributors, strict for scoring.</h2>
+      </div>
+      <div className="dashboard-flow-grid">
+        <DashboardFlowCard
+          image={KATA_IMAGES.vulnerabilityFinding}
+          step="01"
+          title="Submit one miner"
+          text="Open one PR with one agent. Keep it rule-compliant so it reaches scoring."
+          action="Submission guide"
+          onClick={() => onNavigate("/docs")}
+        />
+        <DashboardFlowCard
+          image={KATA_IMAGES.benchmarkProjects}
+          step="02"
+          title="Score on selected projects"
+          text="Each candidate faces the same benchmark selection for the round."
+          action="Open arena"
+          onClick={() => onNavigate("/arena")}
+        />
+        <DashboardFlowCard
+          image={KATA_IMAGES.currentKing}
+          step="03"
+          title="Beat the crown"
+          text="The top verified result is promoted as the new public king."
+          action="See winners"
+          onClick={() => onNavigate("/winners")}
+        />
+      </div>
+    </section>
+  );
+}
+
+function DashboardFlowCard({ image, step, title, text, action, onClick }) {
+  return (
+    <article className="dashboard-flow-card">
+      <AssetImage src={image} alt="" tone="flow" />
+      <span>{step}</span>
+      <h3>{title}</h3>
+      <p>{text}</p>
+      <button type="button" className="showcase-link" onClick={onClick}>
+        {action}
+      </button>
+    </article>
+  );
+}
+
+function DashboardOperations({ latestStatus, submissionStatus, generatedAt }) {
+  return (
+    <section className="dashboard-ops">
+      <div className="dashboard-section-head">
+        <span className="showcase-kicker">Operational status</span>
+        <h2>What is happening right now?</h2>
+      </div>
+      <div className="dashboard-ops-grid">
+        <div className="dashboard-latest-card">
+          <SectionTitle title="Latest activity" />
           <KeyValue label="challenger" value={latestStatus.challenger} />
           <KeyValue label="status" value={latestStatus.status} />
           <KeyValue label="source" value={latestStatus.source} />
-          <KeyValue label="top miner" value={topMiner?.author || "not ranked yet"} />
-          <KeyValue label="updated" value={formatDateTime(latestStatus.updatedAt || payload.generatedAt)} />
+          <KeyValue label="updated" value={formatDateTime(latestStatus.updatedAt || generatedAt)} />
         </div>
-      </section>
+        <SubmissionStatusPanel submissionStatus={submissionStatus} />
+      </div>
+    </section>
+  );
+}
+
+function DashboardMiniMetric({ label, value }) {
+  return (
+    <div className="dashboard-mini-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -480,52 +551,6 @@ function PublicProofPanel({ publicProof, kataRepoSlug, compact = false }) {
           ) : null}
         </div>
       </div>
-    </section>
-  );
-}
-
-function KataShowcase({ overview, publicProof, onNavigate }) {
-  const round = publicProof?.latestRound || {};
-  const king = publicProof?.currentKing || {};
-  const projectCount = overview.selectedCodebases ?? overview.benchmarkProjects ?? 6;
-  const winner = round.winnerAuthor || king.author || "current king";
-  return (
-    <section className="showcase-grid" aria-label="Kata competition proof">
-      <article className="showcase-card showcase-card-wide">
-        <AssetImage src={KATA_IMAGES.heroDashboard} alt="Kata arena with competing miner agents" tone="wide" />
-        <div>
-          <span className="showcase-kicker">Same arena</span>
-          <h2>Every candidate faces the same selected benchmark set.</h2>
-          <p>
-            Kata turns miner submissions into a visible competition: one round,
-            one sampled problem set, one promoted winner.
-          </p>
-          <button type="button" className="showcase-link" onClick={() => onNavigate("/arena")}>
-            Watch the arena
-          </button>
-        </div>
-      </article>
-
-      <article className="showcase-card">
-        <AssetImage src={KATA_IMAGES.proof} alt="Public proof and verified scoring result" />
-        <span className="showcase-kicker">Proof result</span>
-        <h3>{round.bestTruePositives ?? "-"} true positives</h3>
-        <p>Latest promoted result from public round proof.</p>
-      </article>
-
-      <article className="showcase-card">
-        <AssetImage src={KATA_IMAGES.benchmarkProjects} alt="Selected benchmark projects for the scoring round" />
-        <span className="showcase-kicker">Benchmark set</span>
-        <h3>{projectCount} projects</h3>
-        <p>Selected problems keep the crown earned, not claimed by vibes.</p>
-      </article>
-
-      <article className="showcase-card">
-        <AssetImage src={KATA_IMAGES.vulnerabilityFinding} alt="AI miner finding a real vulnerability" />
-        <span className="showcase-kicker">Current king</span>
-        <h3>{winner}</h3>
-        <p>The winner needs real true positives, not audit-flavored poetry.</p>
-      </article>
     </section>
   );
 }
@@ -2306,15 +2331,6 @@ function KeyValue({ label, value }) {
       ) : (
         <strong>{value ?? "-"}</strong>
       )}
-    </div>
-  );
-}
-
-function TerminalLine({ label, value }) {
-  return (
-    <div className="terminal-line">
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

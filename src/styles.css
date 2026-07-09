@@ -4437,41 +4437,72 @@ html { scroll-behavior: smooth; }
   gap: 14px;
   align-items: start;
   overflow-x: auto;
-  padding: 2px 2px 14px;
+  padding: 4px 2px 16px;
   scroll-snap-type: x proximity;
 }
 
 .king-card {
+  position: relative;
+  overflow: hidden;
   display: grid;
   justify-items: center;
-  flex: 0 0 300px;
-  width: 300px;
-  min-height: 430px;
-  border: 1px solid rgba(185, 255, 93, 0.22);
-  border-radius: 22px;
+  flex: 0 0 292px;
+  width: 292px;
+  min-height: 392px;
+  border: 1px solid rgba(244, 247, 239, 0.13);
+  border-radius: 20px;
   background:
-    radial-gradient(circle at 50% -8%, rgba(185, 255, 93, 0.16), transparent 36%),
-    linear-gradient(180deg, rgba(244, 247, 239, 0.05), transparent 42%),
-    rgba(16, 19, 16, 0.9);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+    radial-gradient(circle at 50% -12%, rgba(185, 255, 93, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(244, 247, 239, 0.06), rgba(244, 247, 239, 0.018) 44%, rgba(8, 9, 8, 0.22)),
+    rgba(16, 19, 16, 0.88);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.26);
+  scroll-snap-align: start;
   animation: dashboard-reveal 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.king-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 26%);
+  opacity: 0.56;
+}
+
+.king-card:hover {
+  border-color: rgba(185, 255, 93, 0.38);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(185, 255, 93, 0.07);
+  transform: translateY(-3px);
 }
 
 .king-card-body {
+  position: relative;
+  z-index: 1;
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: 10px;
+  gap: 9px;
   width: 100%;
-  padding: 18px;
+  padding: 16px;
   text-align: center;
 }
 
 .king-card-crown {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(185, 255, 93, 0.26);
+  border-radius: 999px;
   color: var(--green);
-  font-size: 28px;
+  background: rgba(185, 255, 93, 0.07);
+  font-size: 18px;
   line-height: 1;
-  text-shadow: 0 0 28px rgba(185, 255, 93, 0.18);
+  text-shadow: 0 0 24px rgba(185, 255, 93, 0.28);
 }
 
 .king-card-identity {
@@ -4481,16 +4512,16 @@ html { scroll-behavior: smooth; }
 }
 
 .king-card-identity .avatar {
-  width: 70px;
-  height: 70px;
-  border-color: rgba(185, 255, 93, 0.5);
-  box-shadow: 0 0 0 8px rgba(185, 255, 93, 0.08), 0 18px 42px rgba(0, 0, 0, 0.28);
+  width: 62px;
+  height: 62px;
+  border-color: rgba(185, 255, 93, 0.46);
+  box-shadow: 0 0 0 7px rgba(185, 255, 93, 0.07), 0 14px 34px rgba(0, 0, 0, 0.26);
 }
 
 .king-card-identity h1 {
   margin: 0;
   color: var(--text);
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1;
   letter-spacing: -0.04em;
   overflow-wrap: anywhere;
@@ -4509,6 +4540,7 @@ html { scroll-behavior: smooth; }
   font-family: "IBM Plex Mono", monospace;
   font-size: 11px;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .king-card-tags {
@@ -4531,27 +4563,32 @@ html { scroll-behavior: smooth; }
 
 .king-card-facts {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .king-card-facts .proof-fact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  align-content: space-between;
+  justify-items: start;
+  min-height: 62px;
+  gap: 8px;
+  padding: 10px;
   border-color: rgba(244, 247, 239, 0.12);
+  border-radius: 12px;
   background:
     linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
-    rgba(8, 9, 8, 0.34);
+    rgba(8, 9, 8, 0.3);
 }
 
 .king-card-facts .proof-fact strong {
   color: var(--green);
-  font-size: 13px;
-  text-align: right;
+  font-size: 14px;
+  line-height: 1.15;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .king-card-actions {
@@ -4565,13 +4602,49 @@ html { scroll-behavior: smooth; }
   padding-top: 12px;
 }
 
-.king-card-actions .button {
+.king-card-action {
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 38px;
-  padding: 0 12px;
+  min-height: 36px;
+  border: 1px solid rgba(244, 247, 239, 0.14);
+  border-radius: 999px;
+  padding: 0 11px;
+  color: var(--soft);
+  background:
+    linear-gradient(180deg, rgba(244, 247, 239, 0.06), rgba(244, 247, 239, 0.02)),
+    rgba(8, 9, 8, 0.36);
+  font-size: 12px;
+  font-weight: 800;
   text-decoration: none;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.king-card-action:hover {
+  color: var(--text);
+  border-color: rgba(185, 255, 93, 0.42);
+  transform: translateY(-1px);
+}
+
+.king-card-action-primary {
+  border-color: rgba(185, 255, 93, 0.72);
+  color: #071008;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent),
+    var(--green);
+  box-shadow: 0 10px 24px rgba(185, 255, 93, 0.12);
+}
+
+.king-card-action-primary:hover {
+  color: #071008;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent),
+    #caff70;
 }
 
 .status-list-card {

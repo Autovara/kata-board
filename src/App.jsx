@@ -1606,12 +1606,12 @@ function KingCard({ lane, kataRepoSlug, publicProof, round, king }) {
         </div>
         <div className="king-card-actions">
           {typeof agentHref === "string" && agentHref ? (
-            <a className="button primary" href={agentHref} target="_blank" rel="noreferrer">
-              Open king agent
+            <a className="king-card-action king-card-action-primary" href={agentHref} target="_blank" rel="noreferrer">
+              Open agent
             </a>
           ) : null}
           {typeof proofHref === "string" && proofHref ? (
-            <a className="button" href={proofHref} target="_blank" rel="noreferrer">
+            <a className="king-card-action" href={proofHref} target="_blank" rel="noreferrer">
               View proof
             </a>
           ) : null}

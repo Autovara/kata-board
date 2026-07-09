@@ -1556,16 +1556,33 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const roundLabel = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
   return (
-    <div className="winners-page">
-      <section className="winners-hero">
-        <div className="winners-hero-copy">
+    <section className="winners-page">
+      <article className="king-card">
+        <div className="king-card-art">
+          <AssetImage src={KATA_IMAGES.currentKing} alt="Current Kata king agent" tone="winner" />
+        </div>
+        <div className="king-card-body">
           <span className="showcase-kicker">Current king</span>
-          <h1>{winner} leads {packName}</h1>
-          <p>
-            The king is the published miner agent that currently owns the lane.
-            It earned the crown through Kata scoring proof, not review opinion.
+          <div className="king-card-identity">
+            <Avatar name={winner} />
+            <div>
+              <h1>{winner}</h1>
+              <p>{king.submissionId || primaryLane.king?.submissionId || "current king"}</p>
+            </div>
+          </div>
+          <p className="king-card-copy">
+            {winner} is the published {packName} miner agent that currently owns the lane.
+            The crown comes from Kata scoring proof, not review opinion.
           </p>
-          <div className="winners-actions">
+          <div className="king-card-facts">
+            <ProofFact label="Subnet" value={packName} />
+            <ProofFact label="Round" value={roundLabel} />
+            <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
+            <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
+            <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
+            <ProofFact label="Promoted" value={formatDateTime(king.promotedAt || primaryLane.king?.updatedAt)} />
+          </div>
+          <div className="king-card-actions">
             {typeof agentHref === "string" && agentHref ? (
               <a className="button primary" href={agentHref} target="_blank" rel="noreferrer">
                 Open king agent
@@ -1578,86 +1595,8 @@ function Winners({ lanes, kataRepoSlug, publicProof }) {
             ) : null}
           </div>
         </div>
-        <div className="winners-hero-card">
-          <AssetImage src={KATA_IMAGES.currentKing} alt="Current Kata king agent" tone="winner" />
-          <div className="winners-king-panel">
-            <Avatar name={winner} />
-            <div>
-              <span>Published king</span>
-              <strong>{winner}</strong>
-              <small>{king.submissionId || primaryLane.king?.submissionId || "current king"}</small>
-            </div>
-            <Status label={primaryLane.king?.seeded ? "seed king" : "promoted"} tone={primaryLane.king?.seeded ? "neutral" : "ok"} />
-          </div>
-        </div>
-      </section>
-
-      <section className="winners-proof">
-        <div className="winners-proof-copy">
-          <span className="showcase-kicker">Latest promotion proof</span>
-          <h2>Why this agent holds the crown</h2>
-          <p>
-            Kata records the round, benchmark snapshot, candidate count, timing,
-            and winning score so contributors can verify what happened.
-          </p>
-        </div>
-        <div className="winners-proof-grid">
-          <ProofFact label="Round" value={roundLabel} />
-          <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
-          <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
-          <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
-          <ProofFact label="Duration" value={formatDuration(round.durationSeconds)} />
-          <ProofFact label="Promoted" value={formatDateTime(king.promotedAt || primaryLane.king?.updatedAt)} />
-        </div>
-      </section>
-
-      <section className="winners-lanes">
-        <div className="dashboard-section-head">
-          <span className="showcase-kicker">Active king lanes</span>
-          <h2>Every supported subnet gets one public king.</h2>
-        </div>
-        <div className="winners-lane-grid">
-          {lanes.length ? (
-            lanes.map((lane) => (
-              <WinnerLaneCard lane={lane} kataRepoSlug={kataRepoSlug} key={lane.id} />
-            ))
-          ) : (
-            <Empty text="No kings crowned yet." />
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function WinnerLaneCard({ lane, kataRepoSlug }) {
-  const agent = kingAgentLink(lane, kataRepoSlug);
-  return (
-    <article className="winners-lane-card">
-      <div className="winners-lane-head">
-        <MinerIdentity
-          name={lane.currentHolder || "Seed king"}
-          sub={lane.king?.submissionId || "current king"}
-        />
-        <Status
-          label={lane.king?.seeded ? "seed" : "promoted"}
-          tone={lane.king?.seeded ? "neutral" : "ok"}
-        />
-      </div>
-      <div className="winners-lane-meta">
-        <KeyValue label="subnet" value={lane.repoName || "-"} />
-        <KeyValue label="mode" value={lane.mode || "-"} />
-        <KeyValue label="crowned" value={formatDateTime(lane.king?.updatedAt)} />
-      </div>
-      <div className="winners-lane-foot">
-        <span>{duelFormat(lane)}</span>
-        {typeof agent === "string" && agent.startsWith("https://") ? (
-          <a href={agent} target="_blank" rel="noreferrer">
-            View agent
-          </a>
-        ) : null}
-      </div>
-    </article>
+      </article>
+    </section>
   );
 }
 

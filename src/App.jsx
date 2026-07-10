@@ -1220,7 +1220,7 @@ function replicaAwareProblemTotals(project, replicasPerProject = 0) {
   if (!actualReplicas.length) {
     return {
       truePositives: Number(project.true_positives ?? 0),
-      totalExpected: expectedPerReplica * Math.max(1, replicaTotal || 1),
+      totalExpected: expectedPerReplica,
       totalFound: Number(project.total_found ?? 0)
     };
   }

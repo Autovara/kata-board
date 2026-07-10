@@ -18,10 +18,14 @@ const DEFAULT_CACHE_TTL_MS = 3_000;
 // The GitHub leaderboard fans out one files-request per PR, so it gets its
 // own, much longer TTL than the cheap filesystem status.
 const DEFAULT_LEADERBOARD_CACHE_TTL_MS = 60_000;
+const DEFAULT_LEADERBOARD_BUILD_TIMEOUT_MS = 2_500;
 let cachedStatus = null;
 let cachedAt = 0;
 let cachedLeaderboard = null;
 let cachedLeaderboardAt = 0;
+let cachedLeaderboardKey = null;
+let leaderboardRefreshPromise = null;
+let leaderboardRefreshKey = null;
 
 export async function loadBoardStatus(env) {
   const cacheTtlMs = readCacheTtlMs(env);
@@ -657,17 +661,55 @@ function loadSn60ActivityMetrics(summary) {
 }
 
 async function loadLeaderboard(env) {
+  const cacheKey = leaderboardCacheKey(env);
   const cacheTtlMs = readTtlMs(
     env.KATA_LEADERBOARD_CACHE_TTL_MS,
     DEFAULT_LEADERBOARD_CACHE_TTL_MS
   );
-  if (cachedLeaderboard && Date.now() - cachedLeaderboardAt < cacheTtlMs) {
+  if (
+    cachedLeaderboard &&
+    cachedLeaderboardKey === cacheKey &&
+    Date.now() - cachedLeaderboardAt < cacheTtlMs
+  ) {
     return cachedLeaderboard;
   }
-  const leaderboard = await computeLeaderboard(env);
-  cachedLeaderboard = leaderboard;
-  cachedLeaderboardAt = Date.now();
-  return leaderboard;
+  if (!leaderboardRefreshPromise || leaderboardRefreshKey !== cacheKey) {
+    leaderboardRefreshKey = cacheKey;
+    leaderboardRefreshPromise = computeLeaderboard(env)
+      .then((leaderboard) => {
+        cachedLeaderboard = leaderboard;
+        cachedLeaderboardAt = Date.now();
+        cachedLeaderboardKey = cacheKey;
+        return leaderboard;
+      })
+      .finally(() => {
+        leaderboardRefreshPromise = null;
+        leaderboardRefreshKey = null;
+      });
+  }
+
+  if (cachedLeaderboard && cachedLeaderboardKey === cacheKey) {
+    return cachedLeaderboard;
+  }
+
+  try {
+    return await withTimeout(
+      leaderboardRefreshPromise,
+      readTtlMs(env.KATA_LEADERBOARD_BUILD_TIMEOUT_MS, DEFAULT_LEADERBOARD_BUILD_TIMEOUT_MS),
+      "leaderboard refresh"
+    );
+  } catch (error) {
+    return loadLocalLeaderboardFallback(env, error);
+  }
+}
+
+function leaderboardCacheKey(env) {
+  return [
+    env.KATA_BOARD_EVENT_LOG || "",
+    env.KATA_ROOT || "",
+    env.KATA_REPO_SLUG || "",
+    env.KATA_GITHUB_TOKEN ? "token" : "public"
+  ].join("\n");
 }
 
 async function computeLeaderboard(env) {
@@ -731,6 +773,38 @@ function loadGithubCliLeaderboardSafe(env) {
       latestLaneWinners: {}
     };
   }
+}
+
+function loadLocalLeaderboardFallback(env, error) {
+  const message = error instanceof Error ? error.message : "unknown leaderboard error";
+  const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
+  if (localLeaderboard.rows.length) {
+    return {
+      ...localLeaderboard,
+      githubError: message
+    };
+  }
+  return {
+    source: "unavailable",
+    error: message,
+    rows: [],
+    latestLaneWinners: {}
+  };
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return promise;
+  }
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    clearTimeout(timeoutId);
+  });
 }
 
 async function loadValidatorStatus(env, roots) {

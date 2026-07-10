@@ -788,6 +788,36 @@ test("leaderboard includes losing candidates from run artifacts", async () => {
   assert.equal(dave.gittensorScore, 0);
 });
 
+test("leaderboard timeout falls back to local artifacts for live status", async () => {
+  const root = makeKataRoot();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }, 100);
+    });
+
+  try {
+    const startedAt = Date.now();
+    const status = await loadBoardStatus({
+      ...boardEnv(root),
+      KATA_REPO_SLUG: "owner/repo",
+      KATA_GITHUB_TOKEN: "token",
+      KATA_LEADERBOARD_CACHE_TTL_MS: "0",
+      KATA_LEADERBOARD_BUILD_TIMEOUT_MS: "10"
+    });
+
+    assert.ok(Date.now() - startedAt < 80);
+    assert.match(status.leaderboard.source, /runs/);
+    assert.ok(status.leaderboard.rows.length > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 130));
+});
+
 test("leaderboard fallback includes all scored round-summary contributors", async () => {
   const root = makeKataRoot();
   const roundRoot = path.join(root, "runs", "sn60-round-all");

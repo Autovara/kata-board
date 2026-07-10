@@ -1167,16 +1167,44 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
 //   expected = real vulnerabilities in that codebase
 //   found    = total findings the agent reported (tp + false positives)
 // `project.passed` is the engine verdict after applying the replica threshold.
-function formatTpExpectedFound(project) {
-  if (!project) return "—";
-  return `${project.true_positives}/${project.total_expected}/${project.total_found}`;
+function replicaAwareProblemTotals(project, replicasPerProject = 0) {
+  if (!project) {
+    return null;
+  }
+  const actualReplicas = Array.isArray(project.replicas) ? project.replicas : [];
+  const replicaTotal = projectReplicaTotal(project, replicasPerProject);
+  const expectedPerReplica = Number(project.total_expected ?? actualReplicas[0]?.total_expected ?? 0);
+  if (!actualReplicas.length) {
+    return {
+      truePositives: Number(project.true_positives ?? 0),
+      totalExpected: expectedPerReplica * Math.max(1, replicaTotal || 1),
+      totalFound: Number(project.total_found ?? 0)
+    };
+  }
+  const replicas = normalizeReplicaRows(project, replicasPerProject);
+  return replicas.reduce(
+    (totals, replica) => ({
+      truePositives: totals.truePositives + Number(replica.true_positives ?? 0),
+      totalExpected: totals.totalExpected + Number(replica.total_expected ?? expectedPerReplica),
+      totalFound: totals.totalFound + Number(replica.total_found ?? 0)
+    }),
+    { truePositives: 0, totalExpected: 0, totalFound: 0 }
+  );
 }
 
-function problemResult(project) {
+function formatTpExpectedFound(project, replicasPerProject = 0) {
+  if (!project) return "—";
+  const totals = replicaAwareProblemTotals(project, replicasPerProject);
+  return `${totals.truePositives}/${totals.totalExpected}/${totals.totalFound}`;
+}
+
+function problemResult(project, replicasPerProject = 0) {
   if (!project) return { label: "scoring", tone: "warn" };
   if (project.finished === false || project.scoring) return { label: "scoring", tone: "warn" };
   if (project.passed) return { label: "pass", tone: "ok" };
-  if ((project.true_positives ?? 0) > 0) return { label: "fail · partial", tone: "warn" };
+  if ((replicaAwareProblemTotals(project, replicasPerProject)?.truePositives ?? 0) > 0) {
+    return { label: "fail · partial", tone: "warn" };
+  }
   return { label: "fail", tone: "bad" };
 }
 
@@ -1222,7 +1250,7 @@ function ProblemBreakdown({
           const project = primaryByKey[key];
           const secondaryProject = secondaryByKey[key];
           const pending = !project;
-          const result = problemResult(pending ? null : project);
+          const result = problemResult(pending ? null : project, replicasPerProject);
           const open = openProjectKey === key;
           return (
             <div
@@ -1258,13 +1286,13 @@ function ProblemBreakdown({
                   }`}
                 >
                   <span>{primaryLabel}</span>
-                  <strong>{pending ? "—" : formatTpExpectedFound(project)}</strong>
+                  <strong>{pending ? "—" : formatTpExpectedFound(project, replicasPerProject)}</strong>
                   <small>tp / expected / found</small>
                 </div>
                 {single ? null : (
                   <div className="live-task-side">
                     <span>{secondaryLabel || "secondary"}</span>
-                    <strong>{formatTpExpectedFound(secondaryProject)}</strong>
+                    <strong>{formatTpExpectedFound(secondaryProject, replicasPerProject)}</strong>
                     <small>tp / expected / found</small>
                   </div>
                 )}
@@ -1306,7 +1334,7 @@ function ReplicaTable({ title, project, replicasPerProject, compact = false }) {
       <div className="replica-table-head" aria-hidden="true">
         <span>#</span>
         <span>evaluated</span>
-        <span>findings</span>
+        <span>tp / exp / found</span>
         <span>status</span>
       </div>
       {replicas.map((replica) => (
@@ -1351,7 +1379,7 @@ function formatReplicaFindings(replica) {
   if (!replica?.evaluated) {
     return "—";
   }
-  return `${replica.true_positives ?? 0}/${replica.total_expected ?? 0}`;
+  return `${replica.true_positives ?? 0}/${replica.total_expected ?? 0}/${replica.total_found ?? 0}`;
 }
 
 function replicaStatusTone(replica) {

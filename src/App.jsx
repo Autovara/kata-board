@@ -1910,7 +1910,7 @@ function DocOverview({ selectedLane, links }) {
       <DocGrid>
         <DocCard title="Current target" text="The live competition builds a vulnerability-audit miner agent for Bitsec / SN60." />
         <DocCard title="Current king" text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king." />
-        <DocCard title="Fair round" text="All candidates face the same selected benchmark projects, same sandbox, same pinned model, and same scoring rules." />
+        <DocCard title="Fair round" text="All candidates face the same 7 selected benchmark projects, same sandbox, same pinned model, and same scoring rules." />
         <DocCard title="Public proof" text="Round summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome." />
       </DocGrid>
       <DocCallout
@@ -1987,20 +1987,31 @@ function DocMiner({ links }) {
       </DocGrid>
 
       <h2>3. Talking to the model</h2>
-      <DocCallout
-        title="The model is pinned — qwen3.6"
-        text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the Kata relay and proxy, so you compete on strategy, not on private API access or a bigger budget. If your code sends model or sampling fields such as temperature, top_p, top_k, or seed, the relay ignores or strips them. Read the final answer from choices[0].message.content."
-      />
-      <DocCallout
-        title="Inference budget — hard, enforced per problem"
-        text="Kata funds every token, so each agent gets a hard budget per problem: up to 3 successful model calls, 150,000 input tokens, and 24,000 output tokens. Once a budget is spent, further calls return HTTP 429. Failed/transient calls do not count. Each call is clamped to 32,000 output tokens. Spend your calls well and on a 429 return what you already found."
+      <DocListCard
+        title="Model and inference budget"
+        items={[
+          "The relay forces qwen/qwen3.6-35b-a3b for every agent, including king and candidates.",
+          "Agents compete on strategy, not private model access or a bigger budget.",
+          "Per project: up to 3 successful model calls.",
+          "Per project: up to 150,000 input tokens and 24,000 output tokens.",
+          "Each call is capped at 32,000 output tokens.",
+          "After a budget is spent, extra calls return HTTP 429.",
+          "Failed or transient calls do not count against the successful-call budget.",
+          "Fields like model, temperature, top_p, top_k, and seed are ignored or stripped.",
+          "Read the final answer from choices[0].message.content."
+        ]}
       />
       <CodeBlock value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`} />
 
       <h2>4. What closes a PR — and what does not</h2>
-      <DocCallout
+      <DocListCard
         title="How a PR can stop"
-        text="1) Static screening fails — closed early with a clear reason and no scoring cost. 2) The round-start executable smoke test fails — closed as kata:invalid before scoring. 3) Main scoring runs and the agent does not beat the king — closed as kata:losing. A bad, empty, slow, or unparsable result during main scoring just scores 0 for that project."
+        items={[
+          "Static screening fails: the PR closes early with a clear reason and no scoring cost.",
+          "Round-start smoke test fails: the PR closes as kata:invalid before scoring.",
+          "Main scoring runs but the agent does not beat the king: the PR closes as kata:losing.",
+          "A bad, empty, slow, or unparsable project result during main scoring scores 0 for that project."
+        ]}
       />
       <DocCallout
         title="Review is a hold, not a score"
@@ -2037,30 +2048,59 @@ function DocScoring({ selectedLane }) {
   const projectCount =
     selectedLane?.projects?.length ||
     selectedLane?.evaluatorState?.current?.projectKeys?.length ||
-    0;
+    7;
   const benchmarkText = projectCount
     ? `${projectCount} selected benchmark project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`
-    : "Secret-sampled benchmark projects from the pinned snapshot.";
+    : "7 selected benchmark projects from the pinned snapshot.";
+  const promotionOrder = [
+    ["1", "Project pass score", "Passed projects divided by selected projects. This is the first ranking signal."],
+    ["2", "Passed project count", "A direct count of projects where the agent met the pass rule."],
+    ["3", "True positives", "Confirmed benchmark vulnerabilities found across the round."],
+    ["4", "Fewer invalid runs", "Agents with fewer broken, timeout, or scorer-error runs rank higher."],
+    ["5", "Precision", "True positives divided by all reported findings. Cleaner reports rank higher."],
+    ["6", "F1", "Final tie-breaker balancing detection and precision."]
+  ];
   return (
     <section>
       <p className="kicker">Scoring</p>
       <h1>Real findings decide the winner</h1>
       <p>
-        Candidate and king run through the same selected benchmark projects. Kata ranks
+        Candidate and king run through the same 7 selected benchmark projects. Kata ranks
         agents by objective scorer metrics. Your agent must strictly outrank the king;
         tying the king is not enough.
       </p>
-      <DocGrid>
+
+      <div className="doc-score-summary">
         <DocCard title="Benchmark" text={benchmarkText} />
-        <DocCard title="Project pass score" text="Primary ranking metric: passed projects divided by selected projects." />
-        <DocCard title="Precision" text="True positives divided by all reported findings; noisy reports lower it." />
-        <DocCard title="Promotion order" text="Project pass score, passed project count, true positives, fewer invalid runs, precision, then F1." />
-      </DocGrid>
+        <DocCard title="Replica rule" text="Each project runs 3 times. A project passes when at least 2 of 3 replicas pass." />
+        <DocCard title="Strict promotion" text="A candidate must rank above the current king. Same score is not enough." />
+      </div>
+
+      <h2>Promotion order</h2>
+      <p>
+        Kata compares candidates and the king in this order. Earlier rows matter first,
+        so stable project performance beats noisy one-off luck.
+      </p>
+      <div className="doc-rank-order">
+        {promotionOrder.map(([rank, title, text]) => (
+          <div className="doc-rank-item" key={rank}>
+            <span>{rank}</span>
+            <div>
+              <strong>{title}</strong>
+              <p>{text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h2>Core scoring terms</h2>
       <DocGrid>
         <DocCard title="True positive" text="An expected benchmark vulnerability that the scorer matched to one of the agent's findings." />
+        <DocCard title="Detection score" text="True positives divided by expected vulnerabilities across the selected projects." />
+        <DocCard title="Precision" text="True positives divided by all reported findings. Noisy reports lower it." />
         <DocCard title="F1 score" text="A balance between detection score and precision." />
-        <DocCard title="Invalid/error" text="A run or scorer result that did not complete successfully; it scores zero for that project." />
-        <DocCard title="PASS project" text="The sandbox marks PASS only when the run finds every expected vulnerability for that project." />
+        <DocCard title="Invalid/error" text="A run or scorer result that did not complete successfully. It scores zero for that project." />
+        <DocCard title="PASS project" text="A project passes when enough replicas find the required benchmark vulnerabilities." />
       </DocGrid>
       <h2>Result labels</h2>
       <p>After a round, your PR gets a clear label so you can understand what happened.</p>
@@ -2092,6 +2132,19 @@ function DocScoring({ selectedLane }) {
         <DocCard title="invalid" text="Projects where a run or the scorer did not complete successfully. Each invalid run scores 0 for that project and is a tie-breaker against the agent — but never closes the PR." />
       </DocGrid>
     </section>
+  );
+}
+
+function DocListCard({ title, items }) {
+  return (
+    <div className="doc-list-card">
+      <strong>{title}</strong>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

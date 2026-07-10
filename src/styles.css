@@ -1551,6 +1551,110 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
+.doc-list-card {
+  position: relative;
+  margin: 22px 0;
+  padding: 18px;
+  border: 1px solid rgba(185, 255, 93, 0.24);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.1), transparent 38%),
+    linear-gradient(180deg, rgba(244, 247, 239, 0.035), transparent),
+    rgba(7, 9, 7, 0.7);
+}
+
+.doc-list-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.doc-list-card ul {
+  display: grid;
+  gap: 9px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.doc-list-card li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 9px;
+  align-items: start;
+  margin: 0;
+  color: var(--soft);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.doc-list-card li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 18px rgba(185, 255, 93, 0.55);
+}
+
+.doc-score-summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.doc-rank-order {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin: 22px 0 26px;
+}
+
+.doc-rank-item {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 13px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid rgba(244, 247, 239, 0.1);
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, rgba(185, 255, 93, 0.075), transparent 48%),
+    rgba(7, 9, 7, 0.5);
+}
+
+.doc-rank-item > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(185, 255, 93, 0.28);
+  border-radius: 12px;
+  color: var(--green);
+  background: rgba(185, 255, 93, 0.08);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.doc-rank-item strong {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.doc-rank-item p {
+  margin: 6px 0 0;
+  color: var(--soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .doc-steps {
   position: relative;
   display: grid;
@@ -1785,6 +1889,7 @@ button {
   .battle,
   .docs-layout,
   .doc-grid,
+  .doc-score-summary,
   .milestone {
     grid-template-columns: 1fr;
   }
@@ -1822,6 +1927,10 @@ button {
 
   .docs-side button {
     flex: 0 0 210px;
+  }
+
+  .doc-rank-item {
+    grid-template-columns: 38px 1fr;
   }
 }
 

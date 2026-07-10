@@ -1922,7 +1922,7 @@ function DocOverview({ selectedLane, links }) {
         <KeyValue label="subnet pack" value={selectedLane?.subnetPack || selectedLane?.repoPack || "-"} />
         <KeyValue label="mode" value={selectedLane?.mode || "-"} />
         <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "SN60 sampled validation"} />
-        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "detection, true positives, precision"} />
+        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "project pass score first"} />
       </div>
       <DocLinks
         links={[
@@ -1956,7 +1956,7 @@ function DocMiner({ links }) {
           ["Validate locally", "Run `uv run kata submission validate --path submissions/sn60__bitsec/miner/<submission-id>` before opening the PR."],
           ["Open one PR", "One open PR per contributor. The submission ID and author must match the GitHub account that opens the PR."],
           ["Wait for intake", "kata-bot labels valid PRs kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review."],
-          ["Compete in a round", "Pending PRs are locked, re-screened, labeled kata:executing, and scored on the same sampled problems as the king."],
+          ["Compete in a round", "Pending PRs are locked at the current commit, checked against the screened commit, smoke-tested on one real project, labeled kata:executing, and scored on the same sampled problems as the king."],
           ["Get an outcome", "Winner becomes king. Runner-up that beat the king stays pending. Candidate that did not beat the king closes kata:losing."]
         ]}
       />
@@ -1990,24 +1990,24 @@ function DocMiner({ links }) {
         <DocCard title="project_dir" text="The target smart-contract project checkout mounted inside the sandbox container." />
         <DocCard title="inference_api" text="The sandbox inference endpoint. Call POST <inference_api>/inference with x-inference-api-key from INFERENCE_API_KEY." />
         <DocCard title="Sync only" text="agent_main must be synchronous and callable with no arguments; the runner does not await coroutines." />
-        <DocCard title="Self-contained" text="SN60 V1 bundles must stay self-contained in agent.py. Helper modules and symlinks are rejected." />
+        <DocCard title="Small bundle" text="Use agent.py plus optional Python helpers under helpers/. Symlinks and unsupported files are rejected." />
       </DocGrid>
 
       <h2>3. Talking to the model</h2>
       <DocCallout
         title="The model is pinned — qwen3.6"
-        text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the validator relay and proxy, so you compete on strategy, not on private API access or a bigger budget. Do not send a `model` field or sampling knobs (temperature, top_p, seed); they are stripped. qwen3.6 is a reasoning model, so the validator raises your max_tokens to a safe ceiling automatically — you do not need a large value. Read the final answer from choices[0].message.content."
+        text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the validator relay and proxy, so you compete on strategy, not on private API access or a bigger budget. If your code sends model or sampling fields such as temperature, top_p, top_k, or seed, the relay ignores or strips them. Read the final answer from choices[0].message.content."
       />
       <DocCallout
         title="Inference budget — hard, enforced per problem"
-        text="The validator funds every token, so each agent gets a hard budget per problem: up to 3 model calls AND 24,000 output tokens total, whichever comes first. Once you hit either limit, further calls return HTTP 429 (a failed call doesn't count, so a transient error can be retried). Each call is clamped to 32,000 output tokens. Spend your calls well — one big pass over the whole codebase, or a few focused passes over the most-likely contracts — and ask for all findings; on a 429, return what you already found (do not crash)."
+        text="The validator funds every token, so each agent gets a hard budget per problem: up to 3 successful model calls, 150,000 input tokens, and 24,000 output tokens. Once a budget is spent, further calls return HTTP 429. Failed/transient calls do not count. Each call is clamped to 32,000 output tokens. Spend your calls well and on a 429 return what you already found."
       />
       <CodeBlock value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`} />
 
       <h2>4. What closes a PR — and what does not</h2>
       <DocCallout
-        title="Only two ways a PR ends without merging"
-        text="1) Static screening fails (a cheating or no-op agent, or a second open PR from you) — closed early with a clear reason and no scoring cost. 2) A round scores your agent and it does not out-detect the king (kata:losing). A bad, empty, slow, or unparsable result on a single problem is never a rejection — it just scores 0 for that problem and scoring continues. If you beat the king but weren't the top challenger, your PR stays open (kata:pending) for the next round."
+        title="How a PR can stop"
+        text="1) Static screening fails — closed early with a clear reason and no scoring cost. 2) The round-start executable smoke test fails — closed as kata:invalid before scoring. 3) Main scoring runs and the agent does not beat the king — closed as kata:losing. A bad, empty, slow, or unparsable result during main scoring just scores 0 for that project."
       />
       <DocCallout
         title="Review is a hold, not a score"
@@ -2029,9 +2029,9 @@ function DocMiner({ links }) {
         items={[
           "No validator scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
           "No hardcoded provider endpoints, API keys, or secret tokens (sk-..., ghp_..., cpk_...).",
-          "No model or sampling overrides (model, temperature, top_p, seed); the validator pins and strips them.",
+          "Do not rely on model or sampling overrides. The relay pins the model and strips/ignores model, temperature, top_p, top_k, seed, and similar fields.",
           "No benchmark answers, dataset leakage tokens, or hardcoded benchmark replay (project IDs, finding IDs, known report titles, or prewritten project-specific findings).",
-          "No helper files or symlinks; SN60 V1 bundles must be self-contained in agent.py.",
+          "Python helpers are allowed only under helpers/. Symlinks and unsupported files are rejected.",
           "No exact or AST-equivalent copy of the current king bundle."
         ]}
       />
@@ -2059,9 +2059,9 @@ function DocScoring({ selectedLane }) {
       </p>
       <DocGrid>
         <DocCard title="Benchmark" text={benchmarkText} />
-        <DocCard title="Detection score" text="True positives divided by expected benchmark vulnerabilities." />
+        <DocCard title="Project pass score" text="Primary ranking metric: passed projects divided by selected projects." />
         <DocCard title="Precision" text="True positives divided by all reported findings; noisy reports lower it." />
-        <DocCard title="Promotion order" text="Detection score, true positives, precision, F1, then fewer invalid/error evaluations." />
+        <DocCard title="Promotion order" text="Project pass score, passed project count, true positives, fewer invalid runs, precision, then F1." />
       </DocGrid>
       <DocGrid>
         <DocCard title="True positive" text="An expected benchmark vulnerability that the scorer matched to one of the agent's findings." />
@@ -2087,14 +2087,14 @@ function DocScoring({ selectedLane }) {
       />
       <h2>Screening</h2>
       <p>
-        Only static screening can close a PR before a round. These checks are cheap and
-        source-only: no model calls and no scoring cost. They reject invalid shape,
-        secret leakage, no-op stubs, exact king copies, helper files in SN60 V1 bundles,
-        and concrete benchmark-answer replay. During scoring, a bad, empty, slow, or
-        unparsable project result simply scores 0 for that project. It does not close the
-        PR by itself.
+        Static screening runs at PR intake/update and uses cheap source-only checks: no
+        model calls and no scoring cost. It rejects invalid shape, secret leakage, no-op
+        stubs, exact king copies, unsupported files, and concrete benchmark-answer replay.
+        The round-start executable smoke test then runs the agent once on a real project
+        and checks that it returns a valid vulnerabilities report. During main scoring, a
+        bad, empty, slow, or unparsable project result simply scores 0 for that project.
       </p>
-      <CodeBlock value={`detection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  static screening passed\n  candidate strictly outranks king on:\n    detection score\n    true positives\n    precision\n    f1 score\n    fewer invalid/error evaluations`} />
+      <CodeBlock value={`project_pass_score = passed_projects / selected_projects\n\ndetection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  intake static screening passed\n  round-start executable smoke test passed\n  candidate strictly outranks king on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error evaluations\n    precision\n    f1 score`} />
       <h2>Reading the live board</h2>
       <p>
         The Arena view shows the current round — every candidate and the king — as it runs,
@@ -2131,8 +2131,8 @@ function DocValidator({ links, selectedLane }) {
         items={[
           ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending only after it passes. If the submission id or submission.json author does not match the PR author's GitHub username, it is closed kata:invalid before pending. Suspicious but non-conclusive cases are labeled kata:review and cannot enter a round. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
           ["Lock entrants", "The round snapshots the open PRs at their commits, keeps one per contributor (extras closed kata:invalid), and skips a PR only if its commit AND the king are unchanged since it last competed (kata:stale)."],
-          ["Screen & execute", "Each entrant is re-screened on its locked commit; survivors are labeled kata:executing while the round runs."],
-          ["Score vs cached king", "The king is scored once per problem and cached; every candidate is scored on the SAME secret-sampled set (one replica) in the pinned Bitsec sandbox. Scoring is resilient: one bad project never aborts the rest."],
+          ["Gate & execute", "Each entrant must still be the same commit that passed intake screening. If enabled, the one-project executable smoke test must run cleanly and return a valid vulnerabilities report. Survivors are labeled kata:executing."],
+          ["Score vs cached king", "The king is scored once per selected project set and cached; every candidate is scored on the SAME secret-sampled set. Production uses 3 replicas per project, and a project passes at 2/3 PASS runs. Scoring is resilient: one bad project never aborts the rest."],
           ["Rank & decide", "Candidates are ranked by the SN60 comparator; the top one that strictly beats the king wins. Others that beat it stay kata:pending; the rest close kata:losing."],
           ["Verify & promote", "Before merging, Kata re-checks the winner against the current king and benchmark; a stale or unmergeable winner is held (kata:hold). A verified winner is merged, published under kings/, and recorded in lane state."]
         ]}
@@ -2146,18 +2146,18 @@ function DocValidator({ links, selectedLane }) {
       </p>
       <DocGrid>
         <DocCard title="Pinned model" text="qwen3.6 (qwen/qwen3.6-35b-a3b). The relay forces this exact model on every request so the king and every challenger are judged on identical footing." />
-        <DocCard title="Relay" text="Forces the pinned model, blocks sampling knobs, enforces 3 successful calls and 24,000 output tokens per problem, and returns 429 after the budget is spent." />
+        <DocCard title="Relay" text="Forces the pinned model, strips/ignores sampling knobs, enforces 3 successful calls, 150,000 input tokens, and 24,000 output tokens per problem, and returns 429 after the budget is spent." />
         <DocCard title="Proxy" text="Routes the pinned request to the provider and meters cost. It sits on a separate Docker network from the agents." />
         <DocCard title="Network isolation" text="Agents run on an internet-blocked network and can only reach the relay — they cannot bypass it to hit a provider or a different model directly." />
       </DocGrid>
 
-      <h2>MVP sampling</h2>
+      <h2>Production sampling</h2>
       <p>
         To control cost, validators can score a secret-seeded subset instead of
         the full benchmark. The selected keys are recorded in the challenge
         summary and lane provenance for audit.
       </p>
-      <CodeBlock value={`KATA_SN60_PROJECT_KEYS=            # explicit override; keep unset in prod\nKATA_SN60_PROJECT_SAMPLE_SIZE=6   # problems sampled per round\nKATA_SN60_PROJECT_SAMPLE_SECRET=<private-validator-secret>\nKATA_SN60_REPLICAS_PER_PROJECT=1`} />
+      <CodeBlock value={`KATA_SN60_PROJECT_KEYS=            # explicit override; keep unset in prod\nKATA_SN60_PROJECT_SAMPLE_SIZE=7   # problems sampled per round\nKATA_SN60_PROJECT_SAMPLE_SECRET=<private-validator-secret>\nKATA_SN60_REPLICAS_PER_PROJECT=3\nKATA_SN60_ENABLE_SCREENER_PROJECT=true`} />
       <p>
         Each round samples{" "}
         <strong>
@@ -2509,7 +2509,7 @@ function promotionGate(lane) {
   if (!lane) {
     return "not configured";
   }
-  return "screening pass, no invalid runs, candidate outranks king";
+  return "project pass score, passed projects, TP, invalid runs, precision, F1";
 }
 
 function kingAgentLink(lane, repoSlug) {

@@ -15,16 +15,19 @@ const SUBMISSION_PATH_PATTERN =
 const pullFilesCache = new Map();
 const PULL_FILES_CACHE_MAX_ENTRIES = 2000;
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
+let githubReadTokenIndex = 0;
 
 export async function loadGithubLeaderboard({
   repoSlug,
-  githubToken
+  githubToken,
+  githubTokens
 }) {
   if (!repoSlug) {
     return emptyLeaderboard("github-not-configured");
   }
 
-  const pulls = await fetchPulls(repoSlug, githubToken);
+  const auth = githubTokens?.length ? githubTokens : githubToken;
+  const pulls = await fetchPulls(repoSlug, auth);
   const relevantPulls = [];
 
   for (const pull of pulls) {
@@ -314,10 +317,11 @@ async function fetchSubmissionFiles(repoSlug, pullNumber, githubToken) {
 
 export async function githubRequest(path, githubToken) {
   let response;
+  const selectedToken = selectGithubToken(githubToken);
   try {
-    response = await fetchGithubResponse(path, githubToken);
+    response = await fetchGithubResponse(path, selectedToken);
     if (
-      githubToken &&
+      selectedToken &&
       (response.status === 401 || response.status === 403)
     ) {
       const publicResponse = await fetchGithubResponse(path, "");
@@ -360,4 +364,25 @@ async function fetchGithubResponse(path, githubToken) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export function parseGithubTokenList(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function selectGithubToken(githubToken) {
+  const tokens = Array.isArray(githubToken)
+    ? githubToken.filter(Boolean)
+    : githubToken
+      ? [githubToken]
+      : [];
+  if (!tokens.length) {
+    return "";
+  }
+  const token = tokens[githubReadTokenIndex % tokens.length];
+  githubReadTokenIndex += 1;
+  return token;
 }

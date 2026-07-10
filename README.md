@@ -123,6 +123,7 @@ Important variables:
 - `KATA_ROUND_PROGRESS_PATH`
 - `KATA_VALIDATOR_HEALTH_URL`
 - `KATA_REPO_SLUG`
+- `KATA_GITHUB_READ_TOKENS`
 - `KATA_GITHUB_TOKEN`
 - `KATA_STATUS_CACHE_TTL_MS`
 - `KATA_LEADERBOARD_CACHE_TTL_MS`
@@ -152,6 +153,12 @@ refreshes (default `60000`). The GitHub source costs one API call per PR on a
 cold refresh, so keep this well above the status TTL to stay inside rate
 limits.
 
+Use `KATA_GITHUB_READ_TOKENS` for board reads when available. This is a
+comma-separated pool of secondary GitHub tokens. `KATA_GITHUB_TOKEN` remains a
+fallback for reads, but production should avoid pointing the board at the owner
+write token unless there is no read pool. The board does not use `gh` CLI
+fallback unless `KATA_BOARD_ALLOW_GH_CLI_FALLBACK=true`.
+
 ## Leaderboard Modes
 
 ### GitHub mode
@@ -159,7 +166,7 @@ limits.
 Set:
 
 - `KATA_REPO_SLUG=owner/kata`
-- `KATA_GITHUB_TOKEN=<token>`
+- `KATA_GITHUB_READ_TOKENS=<read-token-1>,<read-token-2>`
 
 Then `kata-board` reads PR history and builds a miner leaderboard from
 submission PRs under:

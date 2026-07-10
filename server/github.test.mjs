@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { githubRequest, loadGithubCliLeaderboard } from "./github.mjs";
+import {
+  githubRequest,
+  loadGithubCliLeaderboard,
+  parseGithubTokenList
+} from "./github.mjs";
 
 test("githubRequest retries public reads without a rejected token", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -28,6 +32,36 @@ test("githubRequest retries public reads without a rejected token", async (t) =>
 
   assert.deepEqual(payload, [{ number: 76 }]);
   assert.deepEqual(authorizations, ["Bearer bad-token", null]);
+});
+
+test("githubRequest rotates configured read tokens", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const authorizations = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, options = {}) => {
+    authorizations.push(options.headers?.Authorization || null);
+    return new Response(JSON.stringify([{ number: authorizations.length }]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  await githubRequest("/repos/Autovara/kata/pulls", ["read-a", "read-b"]);
+  await githubRequest("/repos/Autovara/kata/pulls", ["read-a", "read-b"]);
+
+  assert.equal(authorizations.length, 2);
+  assert(authorizations.every((value) => ["Bearer read-a", "Bearer read-b"].includes(value)));
+  assert.equal(new Set(authorizations).size, 2);
+});
+
+test("parseGithubTokenList trims comma-separated read tokens", () => {
+  assert.deepEqual(parseGithubTokenList(" read-a,read-b, , read-c "), [
+    "read-a",
+    "read-b",
+    "read-c"
+  ]);
 });
 
 test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", () => {

@@ -5,7 +5,8 @@ import path from "node:path";
 import {
   githubRequest,
   loadGithubCliLeaderboard,
-  loadGithubLeaderboard
+  loadGithubLeaderboard,
+  parseGithubTokenList
 } from "./github.mjs";
 import {
   createAuthorRow,
@@ -712,7 +713,8 @@ function leaderboardCacheKey(env) {
     env.KATA_BOARD_EVENT_LOG || "",
     env.KATA_ROOT || "",
     env.KATA_REPO_SLUG || "",
-    env.KATA_GITHUB_TOKEN ? "token" : "public"
+    githubReadTokens(env).length ? "read-token-pool" : env.KATA_GITHUB_TOKEN ? "token" : "public",
+    env.KATA_BOARD_ALLOW_GH_CLI_FALLBACK === "true" ? "gh-cli" : "no-gh-cli"
   ].join("\n");
 }
 
@@ -733,7 +735,8 @@ async function computeLeaderboard(env) {
   try {
     const leaderboard = await loadGithubLeaderboard({
       repoSlug: env.KATA_REPO_SLUG,
-      githubToken: env.KATA_GITHUB_TOKEN
+      githubToken: env.KATA_GITHUB_TOKEN,
+      githubTokens: githubReadTokens(env)
     });
     const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
     if (
@@ -768,6 +771,13 @@ async function computeLeaderboard(env) {
 }
 
 function loadGithubCliLeaderboardSafe(env) {
+  if (env.KATA_BOARD_ALLOW_GH_CLI_FALLBACK !== "true") {
+    return {
+      source: "github-cli-disabled",
+      rows: [],
+      latestLaneWinners: {}
+    };
+  }
   try {
     return loadGithubCliLeaderboard({ repoSlug: env.KATA_REPO_SLUG });
   } catch {
@@ -867,7 +877,7 @@ async function loadActivePullAuthor(env, activeJob) {
   try {
     const pull = await githubRequest(
       `/repos/${activeJob.kataRepo}/pulls/${activeJob.pullNumber}`,
-      env.KATA_GITHUB_TOKEN
+      githubReadTokens(env).length ? githubReadTokens(env) : env.KATA_GITHUB_TOKEN
     );
     const user = pull?.user || {};
     const head = pull?.head || {};
@@ -883,6 +893,10 @@ async function loadActivePullAuthor(env, activeJob) {
   } catch {
     return null;
   }
+}
+
+function githubReadTokens(env) {
+  return parseGithubTokenList(env.KATA_GITHUB_READ_TOKENS || env.KATA_TARGET_READ_TOKENS || "");
 }
 
 function enrichActiveEvaluationWithPullAuthor(activeEvaluation, pullAuthor) {

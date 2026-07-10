@@ -644,6 +644,39 @@ function RoundStatusPill({ status }) {
   return <span className={`rstat rstat-${status || "neutral"}`}>{label}</span>;
 }
 
+function screeningFailureDetails(source) {
+  const screening = source?.screening_result;
+  if (!screening || typeof screening !== "object") {
+    return null;
+  }
+  const status = String(screening.status || "").toLowerCase();
+  const stage = String(screening.stage || "").toLowerCase();
+  if (stage !== "execution" || !["failed", "fail", "false"].includes(status)) {
+    return null;
+  }
+  return {
+    projectKey: screening.project_key || screening.projectKey || "",
+    reasons: Array.isArray(screening.reasons)
+      ? screening.reasons.map((reason) => String(reason).trim()).filter(Boolean)
+      : []
+  };
+}
+
+function ScreeningFailureBadge({ failure }) {
+  if (!failure) {
+    return null;
+  }
+  const title = [
+    failure.projectKey ? `Project: ${failure.projectKey}` : "",
+    ...failure.reasons
+  ].filter(Boolean).join("\n");
+  return (
+    <span className="rstat rstat-screening-failed" title={title || "Round-start execution screening failed"}>
+      screening failed
+    </span>
+  );
+}
+
 function BeatsKingBadge({ beats }) {
   if (beats == null) {
     return <span className="beat-badge beat-pending">—</span>;
@@ -922,7 +955,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         invalid_runs: result.invalid_runs ?? entrant.invalid_runs,
         beats_king: result.beats_king ?? entrant.beats_king,
         codebase_pass_count: result.codebase_pass_count ?? entrant.codebase_pass_count,
-        projects: result.projects ?? entrant.projects
+        projects: result.projects ?? entrant.projects,
+        screening_result: result.screening_result ?? entrant.screening_result,
+        status: result.state === "failed" ? "invalid" : entrant.status
       };
     })
     .sort((left, right) => compareEntrantsByRank(left, right, selectedProjectCount));
@@ -957,7 +992,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             total_expected: result.total_expected,
             invalid_runs: result.invalid_runs,
             beats_king: result.beats_king ?? selectedEntrant.beats_king,
-            projects: result.projects
+            projects: result.projects,
+            screening_result: result.screening_result ?? selectedEntrant.screening_result,
+            status: result.state === "failed" ? "invalid" : selectedEntrant.status
           }
         : {})
     };
@@ -1552,6 +1589,8 @@ function DuelDetail({
   const kingPassScore = formatPassScore(king, problemKeys.length);
   const candidatePassRatio = entrantPassScore(entrant, problemKeys.length);
   const kingPassRatio = entrantPassScore(king, problemKeys.length);
+  const screeningFailure = screeningFailureDetails(entrant) || screeningFailureDetails(progress);
+  const onlyScreeningFailure = Boolean(screeningFailure && !projects.length);
 
   return (
     <div className="round-block duel-page">
@@ -1566,6 +1605,32 @@ function DuelDetail({
         </div>
       </div>
 
+      {screeningFailure ? (
+        <div className="screening-failure-panel">
+          <div>
+            <Status label="screening failed" tone="bad" />
+            <strong>Round-start execution screener failed</strong>
+            <p>
+              This PR passed intake earlier, but it did not run cleanly in the
+              one-project execution smoke test, so it did not enter main scoring.
+            </p>
+          </div>
+          {screeningFailure.projectKey ? (
+            <div className="screening-failure-fact">
+              <span>project</span>
+              <strong>{screeningFailure.projectKey}</strong>
+            </div>
+          ) : null}
+          {screeningFailure.reasons.length ? (
+            <ul>
+              {screeningFailure.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
       {scoring ? (
         <div className="duel-live-banner">
           <Status label="scoring now" tone="warn" />
@@ -1573,7 +1638,7 @@ function DuelDetail({
         </div>
       ) : null}
 
-      <section className="arena-hero">
+      {onlyScreeningFailure ? null : <section className="arena-hero">
         <div className="battle-wrap">
           <div className="battle">
             <BattleSide
@@ -1617,9 +1682,9 @@ function DuelDetail({
             />
           </div>
         </div>
-      </section>
+      </section>}
 
-      {taskTotal > 0 ? (
+      {!onlyScreeningFailure && taskTotal > 0 ? (
         <div className="duel-task-bar">
           <div className="duel-task-bar-head">
             <span>problem progress</span>
@@ -1636,7 +1701,7 @@ function DuelDetail({
         </div>
       ) : null}
 
-      <div className="duel-compare-panel">
+      {onlyScreeningFailure ? null : <div className="duel-compare-panel">
           <div className="duel-panel-head">
             <span>candidate vs king</span>
             <div className="comparison-legend">
@@ -1648,9 +1713,9 @@ function DuelDetail({
           <ComparisonBar label="precision" candidate={entrant.precision} king={king?.precision} />
           <ComparisonBar label="f1 score" candidate={entrant.f1_score} king={king?.f1_score} />
           <ComparisonBar label="project pass score" candidate={candidatePassRatio} king={kingPassRatio} />
-        </div>
+        </div>}
 
-        <div className="duel-snapshot">
+        {onlyScreeningFailure ? null : <div className="duel-snapshot">
           <MetricChip label="candidate project pass" value={candidatePassScore} tone="ok" />
           <MetricChip label="king project pass" value={kingPassScore} />
           <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
@@ -1667,9 +1732,9 @@ function DuelDetail({
             value={`C ${candidateInvalid} · K ${Number(king?.invalid_runs || 0)}`}
             tone={candidateInvalid > 0 ? "bad" : "ok"}
           />
-        </div>
+        </div>}
 
-        <ProblemBreakdown
+        {onlyScreeningFailure ? null : <ProblemBreakdown
           projectKeys={problemKeys}
           primaryByKey={candidateByKey}
           primaryLabel="candidate"
@@ -1677,7 +1742,7 @@ function DuelDetail({
           secondaryLabel="king"
           replicasPerProject={replicasPerProject}
           passThreshold={passThreshold}
-        />
+        />}
     </div>
   );
 }
@@ -1804,9 +1869,16 @@ function EntrantIdentity({ author, submissionId }) {
 }
 
 function renderEntrantStatus(entrant, progress) {
+  const failure = screeningFailureDetails(progress) || screeningFailureDetails(entrant);
+  if (failure) {
+    return <ScreeningFailureBadge failure={failure} />;
+  }
   if (progress) {
     if (progress.state === "queued") {
       return <span className="rstat rstat-pending">queued</span>;
+    }
+    if (progress.state === "failed") {
+      return <span className="rstat rstat-invalid">failed</span>;
     }
     const label =
       progress.state === "done"

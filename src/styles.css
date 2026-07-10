@@ -5557,6 +5557,11 @@ html { scroll-behavior: smooth; }
 .rstat-winner    { color: var(--green); border-color: rgba(185, 255, 93, 0.45); }
 .rstat-losing    { color: var(--muted); }
 .rstat-invalid   { color: var(--red); border-color: rgba(255, 95, 90, 0.45); }
+.rstat-screening-failed {
+  color: #ffb2ad;
+  border-color: rgba(255, 95, 90, 0.55);
+  background: rgba(255, 95, 90, 0.1);
+}
 .rstat-stale     { color: #ff8a4c; border-color: rgba(255, 138, 76, 0.45); }
 .rstat-hold      { color: #b18cff; border-color: rgba(177, 140, 255, 0.45); }
 .rstat-king      { color: #ffd479; border-color: rgba(255, 212, 121, 0.5); }
@@ -5575,6 +5580,63 @@ html { scroll-behavior: smooth; }
 .beat-yes { color: var(--green); border-color: rgba(185, 255, 93, 0.45); background: rgba(185, 255, 93, 0.08); }
 .beat-no { color: var(--muted); }
 .beat-pending { color: var(--muted); border-color: transparent; }
+
+.screening-failure-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  margin: 16px 0;
+  padding: 18px;
+  border: 1px solid rgba(255, 95, 90, 0.34);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 0 0, rgba(255, 95, 90, 0.18), transparent 34%),
+    rgba(55, 12, 14, 0.44);
+}
+
+.screening-failure-panel strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+}
+
+.screening-failure-panel p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.screening-failure-panel ul {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: 18px;
+  color: #ffd3d0;
+  line-height: 1.5;
+}
+
+.screening-failure-fact {
+  min-width: 220px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.screening-failure-fact span {
+  display: block;
+  color: var(--soft);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.screening-failure-fact strong {
+  margin-top: 5px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 720px) {
   .round-grid,

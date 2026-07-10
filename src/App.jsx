@@ -760,6 +760,43 @@ function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
   );
 }
 
+function ExternalBaselineCard({ baseline, projectCount }) {
+  if (!baseline) {
+    return null;
+  }
+  const manifest = baseline.artifact_manifest || {};
+  const entry = baseline.entry || baseline;
+  const label =
+    manifest.baseline_id ||
+    (manifest.agent_id ? `SN60 Agent ${manifest.agent_id}` : baseline.submission_id || "SN60 baseline");
+  const status = baseline.status || "unknown";
+  const statusTone = status === "completed" ? "ok" : status === "failed" ? "bad" : "warn";
+  return (
+    <div className="baseline-card">
+      <div className="baseline-card-main">
+        <span>external baseline · proof only</span>
+        <strong>{label}</strong>
+        <p>
+          Scored after the round on the same selected projects. It is not a Kata candidate
+          and cannot be promoted.
+        </p>
+      </div>
+      <div className="baseline-card-metrics">
+        <MetricChip label="status" value={status} tone={statusTone} />
+        <MetricChip label="pass score" value={formatPassScore(entry, projectCount)} tone="ok" />
+        <MetricChip label="TP" value={String(entry.true_positives ?? baseline.true_positives ?? "—")} />
+        <MetricChip label="precision" value={percentMetric(entry.precision ?? baseline.precision)} />
+        <MetricChip label="f1" value={percentMetric(entry.f1_score ?? baseline.f1_score)} />
+        <MetricChip
+          label="vs king"
+          value={entry.beats_king === true ? "beat king" : entry.beats_king === false ? "did not beat" : "—"}
+          tone={entry.beats_king === true ? "ok" : entry.beats_king === false ? "bad" : "neutral"}
+        />
+      </div>
+    </div>
+  );
+}
+
 function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selectedPull, setSelectedPull }) {
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
@@ -965,6 +1002,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             passThreshold={passThreshold}
             replicasPerProject={replicasPerProject}
           />
+
+          <ExternalBaselineCard baseline={round.externalBaseline} projectCount={projectKeys.length} />
 
           <div className="table-head round-grid">
             <span>PR</span>

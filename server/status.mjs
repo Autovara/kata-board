@@ -316,6 +316,10 @@ function loadRoundStatus(roundStatusPath) {
     screenedOut: Array.isArray(status.screened_out) ? status.screened_out : [],
     closedExtras: Array.isArray(status.closed_extras) ? status.closed_extras : [],
     skippedStale: Array.isArray(status.skipped_stale) ? status.skipped_stale : [],
+    externalBaseline:
+      status.external_baseline && typeof status.external_baseline === "object"
+        ? status.external_baseline
+        : null,
     preflight: status.preflight && typeof status.preflight === "object" ? status.preflight : null
   };
 }

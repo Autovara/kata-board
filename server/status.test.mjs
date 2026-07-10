@@ -1443,7 +1443,19 @@ test("exposes the current competition round from round-status.json", async () =>
     ],
     screened_out: [{ pull_number: 6, reason: "screening failed" }],
     closed_extras: [{ pull_number: 3, kept_pull_number: 1 }],
-    skipped_stale: [4]
+    skipped_stale: [4],
+    external_baseline: {
+      status: "completed",
+      proof_only: true,
+      submission_id: "sn60-baseline",
+      artifact_manifest: { agent_id: 1611, project_set_name: "v3.1.3" },
+      entry: {
+        submission_id: "sn60-baseline",
+        beats_king: true,
+        codebase_pass_count: 2,
+        true_positives: 8
+      }
+    }
   });
   writeJson(root, "round-history.json", {
     schema_version: 1,
@@ -1480,6 +1492,8 @@ test("exposes the current competition round from round-status.json", async () =>
   assert.equal(status.round.king.aggregated_score, 0.2);
   assert.equal(status.round.entrants.length, 2);
   assert.equal(status.round.entrants[0].status, "winner");
+  assert.equal(status.round.externalBaseline.artifact_manifest.agent_id, 1611);
+  assert.equal(status.round.externalBaseline.entry.beats_king, true);
   assert.equal(status.round.screenedOut[0].pull_number, 6);
   assert.equal(status.roundHistory[0].roundNumber, 2);
   assert.equal(status.roundHistory[1].roundNumber, 1);

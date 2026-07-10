@@ -5111,6 +5111,43 @@ html { scroll-behavior: smooth; }
   font-size: 10px;
   white-space: nowrap;
 }
+.baseline-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 95% 10%, rgba(93, 210, 255, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(23, 30, 37, 0.82), rgba(8, 9, 8, 0.72));
+}
+.baseline-card-main span {
+  display: block;
+  color: #8ad8ff;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.baseline-card-main strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 15px;
+}
+.baseline-card-main p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.baseline-card-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .round-banner-state {
   display: flex;
   align-items: center;
@@ -5259,6 +5296,14 @@ html { scroll-behavior: smooth; }
   }
 
   .round-rule-card ol {
+    justify-content: flex-start;
+  }
+
+  .baseline-card {
+    grid-template-columns: 1fr;
+  }
+
+  .baseline-card-metrics {
     justify-content: flex-start;
   }
 }

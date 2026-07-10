@@ -1638,7 +1638,10 @@ test("attaches live per-candidate progress while a round is executing", async ()
   writeJson(root, "round-status.json", {
     schema_version: 1,
     state: "executing",
-    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }]
+    entrants: [
+      { pull_number: 5, submission_id: "m-5", status: "executing" },
+      { pull_number: 6, submission_id: "m-6", status: "executing" }
+    ]
   });
   writeJson(root, "round-progress.json", {
     schema_version: 1,
@@ -1674,6 +1677,13 @@ test("attaches live per-candidate progress while a round is executing", async ()
             total_found: 3
           }
         ]
+      },
+      {
+        submission_id: "pr-6",
+        done: 0,
+        total: 6,
+        state: "queued",
+        projects: []
       }
     ]
   });
@@ -1727,6 +1737,8 @@ test("attaches live per-candidate progress while a round is executing", async ()
   assert.equal(status.round.liveProgress.candidates[0].done, 2);
   assert.equal(status.round.liveProgress.candidates[0].projects[0].pass_count, 2);
   assert.equal(status.round.liveProgress.candidates[0].projects[0].replicas[0].status, "pass");
+  assert.equal(status.round.liveProgress.candidates[1].submission_id, "pr-6");
+  assert.deepEqual(status.round.liveProgress.candidates[1].projects, []);
 });
 
 test("exposes the round-history feed from round-history.json", async () => {

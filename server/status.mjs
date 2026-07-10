@@ -414,7 +414,9 @@ function enrichRoundProgressSide({
       runRoot,
       variantName,
       pullNumber,
-      projectKey
+      projectKey,
+      allowGenericDuelRoot:
+        variantName !== "candidate" || side.state === "scoring"
     });
     if (!existingProject && !replicaProject?.started) {
       continue;
@@ -434,7 +436,13 @@ function pullNumberFromProgressId(submissionId) {
   return match ? Number(match[1]) : null;
 }
 
-function findRoundReplicaProject({ runRoot, variantName, pullNumber, projectKey }) {
+function findRoundReplicaProject({
+  runRoot,
+  variantName,
+  pullNumber,
+  projectKey,
+  allowGenericDuelRoot = true
+}) {
   const directRoots = [];
   if (pullNumber) {
     directRoots.push(path.join(runRoot, `pr-${pullNumber}`, variantName, projectKey));
@@ -444,6 +452,10 @@ function findRoundReplicaProject({ runRoot, variantName, pullNumber, projectKey 
     if (fs.existsSync(projectRoot)) {
       return summarizeSn60ProjectProgress(projectRoot, projectKey);
     }
+  }
+
+  if (!allowGenericDuelRoot) {
+    return null;
   }
 
   const duelRoots = listDirectories(runRoot)

@@ -655,11 +655,11 @@ function BeatsKingBadge({ beats }) {
   );
 }
 
-function compareEntrantsByRank(a, b) {
+function compareEntrantsByRank(a, b, selectedProjectCount = 0) {
   // Same order the engine ranks by: pass score, projects passed, true positives,
   // fewer invalid runs, precision, then F1. Unscored entrants sort last.
   const key = (entrant) => [
-    entrantPassScore(entrant),
+    entrantPassScore(entrant, selectedProjectCount),
     entrantPassCount(entrant),
     entrant.true_positives ?? -1,
     -(entrant.invalid_runs ?? 0),
@@ -680,6 +680,17 @@ function projectCountFromEntrant(entrant) {
   return Array.isArray(entrant?.projects) ? entrant.projects.length : 0;
 }
 
+function selectedProjectKeysFromRound(round) {
+  const candidates = [
+    round?.liveProgress?.projectKeys,
+    round?.projectKeys,
+    round?.primary?.projectKeys,
+    round?.evaluatorState?.current?.projectKeys
+  ];
+  const keys = candidates.find((value) => Array.isArray(value) && value.length);
+  return keys || [];
+}
+
 function entrantPassCount(entrant) {
   if (entrant?.codebase_pass_count != null) {
     return Number(entrant.codebase_pass_count);
@@ -690,22 +701,35 @@ function entrantPassCount(entrant) {
   return -1;
 }
 
-function entrantPassScore(entrant) {
+function entrantProjectTotal(entrant, selectedProjectCount = 0) {
+  const selectedTotal = Number(selectedProjectCount || 0);
+  if (selectedTotal > 0) {
+    return selectedTotal;
+  }
+  return projectCountFromEntrant(entrant);
+}
+
+function entrantPassScore(entrant, selectedProjectCount = 0) {
   const count = entrantPassCount(entrant);
-  const total = projectCountFromEntrant(entrant);
+  const total = entrantProjectTotal(entrant, selectedProjectCount);
   if (count < 0 || total <= 0) {
     return -1;
   }
   return count / total;
 }
 
-function formatPassScore(entrant, fallbackProjectCount = 0) {
+function formatPassScore(entrant, selectedProjectCount = 0) {
   const passCount = entrantPassCount(entrant);
-  const projectCount = projectCountFromEntrant(entrant) || fallbackProjectCount;
+  const projectCount = entrantProjectTotal(entrant, selectedProjectCount);
   if (passCount < 0 || projectCount <= 0) {
     return "—";
   }
   return `${passCount}/${projectCount}`;
+}
+
+function formatProjectsPassed(entrant) {
+  const passCount = entrantPassCount(entrant);
+  return passCount < 0 ? "—" : String(passCount);
 }
 
 function inferReplicasPerProject(round) {
@@ -870,7 +894,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
     }
   });
   const kingResult = candidateOnly ? null : round?.liveProgress?.king || round?.king || null;
-  const projectKeys = round?.liveProgress?.projectKeys || [];
+  const projectKeys = selectedProjectKeysFromRound(round);
+  const selectedProjectCount = projectKeys.length;
   const replicasPerProject = inferReplicasPerProject(round);
   const passThreshold = projectPassThresholdLabel(replicasPerProject);
 
@@ -894,7 +919,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         projects: result.projects ?? entrant.projects
       };
     })
-    .sort(compareEntrantsByRank);
+    .sort((left, right) => compareEntrantsByRank(left, right, selectedProjectCount));
 
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
@@ -1040,6 +1065,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             <span>PR</span>
             <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
             <span>pass score</span>
+            <span>projects passed</span>
             <span>TP</span>
             <span>{candidateOnly ? "round result" : "beats king"}</span>
             <span>status</span>
@@ -1063,7 +1089,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               <span className="entrant-cell">
                 <EntrantIdentity author={roundKingAuthor} submissionId={roundKingSubmissionId || "current king"} />
               </span>
-              <span>{formatPassScore(kingResult, projectKeys.length)}</span>
+              <span>{formatPassScore(kingResult, selectedProjectCount)}</span>
+              <span>{formatProjectsPassed(kingResult)}</span>
               <span>{kingResult?.true_positives ?? "—"}</span>
               <span>—</span>
               <span>
@@ -1101,7 +1128,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
                   ) : null}
                   <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
                 </span>
-                <span>{formatPassScore(entrant, projectKeys.length)}</span>
+                <span>{formatPassScore(entrant, selectedProjectCount)}</span>
+                <span>{formatProjectsPassed(entrant)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
                 <span>
                   {candidateOnly ? (
@@ -1488,8 +1516,8 @@ function DuelDetail({
     projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
   const candidatePassScore = formatPassScore(entrant, problemKeys.length);
   const kingPassScore = formatPassScore(king, problemKeys.length);
-  const candidatePassRatio = entrantPassScore(entrant);
-  const kingPassRatio = entrantPassScore(king);
+  const candidatePassRatio = entrantPassScore(entrant, problemKeys.length);
+  const kingPassRatio = entrantPassScore(king, problemKeys.length);
 
   return (
     <div className="round-block duel-page">

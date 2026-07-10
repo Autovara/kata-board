@@ -5498,7 +5498,7 @@ html { scroll-behavior: smooth; }
 
 /* round table grids */
 .round-grid {
-  grid-template-columns: 72px minmax(200px, 1fr) 110px 120px 120px 150px;
+  grid-template-columns: 72px minmax(200px, 1fr) 108px 120px 88px 120px 150px;
 }
 .round-row-king {
   background: rgba(255, 212, 121, 0.06);
@@ -5579,10 +5579,10 @@ html { scroll-behavior: smooth; }
 @media (max-width: 720px) {
   .round-grid,
   .round-hist-grid {
-    grid-template-columns: 60px minmax(120px, 1fr) 84px;
+    grid-template-columns: 60px minmax(120px, 1fr) 84px 84px;
   }
-  .round-grid > span:nth-child(4),
   .round-grid > span:nth-child(5),
+  .round-grid > span:nth-child(6),
   .round-hist-grid > span:nth-child(3),
   .round-hist-grid > span:nth-child(4) {
     display: none;

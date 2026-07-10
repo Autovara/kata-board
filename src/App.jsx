@@ -1686,30 +1686,43 @@ function Docs({ selectedLane, kataRepoSlug }) {
   const [activeTab, setActiveTab] = useState("overview");
   const links = sourceLinks(kataRepoSlug);
   const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "miner", label: "For Miners" },
-    { id: "validator", label: "For Validators" },
-    { id: "scoring", label: "Scoring" },
-    { id: "milestones", label: "Milestones" },
-    { id: "privacy", label: "Privacy" }
+    { id: "overview", label: "Overview", description: "What Kata is and how the competition works." },
+    { id: "miner", label: "For Miners", description: "Submission shape, agent contract, and red lines." },
+    { id: "validator", label: "For Validators", description: "Round pipeline, labels, and operator rules." },
+    { id: "scoring", label: "Scoring", description: "How findings become scores and promotions." },
+    { id: "milestones", label: "Milestones", description: "Current progress and what comes next." },
+    { id: "privacy", label: "Privacy", description: "What is public, private, and protected." }
   ];
 
   return (
     <div className="docs-layout">
       <aside className="docs-side">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={activeTab === tab.id ? "active" : ""}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <div className="docs-side-card">
+          <p className="kicker">Kata Docs</p>
+          <h2>Read the rules before you ship an agent.</h2>
+          <p>
+            Short, practical notes for contributors, validators, and anyone checking how the live
+            competition is judged.
+          </p>
+        </div>
+        <div className="docs-tab-list" role="tablist" aria-label="Documentation sections">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={activeTab === tab.id ? "active" : ""}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span className="docs-tab-label">{tab.label}</span>
+              <span className="docs-tab-desc">{tab.description}</span>
+            </button>
+          ))}
+        </div>
       </aside>
 
-      <article className="docs-content">
+      <article className="docs-content" aria-live="polite">
         {activeTab === "overview" ? (
           <DocOverview selectedLane={selectedLane} links={links} />
         ) : null}

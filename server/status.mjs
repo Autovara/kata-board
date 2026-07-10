@@ -496,7 +496,7 @@ function mergeRoundProjectReplicaProgress(existingProject, replicaProject, proje
     project_key: base.project_key || base.projectKey || projectKey,
     started: Boolean(replicaProject.started),
     finished: Boolean(replicaProject.finished),
-    passed: Boolean(base.passed ?? replicaProject.solved),
+    passed: Boolean(replicaProject.solved),
     completed_replicas: Number(replicaProject.completedReplicas || 0),
     total_replicas: Number(replicaProject.totalReplicas || 0),
     pass_count: Number(replicaProject.passCount || 0),

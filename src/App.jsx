@@ -655,14 +655,15 @@ function BeatsKingBadge({ beats }) {
 }
 
 function compareEntrantsByRank(a, b) {
-  // Same order the engine ranks by: detection, then true positives, then
-  // precision, then F1, then fewer invalid runs. Unscored entrants sort last.
+  // Same order the engine ranks by: pass score, projects passed, true positives,
+  // fewer invalid runs, precision, then F1. Unscored entrants sort last.
   const key = (entrant) => [
-    entrant.aggregated_score ?? -1,
+    entrantPassScore(entrant),
+    entrantPassCount(entrant),
     entrant.true_positives ?? -1,
+    -(entrant.invalid_runs ?? 0),
     entrant.precision ?? -1,
-    entrant.f1_score ?? -1,
-    -(entrant.invalid_runs ?? 0)
+    entrant.f1_score ?? -1
   ];
   const av = key(a);
   const bv = key(b);
@@ -672,6 +673,54 @@ function compareEntrantsByRank(a, b) {
     }
   }
   return 0;
+}
+
+function projectCountFromEntrant(entrant) {
+  return Array.isArray(entrant?.projects) ? entrant.projects.length : 0;
+}
+
+function entrantPassCount(entrant) {
+  if (entrant?.codebase_pass_count != null) {
+    return Number(entrant.codebase_pass_count);
+  }
+  if (Array.isArray(entrant?.projects)) {
+    return entrant.projects.filter((project) => project?.passed).length;
+  }
+  return -1;
+}
+
+function entrantPassScore(entrant) {
+  const count = entrantPassCount(entrant);
+  const total = projectCountFromEntrant(entrant);
+  if (count < 0 || total <= 0) {
+    return -1;
+  }
+  return count / total;
+}
+
+function formatPassScore(entrant, fallbackProjectCount = 0) {
+  const passCount = entrantPassCount(entrant);
+  const projectCount = projectCountFromEntrant(entrant) || fallbackProjectCount;
+  if (passCount < 0 || projectCount <= 0) {
+    return "—";
+  }
+  return `${passCount}/${projectCount}`;
+}
+
+function inferReplicasPerProject(round) {
+  const projectCount = Number(round?.liveProgress?.projectKeys?.length || 0);
+  const candidates = round?.liveProgress?.candidates || [];
+  const firstTotal = Number(candidates.find((candidate) => Number(candidate?.total) > 0)?.total || 0);
+  if (projectCount > 0 && firstTotal > 0) {
+    return Math.max(1, Math.round(firstTotal / projectCount));
+  }
+  return 1;
+}
+
+function projectPassThresholdLabel(replicasPerProject) {
+  const replicas = Math.max(1, Number(replicasPerProject || 1));
+  const required = Math.ceil((replicas * 2) / 3);
+  return `${required}/${replicas}`;
 }
 
 function roundExtras(round) {
@@ -686,6 +735,29 @@ function roundExtras(round) {
     extras.push(`${round.skippedStale.length} skipped — unchanged since last round`);
   }
   return extras;
+}
+
+function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
+  return (
+    <div className="round-rule-card">
+      <div>
+        <span>promotion rule</span>
+        <strong>{candidateOnly ? "Top candidate with at least one true positive" : "Strictly beat the king"}</strong>
+        <p>
+          A project passes when enough replicas pass. This round uses {replicasPerProject} run
+          {replicasPerProject === 1 ? "" : "s"} per project, so the pass threshold is {passThreshold}.
+        </p>
+      </div>
+      <ol>
+        <li>Pass score</li>
+        <li>Projects passed</li>
+        <li>True positives</li>
+        <li>Fewer invalid runs</li>
+        <li>Precision</li>
+        <li>F1 score</li>
+      </ol>
+    </div>
+  );
 }
 
 function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selectedPull, setSelectedPull }) {
@@ -731,6 +803,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   });
   const kingResult = candidateOnly ? null : round?.liveProgress?.king || round?.king || null;
   const projectKeys = round?.liveProgress?.projectKeys || [];
+  const replicasPerProject = inferReplicasPerProject(round);
+  const passThreshold = projectPassThresholdLabel(replicasPerProject);
 
   // Live-merge each entrant with its published result, then rank by the engine's
   // comparator so the table is a live leaderboard (winner on top).
@@ -747,7 +821,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         precision: result.precision ?? entrant.precision,
         f1_score: result.f1_score ?? entrant.f1_score,
         invalid_runs: result.invalid_runs ?? entrant.invalid_runs,
-        beats_king: result.beats_king ?? entrant.beats_king
+        beats_king: result.beats_king ?? entrant.beats_king,
+        codebase_pass_count: result.codebase_pass_count ?? entrant.codebase_pass_count,
+        projects: result.projects ?? entrant.projects
       };
     })
     .sort(compareEntrantsByRank);
@@ -762,6 +838,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         kingAuthor={roundKingAuthor}
         kingSubmissionId={roundKingSubmissionId}
         projectKeys={projectKeys}
+        replicasPerProject={replicasPerProject}
+        passThreshold={passThreshold}
         onBack={() => setSelectedPull(null)}
       />
     );
@@ -791,6 +869,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         kingAuthor={roundKingAuthor}
         progress={result}
         projectKeys={projectKeys}
+        replicasPerProject={replicasPerProject}
+        passThreshold={passThreshold}
         kataRepoSlug={kataRepoSlug}
         onBack={() => setSelectedPull(null)}
       />
@@ -831,6 +911,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
                 <RoundMeta label="king detection" value={formatDetection(kingResult.aggregated_score)} />
               ) : null}
               {candidateOnly ? <RoundMeta label="mode" value="candidate-only recovery" /> : null}
+              <RoundMeta label="project pass" value={`${passThreshold} replicas`} />
               <RoundMeta label="candidates" value={entrants.length} />
               {round.generatedAt ? (
                 <RoundMeta
@@ -879,11 +960,17 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             </div>
           ) : null}
 
+          <RoundRuleCard
+            candidateOnly={candidateOnly}
+            passThreshold={passThreshold}
+            replicasPerProject={replicasPerProject}
+          />
+
           <div className="table-head round-grid">
             <span>PR</span>
             <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
-            <span>detection</span>
-            <span>true positives</span>
+            <span>pass score</span>
+            <span>TP</span>
             <span>{candidateOnly ? "round result" : "beats king"}</span>
             <span>status</span>
           </div>
@@ -906,7 +993,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               <span className="entrant-cell">
                 <EntrantIdentity author={roundKingAuthor} submissionId={roundKingSubmissionId || "current king"} />
               </span>
-              <span>{formatDetection(kingResult?.aggregated_score)}</span>
+              <span>{formatPassScore(kingResult, projectKeys.length)}</span>
               <span>{kingResult?.true_positives ?? "—"}</span>
               <span>—</span>
               <span>
@@ -944,7 +1031,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
                   ) : null}
                   <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
                 </span>
-                <span>{formatDetection(entrant.aggregated_score)}</span>
+                <span>{formatPassScore(entrant, projectKeys.length)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
                 <span>
                   {candidateOnly ? (
@@ -981,8 +1068,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
 //   tp       = real vulnerabilities the agent matched
 //   expected = real vulnerabilities in that codebase
 //   found    = total findings the agent reported (tp + false positives)
-// A problem "passes" when the agent matched every expected vulnerability
-// (tp === expected, i.e. 100% detection) -- that is the scorer's PASS verdict.
+// `project.passed` is the engine verdict after applying the replica threshold.
 function formatTpExpectedFound(project) {
   if (!project) return "—";
   return `${project.true_positives}/${project.total_expected}/${project.total_found}`;
@@ -991,11 +1077,20 @@ function formatTpExpectedFound(project) {
 function problemResult(project) {
   if (!project) return { label: "scoring", tone: "warn" };
   if (project.passed) return { label: "pass", tone: "ok" };
-  if ((project.true_positives ?? 0) > 0) return { label: "partial", tone: "warn" };
-  return { label: "no match", tone: "neutral" };
+  if ((project.true_positives ?? 0) > 0) return { label: "fail · partial", tone: "warn" };
+  return { label: "fail", tone: "bad" };
 }
 
-function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys, onBack }) {
+function KingDetail({
+  king,
+  progress,
+  kingAuthor,
+  kingSubmissionId,
+  projectKeys,
+  replicasPerProject,
+  passThreshold,
+  onBack
+}) {
   const projects = king?.projects || [];
   const done = progress?.done ?? projects.length;
   const total = progress?.total ?? projects.length;
@@ -1036,7 +1131,8 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys,
               avatarUrl={
                 kingAuthor ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96` : null
               }
-              score={percentScore(king?.aggregated_score)}
+              score={formatPassScore(king, problemKeys.length)}
+              scoreLabel="project pass score"
               won={false}
             />
           </div>
@@ -1061,6 +1157,7 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys,
       ) : null}
 
       <div className="duel-snapshot">
+        <MetricChip label="project pass score" value={formatPassScore(king, problemKeys.length)} tone="ok" />
         <MetricChip label="detection" value={formatDetection(king?.aggregated_score)} />
         <MetricChip label="precision" value={percentMetric(king?.precision)} />
         <MetricChip label="f1 score" value={percentMetric(king?.f1_score)} />
@@ -1069,6 +1166,7 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys,
           value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
         />
         <MetricChip label="invalid" value={String(Number(king?.invalid_runs || 0))} />
+        <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
       </div>
 
       {problemKeys.length ? (
@@ -1107,11 +1205,20 @@ function KingDetail({ king, progress, kingAuthor, kingSubmissionId, projectKeys,
   );
 }
 
-function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, projectKeys, onBack }) {
+function DuelDetail({
+  entrant,
+  king,
+  kingAuthor,
+  kataRepoSlug,
+  progress,
+  projectKeys,
+  replicasPerProject,
+  passThreshold,
+  onBack
+}) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
   const scoring = progress && progress.state === "scoring";
-  const delta = (entrant.aggregated_score ?? 0) - (king?.aggregated_score ?? 0);
   const kingProjects = {};
   (king?.projects || []).forEach((project) => {
     kingProjects[project.project_key] = project;
@@ -1129,6 +1236,10 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
   const candidateByKey_count = projects.length;
   const problemKeys =
     projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
+  const candidatePassScore = formatPassScore(entrant, problemKeys.length);
+  const kingPassScore = formatPassScore(king, problemKeys.length);
+  const candidatePassRatio = entrantPassScore(entrant);
+  const kingPassRatio = entrantPassScore(king);
 
   return (
     <div className="round-block duel-page">
@@ -1161,17 +1272,24 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
               avatarUrl={
                 kingAuthor ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96` : null
               }
-              score={percentScore(king?.aggregated_score)}
+              score={kingPassScore}
+              scoreLabel="project pass score"
               won={decided && !won}
             />
             <div className="battle-mid">
               <div className="vs">VS</div>
               <div className="battle-decision">
-                <span>{delta > 0 ? "challenger leads" : delta < 0 ? "king leads" : "level"}</span>
-                <strong className={delta > 0 ? "positive" : delta < 0 ? "negative" : ""}>
-                  {formatSignedPoints(delta)}
+                <span>
+                  {candidatePassRatio > kingPassRatio
+                    ? "challenger leads"
+                    : candidatePassRatio < kingPassRatio
+                      ? "king leads"
+                      : "level"}
+                </span>
+                <strong className={candidatePassRatio > kingPassRatio ? "positive" : candidatePassRatio < kingPassRatio ? "negative" : ""}>
+                  {candidatePassScore} vs {kingPassScore}
                 </strong>
-                <small>candidate vs king</small>
+                <small>project pass score</small>
               </div>
             </div>
             <BattleSide
@@ -1181,7 +1299,8 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
               avatarUrl={
                 entrant.author ? `https://github.com/${encodeURIComponent(entrant.author)}.png?size=96` : null
               }
-              score={percentScore(entrant.aggregated_score)}
+              score={candidatePassScore}
+              scoreLabel="project pass score"
               won={won}
             />
           </div>
@@ -1216,9 +1335,13 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
           <ComparisonBar label="detection" candidate={entrant.aggregated_score} king={king?.aggregated_score} />
           <ComparisonBar label="precision" candidate={entrant.precision} king={king?.precision} />
           <ComparisonBar label="f1 score" candidate={entrant.f1_score} king={king?.f1_score} />
+          <ComparisonBar label="project pass score" candidate={candidatePassRatio} king={kingPassRatio} />
         </div>
 
         <div className="duel-snapshot">
+          <MetricChip label="candidate project pass" value={candidatePassScore} tone="ok" />
+          <MetricChip label="king project pass" value={kingPassScore} />
+          <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
           <MetricChip
             label="candidate matched / reported"
             value={`${entrant.true_positives ?? "—"} / ${entrant.total_found ?? "—"}`}
@@ -1240,7 +1363,10 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
               <div>
                 <span>per-problem breakdown</span>
                 <strong>{candidateByKey_count}/{problemKeys.length} scored</strong>
-                <small>Each row is one sampled benchmark codebase. Scores read as tp / expected / found — a problem passes when tp equals expected (every real vulnerability matched).</small>
+                <small>
+                  Each row is one sampled benchmark codebase. Scores read as tp / expected / found.
+                  The project verdict follows the replica threshold: {passThreshold || projectPassThresholdLabel(replicasPerProject)}.
+                </small>
               </div>
             </div>
             <div className="live-task-table-head" aria-hidden="true">
@@ -1256,12 +1382,12 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
                 const pending = !project;
                 return (
                   <div
-                    className={`live-task-row live-task-row-${pending ? "neutral" : project.passed ? "ok" : "neutral"}`}
+                    className={`live-task-row live-task-row-${pending ? "neutral" : project.passed ? "ok" : "bad"}`}
                     key={key}
                   >
                     <div className="live-task-main">
                       <div className="live-task-icon" aria-hidden="true">
-                        {pending ? "·" : project.passed ? "✓" : "·"}
+                        {pending ? "·" : project.passed ? "✓" : "×"}
                       </div>
                       <div>
                         <strong>{formatProjectName(key)}</strong>
@@ -1272,7 +1398,11 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
                       const r = problemResult(pending ? null : project);
                       return <Status label={r.label} tone={r.tone} />;
                     })()}
-                    <div className="live-task-side">
+                    <div
+                      className={`live-task-side ${
+                        pending ? "" : project.passed ? "live-task-side-ok" : "live-task-side-bad"
+                      }`}
+                    >
                       <span>candidate</span>
                       <strong>{pending ? "—" : formatTpExpectedFound(project)}</strong>
                       <small>tp / expected / found</small>
@@ -1294,7 +1424,7 @@ function DuelDetail({ entrant, king, kingAuthor, kataRepoSlug, progress, project
   );
 }
 
-function BattleSide({ role, name, sub, score, avatarUrl, crown, won }) {
+function BattleSide({ role, name, sub, score, scoreLabel = "detection score", avatarUrl, crown, won }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -1308,7 +1438,7 @@ function BattleSide({ role, name, sub, score, avatarUrl, crown, won }) {
       <p>{sub}</p>
       <div className="battle-score">
         <strong>{score}</strong>
-        <small>detection score</small>
+        <small>{scoreLabel}</small>
       </div>
     </div>
   );
@@ -1349,14 +1479,6 @@ function percentScore(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)} pts`;
-}
-
-function formatSignedPoints(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "-";
-  }
-  const numeric = Number(value);
-  return `${numeric > 0 ? "+" : ""}${formatNumber(numeric * 100)} pts`;
 }
 
 function percentMetric(value) {

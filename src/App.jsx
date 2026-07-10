@@ -572,7 +572,7 @@ function StatusPullList({ title, emptyText, items }) {
 function StatusApprovalList({ approvals }) {
   return (
     <div className="status-list-card">
-      <strong>Maintainer approvals</strong>
+      <strong>Review approvals</strong>
       {approvals.length ? (
         approvals.slice(0, 4).map((approval) => (
           <div
@@ -580,7 +580,7 @@ function StatusApprovalList({ approvals }) {
             key={`${approval.repo}-${approval.pullNumber}-${approval.approvedAt}`}
           >
             <span>{approval.pullNumber ? `#${approval.pullNumber}` : "PR"}</span>
-            <small>{approval.approvedBy || "maintainer"}</small>
+            <small>{approval.approvedBy || "reviewer"}</small>
           </div>
         ))
       ) : (
@@ -604,7 +604,7 @@ const ROUND_STATE_BANNER = {
   idle: {
     label: "idle",
     tone: "neutral",
-    text: "Waiting for the maintainer to start the next round."
+    text: "Waiting for the next round to start."
   },
   executing: {
     label: "scoring now",
@@ -1847,12 +1847,12 @@ function Docs({ selectedLane, kataRepoSlug }) {
   const [activeTab, setActiveTab] = useState("overview");
   const links = sourceLinks(kataRepoSlug);
   const tabs = [
-    { id: "overview", label: "Overview", description: "The simple mental model for Kata." },
-    { id: "miner", label: "For Miners", description: "How to submit an agent correctly." },
-    { id: "validator", label: "For Validators", description: "How rounds are operated and promoted." },
-    { id: "scoring", label: "Scoring", description: "How findings become rankings." },
-    { id: "milestones", label: "Milestones", description: "What works now and what comes next." },
-    { id: "privacy", label: "Privacy", description: "What is public, private, and protected." }
+    { id: "overview", label: "Start", description: "What Kata is and how to compete." },
+    { id: "miner", label: "Submit", description: "Build one valid agent PR." },
+    { id: "validator", label: "Round", description: "What happens after pending." },
+    { id: "scoring", label: "Scoring", description: "How your agent is ranked." },
+    { id: "milestones", label: "Results", description: "What progress is visible." },
+    { id: "privacy", label: "Rules", description: "What is allowed and blocked." }
   ];
 
   return (
@@ -1897,32 +1897,31 @@ function DocOverview({ selectedLane, links }) {
       <p className="kicker">Start Here</p>
       <h1>Kata builds optimized miner agents through open competition</h1>
       <p>
-        Kata is an objective, pull-request based competition engine for autonomous miner
-        agents. Contributors submit one agent, the validator scores it against the current
-        <strong> king</strong>, and the best challenger that strictly beats the king is
-        merged and promoted. The goal is simple: produce a proven, ready-to-run agent for
-        each supported subnet, so mining can become much easier for everyone.
+        Kata is a public competition for building stronger miner agents. You submit one
+        agent in a pull request. Kata screens it, runs it in the same environment as every
+        other agent, and promotes the best challenger that strictly beats the current
+        <strong> king</strong>. The goal is simple: make high-quality mining easier for
+        everyone.
       </p>
       <DocCallout
         title="Built with Gittensor / Bittensor SN74"
         text="Kata is developed through Gittensor, the open-source-software subnet on Bittensor. Gittensor coordinates and rewards contributors who improve this repository. The competition target today is different: SN60 / Bitsec."
       />
       <DocGrid>
-        <DocCard title="One live lane" text="SN60 / Bitsec is live today. Agents hunt high- and critical-severity smart-contract vulnerabilities." />
-        <DocCard title="One current king" text="Each lane has one published best agent under kings/. Challengers must strictly beat it to promote." />
-        <DocCard title="One fair round" text="All candidates face the same secretly sampled benchmark problems, same sandbox, same pinned model, and same scoring rules." />
-        <DocCard title="One public proof trail" text="Round summaries, current king metadata, labels, and leaderboard results are published so the outcome is inspectable." />
+        <DocCard title="Current target" text="The live competition builds a vulnerability-audit miner agent for Bitsec / SN60." />
+        <DocCard title="Current king" text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king." />
+        <DocCard title="Fair round" text="All candidates face the same selected benchmark projects, same sandbox, same pinned model, and same scoring rules." />
+        <DocCard title="Public proof" text="Round summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome." />
       </DocGrid>
       <DocCallout
         title="SN74 and SN60 have different roles"
-        text="SN74 / Gittensor powers development of Kata itself. SN60 / Bitsec is the first subnet Kata is optimizing a miner agent for. Future subnet packs can plug into the same engine with their own evaluator, benchmark, and king."
+        text="SN74 / Gittensor powers development of Kata itself. Bitsec / SN60 is the first target Kata is optimizing a miner agent for. Future targets can use the same competition loop with their own benchmark and king."
       />
       <div className="doc-metrics">
-        <KeyValue label="current lane" value={selectedLane?.repoName || "not configured"} />
-        <KeyValue label="subnet pack" value={selectedLane?.subnetPack || selectedLane?.repoPack || "-"} />
-        <KeyValue label="mode" value={selectedLane?.mode || "-"} />
-        <KeyValue label="duel format" value={selectedLane ? duelFormat(selectedLane) : "SN60 sampled validation"} />
-        <KeyValue label="promotion gate" value={selectedLane ? promotionGate(selectedLane) : "project pass score first"} />
+        <KeyValue label="current target" value={selectedLane?.repoName || "Bitsec / SN60"} />
+        <KeyValue label="agent type" value="miner" />
+        <KeyValue label="round format" value={selectedLane ? duelFormat(selectedLane) : "sampled benchmark projects"} />
+        <KeyValue label="promotion rule" value={selectedLane ? promotionGate(selectedLane) : "project pass score first"} />
       </div>
       <DocLinks
         links={[
@@ -1938,40 +1937,35 @@ function DocOverview({ selectedLane, links }) {
 function DocMiner({ links }) {
   return (
     <section>
-      <p className="kicker">For Miners</p>
+      <p className="kicker">Submit</p>
       <h1>Submit one honest agent and beat the king</h1>
       <p>
-        A miner PR is not an engine change. It is one self-contained agent bundle under{" "}
-        <code>submissions/</code>. If it passes intake, it waits as <code>kata:pending</code>
-        until the next scheduled round. In the round, it competes against the current king
-        on the same sampled SN60 / Bitsec problems. Better real vulnerability detection
-        wins; hardcoded answers and static report banks lose before scoring.
+        A competition PR is one agent bundle under <code>submissions/</code>. If it passes
+        screening, it waits as <code>kata:pending</code> until the next round. In the round,
+        it competes against the current king on the same selected benchmark projects.
+        Better real vulnerability detection wins; hardcoded answers and static report
+        banks are blocked before scoring.
       </p>
 
-      <h2>Miner lifecycle</h2>
+      <h2>Contributor checklist</h2>
       <DocSteps
         items={[
           ["Create a branch", "Work in the public Kata repo. A miner PR should only touch one submission directory."],
           ["Add one bundle", "Create submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json."],
           ["Validate locally", "Run `uv run kata submission validate --path submissions/sn60__bitsec/miner/<submission-id>` before opening the PR."],
           ["Open one PR", "One open PR per contributor. The submission ID and author must match the GitHub account that opens the PR."],
-          ["Wait for intake", "kata-bot labels valid PRs kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review."],
+          ["Pass screening", "Valid PRs become kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review."],
           ["Compete in a round", "Pending PRs are locked at the current commit, checked against the screened commit, smoke-tested on one real project, labeled kata:executing, and scored on the same sampled problems as the king."],
           ["Get an outcome", "Winner becomes king. Runner-up that beat the king stays pending. Candidate that did not beat the king closes kata:losing."]
         ]}
       />
-      <DocCallout
-        title="Winner labels and Gittensor reward tiers"
-        text="A promoted PR gets kata:winner:<pack> plus one kata:reward:* label. The winner label proves it became king; the reward label tells Gittensor how strong the promotion was. Every valid promotion gets at least kata:reward:s. Stronger promotions can receive kata:reward:m, kata:reward:l, or kata:reward:xl based on true positives, improvement over the king, and detection score."
-      />
-
       <h2>1. Bundle layout</h2>
       <p>
         A submission PR must be narrow: add or update exactly one directory under{" "}
-        <code>submissions/</code>. Do not edit lane state, king files, validator
-        code, workflows, or unrelated docs.
+        <code>submissions/</code>. Do not edit king files, benchmark files, workflows,
+        engine code, or unrelated docs.
       </p>
-      <CodeBlock value={`submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # which pack/mode you compete in`} />
+      <CodeBlock value={`submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # who submitted the agent`} />
       <CodeBlock value={`{\n  "schema_version": 2,\n  "subnet_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
       <DocCallout
         title="Identity must match your GitHub account"
@@ -1980,10 +1974,9 @@ function DocMiner({ links }) {
 
       <h2>2. Your agent (agent.py)</h2>
       <p>
-        Expose one synchronous function. The validator owns the sandbox, the
-        pinned benchmark snapshot, replica counts, timeouts, and scoring. You
-        compete on vulnerability-hunting behavior: prompting, context selection,
-        and robustness.
+        Expose one synchronous function. Kata owns the sandbox, benchmark snapshot,
+        replica count, timeouts, model relay, and scoring. You compete on the agent
+        behavior: project reading, context selection, prompting, parsing, and robustness.
       </p>
       <CodeBlock value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # Bitsec-compatible findings for the target project\n        ]\n    }`} />
       <DocGrid>
@@ -1996,11 +1989,11 @@ function DocMiner({ links }) {
       <h2>3. Talking to the model</h2>
       <DocCallout
         title="The model is pinned — qwen3.6"
-        text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the validator relay and proxy, so you compete on strategy, not on private API access or a bigger budget. If your code sends model or sampling fields such as temperature, top_p, top_k, or seed, the relay ignores or strips them. Read the final answer from choices[0].message.content."
+        text="Every agent, king and candidate alike, is forced onto the same pinned model — qwen3.6 (qwen/qwen3.6-35b-a3b) — through the Kata relay and proxy, so you compete on strategy, not on private API access or a bigger budget. If your code sends model or sampling fields such as temperature, top_p, top_k, or seed, the relay ignores or strips them. Read the final answer from choices[0].message.content."
       />
       <DocCallout
         title="Inference budget — hard, enforced per problem"
-        text="The validator funds every token, so each agent gets a hard budget per problem: up to 3 successful model calls, 150,000 input tokens, and 24,000 output tokens. Once a budget is spent, further calls return HTTP 429. Failed/transient calls do not count. Each call is clamped to 32,000 output tokens. Spend your calls well and on a 429 return what you already found."
+        text="Kata funds every token, so each agent gets a hard budget per problem: up to 3 successful model calls, 150,000 input tokens, and 24,000 output tokens. Once a budget is spent, further calls return HTTP 429. Failed/transient calls do not count. Each call is clamped to 32,000 output tokens. Spend your calls well and on a 429 return what you already found."
       />
       <CodeBlock value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`} />
 
@@ -2011,7 +2004,7 @@ function DocMiner({ links }) {
       />
       <DocCallout
         title="Review is a hold, not a score"
-        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round until a maintainer approves with /kata approve or the miner pushes a clean update. Maintainers can also re-run screening with /kata review or close the PR with /kata close. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
+        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round yet. Push a clean update if the issue is obvious, or wait for project review. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
       />
       <RequirementList
         title="Validation rules"
@@ -2027,7 +2020,7 @@ function DocMiner({ links }) {
       <RequirementList
         title="Red lines (rejected at static screening)"
         items={[
-          "No validator scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
+          "No scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
           "No hardcoded provider endpoints, API keys, or secret tokens (sk-..., ghp_..., cpk_...).",
           "Do not rely on model or sampling overrides. The relay pins the model and strips/ignores model, temperature, top_p, top_k, seed, and similar fields.",
           "No benchmark answers, dataset leakage tokens, or hardcoded benchmark replay (project IDs, finding IDs, known report titles, or prewritten project-specific findings).",
@@ -2046,16 +2039,16 @@ function DocScoring({ selectedLane }) {
     selectedLane?.evaluatorState?.current?.projectKeys?.length ||
     0;
   const benchmarkText = projectCount
-    ? `${projectCount} selected SN60 project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`
-    : "Secret-sampled SN60 projects from the pinned benchmark snapshot.";
+    ? `${projectCount} selected benchmark project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`
+    : "Secret-sampled benchmark projects from the pinned snapshot.";
   return (
     <section>
       <p className="kicker">Scoring</p>
       <h1>Real findings decide the winner</h1>
       <p>
-        Candidate and king run through the same selected projects from the pinned Bitsec
-        benchmark snapshot. Kata ranks agents by objective SN60 scorer metrics. The
-        candidate must strictly outrank the king; tying the king is not enough.
+        Candidate and king run through the same selected benchmark projects. Kata ranks
+        agents by objective scorer metrics. Your agent must strictly outrank the king;
+        tying the king is not enough.
       </p>
       <DocGrid>
         <DocCard title="Benchmark" text={benchmarkText} />
@@ -2069,22 +2062,14 @@ function DocScoring({ selectedLane }) {
         <DocCard title="Invalid/error" text="A run or scorer result that did not complete successfully; it scores zero for that project." />
         <DocCard title="PASS project" text="The sandbox marks PASS only when the run finds every expected vulnerability for that project." />
       </DocGrid>
-      <h2>Gittensor reward tiers</h2>
-      <p>
-        Promotion decides who becomes king. The reward tier decides how strongly that
-        merged winner PR is weighted by Gittensor. Kata applies exactly one tier after a
-        verified promotion.
-      </p>
+      <h2>Result labels</h2>
+      <p>After a round, your PR gets a clear label so you can understand what happened.</p>
       <DocGrid>
-        <DocCard title="kata:reward:s" text="Valid promotion below the higher tier thresholds. This is the minimum tier for a merged winner." />
-        <DocCard title="kata:reward:m" text="Candidate has at least 3 true positives, or beats the king by at least 2 true positives, or has at least +15% score delta." />
-        <DocCard title="kata:reward:l" text="Candidate has at least 5 true positives, or beats the king by at least 4 true positives, or reaches at least 60% detection score." />
-        <DocCard title="kata:reward:xl" text="Candidate has at least 8 true positives, or beats the king by at least 6 true positives, or reaches at least 85% detection score." />
+        <DocCard title="kata:pending" text="Screened and waiting for the next round, or kept open because it beat the king but was not the top winner." />
+        <DocCard title="kata:winner" text="Won the round, merged, and promoted as the new king." />
+        <DocCard title="kata:losing" text="Entered scoring but did not beat the king." />
+        <DocCard title="kata:invalid" text="Failed a hard screening rule, failed the smoke test, or broke the one-open-PR rule." />
       </DocGrid>
-      <DocCallout
-        title="Recency matters too"
-        text="Gittensor applies time decay to merged winner PRs inside the lookback window. Newer kings keep more reward weight than older winners, so a fresh promotion can earn more reward share even when the improvement is small."
-      />
       <h2>Screening</h2>
       <p>
         Static screening runs at PR intake/update and uses cheap source-only checks: no
@@ -2117,76 +2102,61 @@ function DocValidator({ links, selectedLane }) {
     0;
   return (
     <section>
-      <p className="kicker">For Validators</p>
-      <h1>How a round is operated</h1>
+      <p className="kicker">Round</p>
+      <h1>What happens after your PR becomes pending</h1>
       <p>
-        Scoring is run in scheduled rounds, not on every PR open. <code>kata-bot</code>
-        handles GitHub intake, labels, command handling, and merge/promotion actions.
-        Kata owns the actual validation, screening, scoring, ranking, provenance, and
-        king state. This split keeps the bot thin and the competition rules testable.
+        Kata does not score every PR immediately. A valid PR waits for the next scheduled
+        round. When the round starts, all pending candidates compete under the same rules,
+        same selected projects, same model, and same scoring budget.
       </p>
 
-      <h2>Round pipeline</h2>
+      <h2>Round checklist</h2>
       <DocSteps
         items={[
-          ["Intake (per PR)", "On open/push the webhook screens the PR and labels it kata:pending only after it passes. If the submission id or submission.json author does not match the PR author's GitHub username, it is closed kata:invalid before pending. Suspicious but non-conclusive cases are labeled kata:review and cannot enter a round. A push to a kata:stale PR flips it back to kata:pending. No scoring here."],
-          ["Lock entrants", "The round snapshots the open PRs at their commits, keeps one per contributor (extras closed kata:invalid), and skips a PR only if its commit AND the king are unchanged since it last competed (kata:stale)."],
-          ["Gate & execute", "Each entrant must still be the same commit that passed intake screening. If enabled, the one-project executable smoke test must run cleanly and return a valid vulnerabilities report. Survivors are labeled kata:executing."],
-          ["Score vs cached king", "The king is scored once per selected project set and cached; every candidate is scored on the SAME secret-sampled set. Production uses 3 replicas per project, and a project passes at 2/3 PASS runs. Scoring is resilient: one bad project never aborts the rest."],
-          ["Rank & decide", "Candidates are ranked by the SN60 comparator; the top one that strictly beats the king wins. Others that beat it stay kata:pending; the rest close kata:losing."],
-          ["Verify & promote", "Before merging, Kata re-checks the winner against the current king and benchmark; a stale or unmergeable winner is held (kata:hold). A verified winner is merged, published under kings/, and recorded in lane state."]
+          ["Pending only", "Only PRs with kata:pending can enter scoring. PRs in kata:review or kata:invalid do not compete."],
+          ["Commit locked", "The PR's latest commit must be the same commit that passed screening. If new commits were pushed and not screened, the PR is held out."],
+          ["Smoke tested", "Before scoring, the agent runs once on a real project. It must run cleanly and return a valid vulnerabilities report shape. It does not need to find a bug in this smoke test."],
+          ["Scored fairly", "Every candidate and the current king use the same selected benchmark projects, same pinned model, same relay, and same inference budget."],
+          ["3 replicas", "Each selected project runs 3 times. A project passes when at least 2 of 3 runs pass."],
+          ["Winner promoted", "The top candidate that strictly beats the king is merged and becomes the new king. If nobody beats the king, the king stays."]
         ]}
       />
 
-      <h2>Pinned model & isolation</h2>
+      <h2>Round constraints</h2>
       <p>
-        Every agent — king and candidate — reaches the model only through the
-        validator's own path, so the competition is fair and the cost is
-        controlled.
+        These constraints are the same for every candidate, so the round measures agent
+        strategy instead of private infrastructure.
       </p>
       <DocGrid>
-        <DocCard title="Pinned model" text="qwen3.6 (qwen/qwen3.6-35b-a3b). The relay forces this exact model on every request so the king and every challenger are judged on identical footing." />
-        <DocCard title="Relay" text="Forces the pinned model, strips/ignores sampling knobs, enforces 3 successful calls, 150,000 input tokens, and 24,000 output tokens per problem, and returns 429 after the budget is spent." />
-        <DocCard title="Proxy" text="Routes the pinned request to the provider and meters cost. It sits on a separate Docker network from the agents." />
-        <DocCard title="Network isolation" text="Agents run on an internet-blocked network and can only reach the relay — they cannot bypass it to hit a provider or a different model directly." />
+        <DocCard title="Pinned model" text="qwen/qwen3.6-35b-a3b is forced by the relay for everyone." />
+        <DocCard title="Model calls" text="Up to 3 successful model calls per problem." />
+        <DocCard title="Token budget" text="Up to 150,000 input tokens and 24,000 output tokens per problem." />
+        <DocCard title="No bypass" text="Agents must use the provided relay. Direct provider calls and private APIs are blocked." />
       </DocGrid>
 
-      <h2>Production sampling</h2>
+      <h2>Selected projects</h2>
       <p>
-        To control cost, validators can score a secret-seeded subset instead of
-        the full benchmark. The selected keys are recorded in the challenge
-        summary and lane provenance for audit.
+        Each round uses a selected benchmark set. Every candidate sees the same set, and
+        the result page shows the selected project names after the round.
       </p>
-      <CodeBlock value={`KATA_SN60_PROJECT_KEYS=            # explicit override; keep unset in prod\nKATA_SN60_PROJECT_SAMPLE_SIZE=7   # problems sampled per round\nKATA_SN60_PROJECT_SAMPLE_SECRET=<private-validator-secret>\nKATA_SN60_REPLICAS_PER_PROJECT=3\nKATA_SN60_ENABLE_SCREENER_PROJECT=true`} />
       <p>
         Each round samples{" "}
         <strong>
-          {projectCount ? `${projectCount} project${projectCount === 1 ? "" : "s"}` : "a secret-seeded subset"}
+          {projectCount ? `${projectCount} project${projectCount === 1 ? "" : "s"}` : "a benchmark project set"}
         </strong>
-        ; every candidate faces the same set, and the king's per-project scores are cached
-        across rounds so the king is not re-run each time.
+        ; the exact set is not something contributors should hardcode against.
       </p>
 
-      <h2>Outcome labels</h2>
-      <p>Each PR carries one color-coded label so its state is readable at a glance.</p>
+      <h2>What you can see</h2>
+      <p>The Arena page shows live progress during a round and final proof after it ends.</p>
       <DocGrid>
-        <DocCard title="kata:pending (blue)" text="Screened and waiting for the next round." />
-        <DocCard title="kata:executing (yellow)" text="Competing in the round running now." />
-        <DocCard title="kata:winner:<pack> (green)" text="Beat the king → merged and promoted. Gittensor/SN74 rules recognize only verified winner PRs as valid results." />
-        <DocCard title="kata:reward:* (green)" text="Applied only to merged winners. The tier is s, m, l, or xl, based on true positives, improvement over the king, and detection score." />
-        <DocCard title="kata:losing (grey)" text="Competed but did not beat the king → closed." />
-        <DocCard title="kata:invalid (red)" text="Failed screening, or an extra open PR beyond one-per-contributor → closed." />
-        <DocCard title="kata:review (gold)" text="Held for maintainer screening review. Optional Codex-backed LLM review can add evidence, but only deterministic checks hard-reject. It cannot enter a round until approved with /kata approve, re-run with /kata review, closed with /kata close, or updated cleanly." />
-        <DocCard title="kata:stale (orange)" text="Benched: unchanged since it last competed → push to re-enter." />
-        <DocCard title="kata:hold (purple)" text="Won, but the merge is currently blocked → needs attention." />
-        <DocCard title="Provenance" text="Every round records candidate/king hashes, selected keys, benchmark hash, sandbox commit, scorer version, and replica count." />
+        <DocCard title="Live status" text="Which PRs are executing, screened out, complete, or waiting." />
+        <DocCard title="Per-project detail" text="Replica pass counts, true positives, reported findings, and invalid/error runs." />
+        <DocCard title="Final ranking" text="Who won, who beat the king, who lost, and why." />
+        <DocCard title="Proof" text="Round timing, selected projects, aggregate metrics, and public result files." />
       </DocGrid>
 
-      <DocCallout
-        title="Operator rule: keep the bot thin"
-        text="If a rule changes, change it in Kata first, then have the bot call the new Kata command or read the new Kata result. The bot applies outcomes; it never decides them."
-      />
-      <DocLinks links={[["End-to-end workflow", links.systemWorkflow], ["GitHub automation", links.githubAutomation]]} />
+      <DocLinks links={[["End-to-end workflow", links.systemWorkflow], ["Arena", "/arena"]]} />
     </section>
   );
 }
@@ -2194,28 +2164,27 @@ function DocValidator({ links, selectedLane }) {
 function DocMilestones() {
   return (
     <section>
-      <p className="kicker">Roadmap</p>
-      <h1>From one live lane to one-click mining</h1>
+      <p className="kicker">Results</p>
+      <h1>How Kata shows progress</h1>
       <p>
-        Kata is being built in layers. The current production system proves the core loop
-        on one subnet. The next releases turn the winning king into something miners can
-        run directly, then expand the same engine to more subnet packs.
+        Kata should not ask contributors to trust vague claims. The dashboard and public
+        proof files show what happened in each round: who competed, which agent won, how
+        many true positives were found, and whether the current king improved.
       </p>
       <MilestoneList
         items={[
-          ["complete", "SN60 lane live", "The sn60__bitsec/miner lane has a pinned benchmark snapshot and a seeded king."],
-          ["complete", "Pinned benchmark scoring", "Duels score against the pinned Bitsec benchmark snapshot with deterministic replica rules."],
-          ["complete", "PR-only submission contract", "Miners submit exactly one agent bundle under submissions/; issues are not used."],
-          ["complete", "Public proof artifacts", "Current king and latest round proof are published without private scoring secrets."],
-          ["current", "Round-based competition", "Scheduled rounds score pending agents against the cached king; one open PR per contributor; live status and history are visible on the board."],
-          ["next", "Run the king", "Package the promoted king so miners can fetch and run the best SN60 agent directly."],
-          ["next", "More subnet packs", "Add more registered subnets, each with its own evaluator, benchmark snapshot, king, and leaderboard lane."],
-          ["later", "One-click mining", "Pick a supported subnet and mine with its optimized king agent without needing ML expertise."]
+          ["complete", "Current king", "The promoted best agent is visible on the winners page and in the public repository."],
+          ["complete", "Round proof", "Completed rounds publish selected projects, candidate counts, true positives, precision, duration, and winner status."],
+          ["complete", "Live arena", "During a round, contributors can watch execution status and per-project progress."],
+          ["current", "Baseline comparison", "Kata can compare the winner against an external baseline under the same selected round conditions."],
+          ["next", "Run the king", "Package the promoted agent so miners can fetch and run it directly."],
+          ["next", "More targets", "Add more agent-based subnet targets using the same contributor workflow."],
+          ["later", "One-click mining", "Pick a supported target and mine with its optimized king agent without needing ML expertise."]
         ]}
       />
       <DocCallout
-        title="Current priority"
-        text="Keep showing real progress and evidence: completed rounds, promoted kings, public proof files, stable dashboard state, and clear contributor feedback."
+        title="What contributors should look at"
+        text="Use the Arena for round details, the Leaderboard for historical ranking, and the Winners page for the current king. If a claim is real, it should show up there with numbers."
       />
     </section>
   );
@@ -2224,22 +2193,22 @@ function DocMilestones() {
 function DocPrivacy() {
   return (
     <section>
-      <p className="kicker">Visibility</p>
-      <h1>What is public and private</h1>
+      <p className="kicker">Rules</p>
+      <h1>What is allowed and what gets blocked</h1>
       <p>
-        Kata should be easy to audit without leaking benchmark answers, provider keys, or
-        validator-only material. The public board shows results and proof. The validator
-        keeps scoring secrets and hidden benchmark details private.
+        Build a real general agent. Kata welcomes better prompting, better project
+        reading, smarter triage, better parsing, and stronger reporting. Kata blocks
+        shortcut submissions that try to replay answers or bypass the shared environment.
       </p>
       <DocGrid>
-        <DocCard title="Public" text="Current king metadata, winning PR, round timing, aggregate metrics, benchmark provenance, labels, leaderboard state, and public proof files." />
-        <DocCard title="Private" text="Provider keys, validator scoring keys, sampling secret, raw hidden answer material, and any operator-only deployment environment." />
-        <DocCard title="Dashboard" text="Shows live status, arena results, leaderboard history, public proof, and current king state without exposing secrets." />
-        <DocCard title="Anti-leak rule" text="Agents that embed answer maps, known project fingerprints, finding IDs, or prewritten project-specific reports are rejected at screening." />
+        <DocCard title="Allowed" text="General code analysis, static heuristics, model-assisted auditing, project summarization, ranking risky files, and deduping findings." />
+        <DocCard title="Blocked" text="Hardcoded benchmark answers, known project fingerprints, finding IDs, static report banks, and canned project-specific reports." />
+        <DocCard title="Blocked" text="Private external APIs, direct provider calls, secret/key access, and attempts to choose a different model or budget." />
+        <DocCard title="Required" text="Return a JSON-serializable dict with a top-level vulnerabilities list. If calls fail or budget runs out, return the best findings already collected." />
       </DocGrid>
       <DocCallout
-        title="Important boundary"
-        text="Agents receive project contents and a validator-provided inference endpoint. They do not receive benchmark answers, scoring keys, or direct provider access."
+        title="Simple rule"
+        text="If the logic would still make sense on a brand-new unseen project, it is probably fine. If it depends on knowing the benchmark answer in advance, it is not."
       />
     </section>
   );
@@ -2466,7 +2435,7 @@ function duelFormat(lane) {
   }
   const count =
     lane.projects?.length || lane.evaluatorState?.current?.projectKeys?.length || 0;
-  return `${count} selected SN60 project${count === 1 ? "" : "s"}`;
+  return `${count} selected benchmark project${count === 1 ? "" : "s"}`;
 }
 
 function duelStatus(duel) {

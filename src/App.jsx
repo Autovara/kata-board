@@ -1984,7 +1984,7 @@ function DocMiner({ links }) {
         <DocCard title="project_dir" text="The target smart-contract project checkout mounted inside the sandbox container." />
         <DocCard title="inference_api" text="The sandbox inference endpoint. Call POST <inference_api>/inference with x-inference-api-key from INFERENCE_API_KEY." />
         <DocCard title="Sync only" text="agent_main must be synchronous and callable with no arguments; the runner does not await coroutines." />
-        <DocCard title="Small bundle" text="Use agent.py plus optional Python helpers under helpers/. Limit: 16 files, 64 KiB per file, 128 KiB total." />
+        <DocCard title="Small bundle" text="Use agent.py plus optional Python helpers under helpers/. Limit: 16 files, 128 KiB per file, 256 KiB total." />
       </DocGrid>
 
       <h2>3. Talking to the model</h2>
@@ -2023,7 +2023,7 @@ function DocMiner({ links }) {
         items={[
           "agent.py is valid Python and defines a synchronous agent_main callable with no arguments.",
           "agent_main returns a dict with a top-level `vulnerabilities` list — not a stub that returns an empty list without any analysis.",
-          "The candidate bundle stays within the size cap: max 16 files, max 64 KiB per file, and max 128 KiB total.",
+          "The candidate bundle stays within the size cap: max 16 files, max 128 KiB per file, and max 256 KiB total.",
           "agent_manifest.json uses schema_version 1, runtime python, entrypoint agent.py.",
           "submission.json uses schema_version 2, subnet_pack sn60__bitsec, mode miner, and a unique submission_id.",
           "The submission directory/id prefix and submission.json author match the PR author's GitHub username.",

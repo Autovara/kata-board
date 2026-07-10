@@ -425,19 +425,18 @@ function enrichRoundProgressSide({
     return side;
   }
   const existingProjects = Array.isArray(side.projects) ? side.projects : [];
+  const existingProjectKeys = existingProjects
+    .map((project) => project?.project_key || project?.projectKey)
+    .filter(Boolean);
   const projectByKey = new Map(
     existingProjects
       .filter((project) => project && typeof project === "object")
       .map((project) => [project.project_key || project.projectKey, project])
   );
-  const keys = [
-    ...new Set([
-      ...projectKeys,
-      ...existingProjects
-        .map((project) => project?.project_key || project?.projectKey)
-        .filter(Boolean)
-    ])
-  ];
+  const keys =
+    variantName === "candidate"
+      ? [...new Set(existingProjectKeys)]
+      : [...new Set([...projectKeys, ...existingProjectKeys])];
   const enrichedProjects = [];
   for (const projectKey of keys) {
     const existingProject = projectByKey.get(projectKey) || null;

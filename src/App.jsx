@@ -733,6 +733,10 @@ function formatProjectsPassed(entrant) {
 }
 
 function inferReplicasPerProject(round) {
+  const configured = Number(round?.liveProgress?.replicasPerProject || round?.replicasPerProject || 0);
+  if (configured > 0) {
+    return configured;
+  }
   const projectCount = Number(round?.liveProgress?.projectKeys?.length || 0);
   const candidates = round?.liveProgress?.candidates || [];
   const firstTotal = Number(candidates.find((candidate) => Number(candidate?.total) > 0)?.total || 0);
@@ -760,14 +764,16 @@ function projectPassCount(project) {
 }
 
 function projectReplicaTotal(project, fallback = 0) {
+  const fallbackTotal = Number(fallback || 0);
   if (!project) {
-    return fallback;
-  }
-  if (project.total_replicas != null) {
-    return Number(project.total_replicas || 0) || fallback;
+    return fallbackTotal;
   }
   const replicas = Array.isArray(project.replicas) ? project.replicas : [];
-  return replicas.length || fallback;
+  const replicaRows = replicas.length;
+  if (project.total_replicas != null) {
+    return Math.max(Number(project.total_replicas || 0), fallbackTotal, replicaRows);
+  }
+  return Math.max(replicaRows, fallbackTotal);
 }
 
 function projectReplicaPassLabel(project, fallback = 0) {

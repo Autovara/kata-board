@@ -1647,6 +1647,7 @@ test("attaches live per-candidate progress while a round is executing", async ()
     schema_version: 1,
     state: "executing",
     run_id: "sn60-round-live",
+    replicas_per_project: 2,
     updated_at: "2026-07-06T12:00:05Z",
     project_keys: ["project-alpha"],
     king: {
@@ -1752,6 +1753,7 @@ test("live project pass uses replica threshold instead of last replica row", asy
     schema_version: 1,
     state: "executing",
     run_id: "sn60-round-live",
+    replicas_per_project: 3,
     project_keys: ["project-alpha"],
     candidates: [
       {
@@ -1812,6 +1814,55 @@ test("live project pass uses replica threshold instead of last replica row", asy
   assert.equal(project.pass_count, 1);
   assert.equal(project.total_replicas, 3);
   assert.equal(project.passed, false);
+});
+
+test("live project replica denominator uses configured round replicas before all artifacts exist", async () => {
+  const root = makeKataRoot();
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "executing",
+    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }]
+  });
+  writeJson(root, "round-progress.json", {
+    schema_version: 1,
+    state: "executing",
+    run_id: "sn60-round-live",
+    replicas_per_project: 3,
+    project_keys: ["project-alpha"],
+    candidates: [
+      {
+        submission_id: "pr-5",
+        done: 0,
+        total: 3,
+        state: "scoring",
+        projects: []
+      }
+    ]
+  });
+  const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
+  writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
+    status: "running",
+    result: {}
+  });
+  fs.mkdirSync(
+    path.join(runRoot, "candidate", "project-alpha", "replica-02", "bundle"),
+    { recursive: true }
+  );
+
+  const status = await loadBoardStatus({
+    KATA_ROOT: root,
+    KATA_BOT_ROOT: path.join(root, "no-bot"),
+    KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_STATUS_CACHE_TTL_MS: "0"
+  });
+
+  assert.equal(status.round.liveProgress.replicasPerProject, 3);
+  const project = status.round.liveProgress.candidates[0].projects[0];
+  assert.equal(project.pass_count, 0);
+  assert.equal(project.total_replicas, 3);
+  assert.equal(project.completed_replicas, 1);
 });
 
 test("exposes the round-history feed from round-history.json", async () => {

@@ -343,11 +343,38 @@ function loadRoundProgress(roundProgressPath, kataRoot = null) {
     kingSkippedReason: data.king_skipped_reason || null,
     updatedAt: data.updated_at || null,
     projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
+    replicasPerProject: inferRoundReplicasPerProject(data),
     king: data.king && typeof data.king === "object" ? data.king : null,
     candidates: Array.isArray(data.candidates) ? data.candidates : []
     },
     kataRoot
   );
+}
+
+function inferRoundReplicasPerProject(progress) {
+  const explicit = positiveIntegerOrNull(progress?.replicas_per_project);
+  if (explicit) {
+    return explicit;
+  }
+  const projectCount = Array.isArray(progress?.project_keys)
+    ? progress.project_keys.length
+    : 0;
+  if (projectCount <= 0) {
+    return null;
+  }
+  const totals = [
+    progress?.king?.total,
+    ...(Array.isArray(progress?.candidates)
+      ? progress.candidates.map((candidate) => candidate?.total)
+      : [])
+  ];
+  for (const total of totals) {
+    const parsedTotal = positiveIntegerOrNull(total);
+    if (parsedTotal && parsedTotal % projectCount === 0) {
+      return parsedTotal / projectCount;
+    }
+  }
+  return null;
 }
 
 function enrichRoundProgressWithReplicas(progress, kataRoot) {
@@ -359,6 +386,7 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
     return progress;
   }
   const projectKeys = Array.isArray(progress.projectKeys) ? progress.projectKeys : [];
+  const expectedReplicas = positiveIntegerOrNull(progress.replicasPerProject);
   return {
     ...progress,
     king: progress.king
@@ -367,7 +395,8 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
           runRoot,
           variantName: "king",
           projectKeys,
-          pullNumber: null
+          pullNumber: null,
+          expectedReplicas
         })
       : progress.king,
     candidates: (progress.candidates || []).map((candidate) => {
@@ -377,7 +406,8 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
         runRoot,
         variantName: "candidate",
         projectKeys,
-        pullNumber
+        pullNumber,
+        expectedReplicas
       });
     })
   };
@@ -388,7 +418,8 @@ function enrichRoundProgressSide({
   runRoot,
   variantName,
   projectKeys,
-  pullNumber
+  pullNumber,
+  expectedReplicas = null
 }) {
   if (!side || typeof side !== "object") {
     return side;
@@ -415,6 +446,7 @@ function enrichRoundProgressSide({
       variantName,
       pullNumber,
       projectKey,
+      expectedReplicas,
       allowGenericDuelRoot:
         variantName !== "candidate" || side.state === "scoring"
     });
@@ -441,6 +473,7 @@ function findRoundReplicaProject({
   variantName,
   pullNumber,
   projectKey,
+  expectedReplicas = null,
   allowGenericDuelRoot = true
 }) {
   const directRoots = [];
@@ -450,7 +483,7 @@ function findRoundReplicaProject({
   directRoots.push(path.join(runRoot, variantName, projectKey));
   for (const projectRoot of directRoots) {
     if (fs.existsSync(projectRoot)) {
-      return summarizeSn60ProjectProgress(projectRoot, projectKey);
+      return summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas);
     }
   }
 
@@ -468,7 +501,7 @@ function findRoundReplicaProject({
   for (const duelRoot of duelRoots) {
     const projectRoot = path.join(duelRoot, variantName, projectKey);
     if (fs.existsSync(projectRoot)) {
-      return summarizeSn60ProjectProgress(projectRoot, projectKey);
+      return summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas);
     }
   }
   return null;

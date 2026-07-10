@@ -1645,8 +1645,54 @@ test("attaches live per-candidate progress while a round is executing", async ()
     state: "executing",
     run_id: "sn60-round-live",
     updated_at: "2026-07-06T12:00:05Z",
-    king: { done: 4, total: 6 },
-    candidates: [{ submission_id: "pr-5", done: 2, total: 6, state: "scoring" }]
+    project_keys: ["project-alpha"],
+    king: {
+      done: 4,
+      total: 6,
+      projects: [
+        {
+          project_key: "project-alpha",
+          passed: false,
+          true_positives: 1,
+          total_expected: 3,
+          total_found: 2
+        }
+      ]
+    },
+    candidates: [
+      {
+        submission_id: "pr-5",
+        done: 2,
+        total: 6,
+        state: "scoring",
+        projects: [
+          {
+            project_key: "project-alpha",
+            passed: true,
+            true_positives: 3,
+            total_expected: 3,
+            total_found: 3
+          }
+        ]
+      }
+    ]
+  });
+  const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
+  writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 1, total_expected: 3, total_found: 2 }
+  });
+  writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-02", {
+    status: "success",
+    result: { result: "FAIL", true_positives: 0, total_expected: 3, total_found: 1 }
+  });
+  writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
+    status: "success",
+    result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 }
+  });
+  writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-02", {
+    status: "success",
+    result: { result: "PASS", true_positives: 2, total_expected: 3, total_found: 3 }
   });
   writeJson(root, "round-history.json", {
     schema_version: 1,
@@ -1675,8 +1721,12 @@ test("attaches live per-candidate progress while a round is executing", async ()
   assert.equal(status.round.liveProgress.state, "executing");
   assert.equal(status.round.liveProgress.roundNumber, 2);
   assert.equal(status.round.liveProgress.king.done, 4);
+  assert.equal(status.round.liveProgress.king.projects[0].replicas.length, 2);
+  assert.equal(status.round.liveProgress.king.projects[0].replicas[0].status, "fail");
   assert.equal(status.round.liveProgress.candidates[0].submission_id, "pr-5");
   assert.equal(status.round.liveProgress.candidates[0].done, 2);
+  assert.equal(status.round.liveProgress.candidates[0].projects[0].pass_count, 2);
+  assert.equal(status.round.liveProgress.candidates[0].projects[0].replicas[0].status, "pass");
 });
 
 test("exposes the round-history feed from round-history.json", async () => {

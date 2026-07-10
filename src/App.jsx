@@ -724,6 +724,36 @@ function projectPassThresholdLabel(replicasPerProject) {
   return `${required}/${replicas}`;
 }
 
+function projectPassCount(project) {
+  if (!project) {
+    return 0;
+  }
+  if (project.pass_count != null) {
+    return Number(project.pass_count || 0);
+  }
+  const replicas = Array.isArray(project.replicas) ? project.replicas : [];
+  return replicas.filter((replica) => replica?.passed || replica?.result === "PASS").length;
+}
+
+function projectReplicaTotal(project, fallback = 0) {
+  if (!project) {
+    return fallback;
+  }
+  if (project.total_replicas != null) {
+    return Number(project.total_replicas || 0) || fallback;
+  }
+  const replicas = Array.isArray(project.replicas) ? project.replicas : [];
+  return replicas.length || fallback;
+}
+
+function projectReplicaPassLabel(project, fallback = 0) {
+  const total = projectReplicaTotal(project, fallback);
+  if (!project && !total) {
+    return "—";
+  }
+  return `${projectPassCount(project)}/${total || 0} passed`;
+}
+
 function roundExtras(round) {
   const extras = [];
   if (round.screenedOut?.length) {
@@ -1116,9 +1146,213 @@ function formatTpExpectedFound(project) {
 
 function problemResult(project) {
   if (!project) return { label: "scoring", tone: "warn" };
+  if (project.finished === false || project.scoring) return { label: "scoring", tone: "warn" };
   if (project.passed) return { label: "pass", tone: "ok" };
   if ((project.true_positives ?? 0) > 0) return { label: "fail · partial", tone: "warn" };
   return { label: "fail", tone: "bad" };
+}
+
+function ProblemBreakdown({
+  projectKeys,
+  primaryByKey,
+  primaryLabel,
+  secondaryByKey = {},
+  secondaryLabel = null,
+  replicasPerProject,
+  passThreshold,
+  mode = "duel"
+}) {
+  const [openProjectKey, setOpenProjectKey] = useState(null);
+  if (!projectKeys.length) {
+    return <Empty text="Per-problem detail appears once scoring starts." />;
+  }
+  const single = mode === "single";
+  return (
+    <div className="live-task-progress">
+      <div className="live-task-progress-head">
+        <div>
+          <span>per-problem breakdown</span>
+          <strong>{projectKeys.length} benchmark projects</strong>
+          <small>
+            Click a problem to inspect replica runs. Project pass rule:{" "}
+            {passThreshold || projectPassThresholdLabel(replicasPerProject)} replicas.
+          </small>
+        </div>
+      </div>
+      <div
+        className={`live-task-table-head ${single ? "live-task-table-head-single" : ""}`}
+        aria-hidden="true"
+      >
+        <span>problem</span>
+        <span>replicas</span>
+        <span>result</span>
+        <span>{primaryLabel}</span>
+        {single ? null : <span>{secondaryLabel || "comparison"}</span>}
+      </div>
+      <div className="live-task-list">
+        {projectKeys.map((key) => {
+          const project = primaryByKey[key];
+          const secondaryProject = secondaryByKey[key];
+          const pending = !project;
+          const result = problemResult(pending ? null : project);
+          const open = openProjectKey === key;
+          return (
+            <div
+              className={`problem-accordion problem-accordion-${
+                pending ? "neutral" : project.passed ? "ok" : result.tone === "warn" ? "active" : "bad"
+              } ${open ? "problem-accordion-open" : ""}`}
+              key={key}
+            >
+              <button
+                type="button"
+                className={`live-task-row problem-row-button live-task-row-${
+                  pending ? "neutral" : project.passed ? "ok" : result.tone === "warn" ? "active" : "bad"
+                } ${single ? "live-task-row-single" : ""}`}
+                onClick={() => setOpenProjectKey(open ? null : key)}
+                aria-expanded={open}
+              >
+                <div className="live-task-main">
+                  <div className="live-task-icon problem-expand-icon" aria-hidden="true">
+                    {open ? "⌄" : "›"}
+                  </div>
+                  <div>
+                    <strong>{formatProjectName(key)}</strong>
+                    <span>{key}</span>
+                  </div>
+                </div>
+                <span className="problem-replica-pill">
+                  {projectReplicaPassLabel(project, replicasPerProject)}
+                </span>
+                <Status label={result.label} tone={result.tone} />
+                <div
+                  className={`live-task-side ${
+                    pending ? "" : project.passed ? "live-task-side-ok" : "live-task-side-bad"
+                  }`}
+                >
+                  <span>{primaryLabel}</span>
+                  <strong>{pending ? "—" : formatTpExpectedFound(project)}</strong>
+                  <small>tp / expected / found</small>
+                </div>
+                {single ? null : (
+                  <div className="live-task-side">
+                    <span>{secondaryLabel || "secondary"}</span>
+                    <strong>{formatTpExpectedFound(secondaryProject)}</strong>
+                    <small>tp / expected / found</small>
+                  </div>
+                )}
+              </button>
+              {open ? (
+                <div className="replica-dropdown">
+                  <ReplicaTable
+                    title={`${primaryLabel} replicas`}
+                    project={project}
+                    replicasPerProject={replicasPerProject}
+                  />
+                  {single ? null : (
+                    <ReplicaTable
+                      title={`${secondaryLabel || "secondary"} replicas`}
+                      project={secondaryProject}
+                      replicasPerProject={replicasPerProject}
+                      compact
+                    />
+                  )}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReplicaTable({ title, project, replicasPerProject, compact = false }) {
+  const replicas = normalizeReplicaRows(project, replicasPerProject);
+  const tone = project?.passed ? "ok" : project ? "bad" : "neutral";
+  return (
+    <div className={`replica-table replica-table-${tone} ${compact ? "replica-table-compact" : ""}`}>
+      <div className="replica-table-title">
+        <strong>{title}</strong>
+        <span>{projectReplicaPassLabel(project, replicasPerProject)}</span>
+      </div>
+      <div className="replica-table-head" aria-hidden="true">
+        <span>#</span>
+        <span>evaluated</span>
+        <span>findings</span>
+        <span>status</span>
+      </div>
+      {replicas.map((replica) => (
+        <div className="replica-row" key={replica.replica_index}>
+          <strong>{replica.replica_index}</strong>
+          <span>{replica.evaluated ? "✓" : replica.started ? "running" : "queued"}</span>
+          <span>{formatReplicaFindings(replica)}</span>
+          <span className={`replica-status replica-status-${replicaStatusTone(replica)}`}>
+            {replicaStatusLabel(replica)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function normalizeReplicaRows(project, replicasPerProject) {
+  const total = projectReplicaTotal(project, replicasPerProject);
+  const byIndex = new Map(
+    (Array.isArray(project?.replicas) ? project.replicas : []).map((replica) => [
+      Number(replica.replica_index || 0),
+      replica
+    ])
+  );
+  return Array.from({ length: Math.max(1, total || replicasPerProject || 1) }, (_, index) => {
+    const replicaIndex = index + 1;
+    return {
+      replica_index: replicaIndex,
+      started: false,
+      evaluated: false,
+      passed: false,
+      status: "queued",
+      true_positives: 0,
+      total_expected: project?.total_expected ?? 0,
+      total_found: 0,
+      ...(byIndex.get(replicaIndex) || {})
+    };
+  });
+}
+
+function formatReplicaFindings(replica) {
+  if (!replica?.evaluated) {
+    return "—";
+  }
+  return `${replica.true_positives ?? 0}/${replica.total_expected ?? 0}`;
+}
+
+function replicaStatusTone(replica) {
+  if (!replica?.started || !replica?.evaluated) {
+    return "neutral";
+  }
+  if (replica.passed || replica.result === "PASS" || replica.status === "pass") {
+    return "ok";
+  }
+  if (replica.status === "invalid") {
+    return "warn";
+  }
+  return "bad";
+}
+
+function replicaStatusLabel(replica) {
+  if (!replica?.started) {
+    return "queued";
+  }
+  if (!replica.evaluated) {
+    return "running";
+  }
+  if (replica.passed || replica.result === "PASS" || replica.status === "pass") {
+    return "pass";
+  }
+  if (replica.status === "invalid") {
+    return "invalid";
+  }
+  return "fail";
 }
 
 function KingDetail({
@@ -1209,38 +1443,14 @@ function KingDetail({
         <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
       </div>
 
-      {problemKeys.length ? (
-        <section className="table-section">
-          <div className="table-head king-problem-grid">
-            <span>problem</span>
-            <span>result</span>
-            <span>king tp / expected / found</span>
-          </div>
-          {problemKeys.map((key) => {
-            const project = kingByKey[key];
-            const pending = !project;
-            const result = problemResult(pending ? null : project);
-            const resultClass = pending
-              ? "rstat-executing"
-              : project.passed
-                ? "rstat-winner"
-                : result.tone === "warn"
-                  ? "rstat-executing"
-                  : "rstat-losing";
-            return (
-              <div className="table-row king-problem-grid" key={key}>
-                <span title={key}>{formatProjectName(key)}</span>
-                <span>
-                  <span className={`rstat ${resultClass}`}>{result.label}</span>
-                </span>
-                <span>{pending ? "—" : formatTpExpectedFound(project)}</span>
-              </div>
-            );
-          })}
-        </section>
-      ) : (
-        <Empty text="Per-problem detail appears once scoring starts." />
-      )}
+      <ProblemBreakdown
+        projectKeys={problemKeys}
+        primaryByKey={kingByKey}
+        primaryLabel="king"
+        replicasPerProject={replicasPerProject}
+        passThreshold={passThreshold}
+        mode="single"
+      />
     </div>
   );
 }
@@ -1397,69 +1607,15 @@ function DuelDetail({
           />
         </div>
 
-        {problemKeys.length ? (
-          <div className="live-task-progress">
-            <div className="live-task-progress-head">
-              <div>
-                <span>per-problem breakdown</span>
-                <strong>{candidateByKey_count}/{problemKeys.length} scored</strong>
-                <small>
-                  Each row is one sampled benchmark codebase. Scores read as tp / expected / found.
-                  The project verdict follows the replica threshold: {passThreshold || projectPassThresholdLabel(replicasPerProject)}.
-                </small>
-              </div>
-            </div>
-            <div className="live-task-table-head" aria-hidden="true">
-              <span>problem</span>
-              <span>result</span>
-              <span>candidate</span>
-              <span>king</span>
-            </div>
-            <div className="live-task-list">
-              {problemKeys.map((key) => {
-                const project = candidateByKey[key];
-                const kingProject = kingProjects[key];
-                const pending = !project;
-                return (
-                  <div
-                    className={`live-task-row live-task-row-${pending ? "neutral" : project.passed ? "ok" : "bad"}`}
-                    key={key}
-                  >
-                    <div className="live-task-main">
-                      <div className="live-task-icon" aria-hidden="true">
-                        {pending ? "·" : project.passed ? "✓" : "×"}
-                      </div>
-                      <div>
-                        <strong>{formatProjectName(key)}</strong>
-                        <span>{key}</span>
-                      </div>
-                    </div>
-                    {(() => {
-                      const r = problemResult(pending ? null : project);
-                      return <Status label={r.label} tone={r.tone} />;
-                    })()}
-                    <div
-                      className={`live-task-side ${
-                        pending ? "" : project.passed ? "live-task-side-ok" : "live-task-side-bad"
-                      }`}
-                    >
-                      <span>candidate</span>
-                      <strong>{pending ? "—" : formatTpExpectedFound(project)}</strong>
-                      <small>tp / expected / found</small>
-                    </div>
-                    <div className="live-task-side">
-                      <span>king</span>
-                      <strong>{formatTpExpectedFound(kingProject)}</strong>
-                      <small>tp / expected / found</small>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <Empty text="Per-problem detail appears once scoring starts." />
-        )}
+        <ProblemBreakdown
+          projectKeys={problemKeys}
+          primaryByKey={candidateByKey}
+          primaryLabel="candidate"
+          secondaryByKey={kingProjects}
+          secondaryLabel="king"
+          replicasPerProject={replicasPerProject}
+          passThreshold={passThreshold}
+        />
     </div>
   );
 }

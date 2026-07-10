@@ -37,14 +37,17 @@ export async function loadBoardStatus(env) {
     // rate-limited. Refresh just the progress on a cache hit so the dashboard
     // animates smoothly every stream frame without re-hitting GitHub.
     if (cachedStatus.round) {
-      cachedStatus.round.liveProgress = loadRoundProgress(roots.roundProgressPath);
+      cachedStatus.round.liveProgress = loadRoundProgress(
+        roots.roundProgressPath,
+        roots.kataRoot
+      );
     }
     return cachedStatus;
   }
   const validator = await loadValidatorStatus(env, roots);
   let round = loadRoundStatus(roots.roundStatusPath);
   if (round) {
-    round.liveProgress = loadRoundProgress(roots.roundProgressPath);
+    round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
   }
   let roundHistory = loadRoundHistory(roots.roundHistoryPath);
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
@@ -325,14 +328,15 @@ function loadRoundStatus(roundStatusPath) {
   };
 }
 
-function loadRoundProgress(roundProgressPath) {
+function loadRoundProgress(roundProgressPath, kataRoot = null) {
   // Live per-candidate progress written by the scoring engine as each candidate
   // and problem finishes; used to animate the round while it is executing.
   const data = readJsonSafe(roundProgressPath);
   if (!data || typeof data !== "object") {
     return null;
   }
-  return {
+  return enrichRoundProgressWithReplicas(
+    {
     state: data.state || null,
     runId: data.run_id || null,
     competitionMode: data.competition_mode || "king_duel",
@@ -341,7 +345,185 @@ function loadRoundProgress(roundProgressPath) {
     projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
     king: data.king && typeof data.king === "object" ? data.king : null,
     candidates: Array.isArray(data.candidates) ? data.candidates : []
+    },
+    kataRoot
+  );
+}
+
+function enrichRoundProgressWithReplicas(progress, kataRoot) {
+  if (!progress?.runId || !kataRoot) {
+    return progress;
+  }
+  const runRoot = path.join(kataRoot, "runs", progress.runId);
+  if (!fs.existsSync(runRoot)) {
+    return progress;
+  }
+  const projectKeys = Array.isArray(progress.projectKeys) ? progress.projectKeys : [];
+  return {
+    ...progress,
+    king: progress.king
+      ? enrichRoundProgressSide({
+          side: progress.king,
+          runRoot,
+          variantName: "king",
+          projectKeys,
+          pullNumber: null
+        })
+      : progress.king,
+    candidates: (progress.candidates || []).map((candidate) => {
+      const pullNumber = pullNumberFromProgressId(candidate?.submission_id);
+      return enrichRoundProgressSide({
+        side: candidate,
+        runRoot,
+        variantName: "candidate",
+        projectKeys,
+        pullNumber
+      });
+    })
   };
+}
+
+function enrichRoundProgressSide({
+  side,
+  runRoot,
+  variantName,
+  projectKeys,
+  pullNumber
+}) {
+  if (!side || typeof side !== "object") {
+    return side;
+  }
+  const existingProjects = Array.isArray(side.projects) ? side.projects : [];
+  const projectByKey = new Map(
+    existingProjects
+      .filter((project) => project && typeof project === "object")
+      .map((project) => [project.project_key || project.projectKey, project])
+  );
+  const keys = [
+    ...new Set([
+      ...projectKeys,
+      ...existingProjects
+        .map((project) => project?.project_key || project?.projectKey)
+        .filter(Boolean)
+    ])
+  ];
+  const enrichedProjects = [];
+  for (const projectKey of keys) {
+    const existingProject = projectByKey.get(projectKey) || null;
+    const replicaProject = findRoundReplicaProject({
+      runRoot,
+      variantName,
+      pullNumber,
+      projectKey
+    });
+    if (!existingProject && !replicaProject?.started) {
+      continue;
+    }
+    enrichedProjects.push(
+      mergeRoundProjectReplicaProgress(existingProject, replicaProject, projectKey)
+    );
+  }
+  return {
+    ...side,
+    projects: enrichedProjects.length ? enrichedProjects : existingProjects
+  };
+}
+
+function pullNumberFromProgressId(submissionId) {
+  const match = /^pr-(\d+)$/.exec(String(submissionId || ""));
+  return match ? Number(match[1]) : null;
+}
+
+function findRoundReplicaProject({ runRoot, variantName, pullNumber, projectKey }) {
+  const directRoots = [];
+  if (pullNumber) {
+    directRoots.push(path.join(runRoot, `pr-${pullNumber}`, variantName, projectKey));
+  }
+  directRoots.push(path.join(runRoot, variantName, projectKey));
+  for (const projectRoot of directRoots) {
+    if (fs.existsSync(projectRoot)) {
+      return summarizeSn60ProjectProgress(projectRoot, projectKey);
+    }
+  }
+
+  const duelRoots = listDirectories(runRoot)
+    .filter((name) => name.startsWith("sn60-duel-"))
+    .map((name) => path.join(runRoot, name))
+    .sort(
+      (left, right) =>
+        new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
+    );
+  for (const duelRoot of duelRoots) {
+    const projectRoot = path.join(duelRoot, variantName, projectKey);
+    if (fs.existsSync(projectRoot)) {
+      return summarizeSn60ProjectProgress(projectRoot, projectKey);
+    }
+  }
+  return null;
+}
+
+function mergeRoundProjectReplicaProgress(existingProject, replicaProject, projectKey) {
+  const base =
+    existingProject && typeof existingProject === "object"
+      ? { ...existingProject }
+      : {
+          project_key: projectKey,
+          passed: Boolean(replicaProject?.solved),
+          detection_rate: numberOrNull(replicaProject?.verifierScore),
+          true_positives: Number(replicaProject?.truePositives || 0),
+          total_expected: Number(replicaProject?.totalExpected || 0),
+          total_found: Number(replicaProject?.totalFound || 0),
+          precision: numberOrNull(replicaProject?.precision),
+          f1_score: numberOrNull(replicaProject?.f1Score)
+        };
+  if (!replicaProject) {
+    return base;
+  }
+  return {
+    ...base,
+    project_key: base.project_key || base.projectKey || projectKey,
+    started: Boolean(replicaProject.started),
+    finished: Boolean(replicaProject.finished),
+    passed: Boolean(base.passed ?? replicaProject.solved),
+    completed_replicas: Number(replicaProject.completedReplicas || 0),
+    total_replicas: Number(replicaProject.totalReplicas || 0),
+    pass_count: Number(replicaProject.passCount || 0),
+    invalid_runs: Number(replicaProject.invalidRuns || 0),
+    replicas: Array.isArray(replicaProject.replicas)
+      ? replicaProject.replicas.map(roundReplicaPayload)
+      : []
+  };
+}
+
+function roundReplicaPayload(replica) {
+  return {
+    replica_index: Number(replica.replicaIndex || 0),
+    started: Boolean(replica.started),
+    evaluated: Boolean(replica.finished),
+    finished: Boolean(replica.finished),
+    valid: Boolean(replica.valid),
+    success: Boolean(replica.success),
+    result: replica.result || null,
+    passed: replica.result === "PASS",
+    status: replicaStatusLabel(replica),
+    true_positives: Number(replica.truePositives || 0),
+    total_expected: Number(replica.totalExpected || 0),
+    total_found: Number(replica.totalFound || 0),
+    updated_at: replica.updatedAt || null
+  };
+}
+
+function replicaStatusLabel(replica) {
+  if (!replica?.started) {
+    return "queued";
+  }
+  if (!replica.finished) {
+    return "running";
+  }
+  if (!replica.valid || !replica.success) {
+    return "invalid";
+  }
+  return replica.result === "PASS" ? "pass" : "fail";
 }
 
 function resolveExistingRoot(explicitPath, fallbackPath) {
@@ -1797,8 +1979,10 @@ function summarizeSn60ProjectProgress(
     precision,
     f1Score: f1Score(detectionRate, precision),
     invalidRuns: replicas.filter((replica) => replica.finished && !replica.valid).length,
+    passCount,
     completedReplicas,
-    totalReplicas
+    totalReplicas,
+    replicas
   };
 }
 
@@ -1822,7 +2006,12 @@ function summarizeSn60ReplicaProgress(
     : {};
   const valid = !evaluation || status === "success";
   const fallbackExpected = Number(benchmarkExpectedCounts.get(projectKey) || 0);
+  const updatedAt =
+    (evaluationPath ? statMtimeIso(evaluationPath) : null) ||
+    (reportPath ? statMtimeIso(reportPath) : null) ||
+    statMtimeIso(replicaRoot);
   return {
+    replicaIndex: replicaIndexFromRoot(replicaRoot),
     started: Boolean(reportPath || evaluationPath || fs.existsSync(replicaRoot)),
     finished: Boolean(evaluation),
     valid,
@@ -1835,8 +2024,14 @@ function summarizeSn60ReplicaProgress(
         ? Number(result.total_expected || 0) || 0
         : fallbackExpected,
     totalFound:
-      status === "success" ? Number(result.total_found || 0) || 0 : 0
+      status === "success" ? Number(result.total_found || 0) || 0 : 0,
+    updatedAt
   };
+}
+
+function replicaIndexFromRoot(replicaRoot) {
+  const match = /replica-(\d+)/.exec(path.basename(replicaRoot));
+  return match ? Number(match[1]) : 0;
 }
 
 function emptySn60ProjectProgress(projectKey) {
@@ -1855,8 +2050,10 @@ function emptySn60ProjectProgress(projectKey) {
     precision: 0,
     f1Score: 0,
     invalidRuns: 0,
+    passCount: 0,
     completedReplicas: 0,
-    totalReplicas: 0
+    totalReplicas: 0,
+    replicas: []
   };
 }
 
@@ -1875,7 +2072,11 @@ function sn60ProjectToLiveVariant(project) {
     precision: numberOrNull(project.precision),
     f1Score: numberOrNull(project.f1Score),
     completedReplicas: Number(project.completedReplicas || 0),
-    totalReplicas: Number(project.totalReplicas || 0)
+    totalReplicas: Number(project.totalReplicas || 0),
+    passCount: Number(project.passCount || 0),
+    replicas: Array.isArray(project.replicas)
+      ? project.replicas.map(roundReplicaPayload)
+      : []
   };
 }
 

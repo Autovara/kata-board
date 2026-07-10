@@ -5,6 +5,7 @@ const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
 const STREAM_URL = import.meta.env.VITE_STREAM_URL || "/api/stream";
 const KATA_ASSET_BASE = import.meta.env.VITE_KATA_ASSET_BASE || "/kata-assets";
 const POLL_INTERVAL_MS = 2000;
+const DOC_ROUND_PROJECT_COUNT = 7;
 const PAGES = [
   { path: "/", label: "Dashboard" },
   { path: "/arena", label: "Arena" },
@@ -1910,7 +1911,7 @@ function DocOverview({ selectedLane, links }) {
       <DocGrid>
         <DocCard title="Current target" text="The live competition builds a vulnerability-audit miner agent for Bitsec / SN60." />
         <DocCard title="Current king" text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king." />
-        <DocCard title="Fair round" text="All candidates face the same 7 selected benchmark projects, same sandbox, same pinned model, and same scoring rules." />
+        <DocCard title="Fair round" text={`All candidates face the same ${DOC_ROUND_PROJECT_COUNT} selected benchmark projects, same sandbox, same pinned model, and same scoring rules.`} />
         <DocCard title="Public proof" text="Round summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome." />
       </DocGrid>
       <DocCallout
@@ -1920,7 +1921,7 @@ function DocOverview({ selectedLane, links }) {
       <div className="doc-metrics">
         <KeyValue label="current target" value={selectedLane?.repoName || "Bitsec / SN60"} />
         <KeyValue label="agent type" value="miner" />
-        <KeyValue label="round format" value={selectedLane ? duelFormat(selectedLane) : "sampled benchmark projects"} />
+        <KeyValue label="round format" value={docsRoundFormat()} />
         <KeyValue label="promotion rule" value={selectedLane ? promotionGate(selectedLane) : "project pass score first"} />
       </div>
       <DocLinks
@@ -1942,7 +1943,7 @@ function DocMiner({ links }) {
       <p>
         A competition PR is one agent bundle under <code>submissions/</code>. If it passes
         screening, it waits as <code>kata:pending</code> until the next round. In the round,
-        it competes against the current king on the same selected benchmark projects.
+        it competes against the current king on the same 7 selected benchmark projects.
         Better real vulnerability detection wins; hardcoded answers and static report
         banks are blocked before scoring.
       </p>
@@ -2044,14 +2045,11 @@ function DocMiner({ links }) {
   );
 }
 
-function DocScoring({ selectedLane }) {
-  const projectCount =
-    selectedLane?.projects?.length ||
-    selectedLane?.evaluatorState?.current?.projectKeys?.length ||
-    7;
+function DocScoring() {
+  const projectCount = DOC_ROUND_PROJECT_COUNT;
   const benchmarkText = projectCount
     ? `${projectCount} selected benchmark project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`
-    : "7 selected benchmark projects from the pinned snapshot.";
+    : `${DOC_ROUND_PROJECT_COUNT} selected benchmark projects from the pinned snapshot.`;
   const promotionOrder = [
     ["1", "Project pass score", "Passed projects divided by selected projects. This is the first ranking signal."],
     ["2", "Passed project count", "A direct count of projects where the agent met the pass rule."],
@@ -2065,7 +2063,7 @@ function DocScoring({ selectedLane }) {
       <p className="kicker">Scoring</p>
       <h1>Real findings decide the winner</h1>
       <p>
-        Candidate and king run through the same 7 selected benchmark projects. Kata ranks
+        Candidate and king run through the same {DOC_ROUND_PROJECT_COUNT} selected benchmark projects. Kata ranks
         agents by objective scorer metrics. Your agent must strictly outrank the king;
         tying the king is not enough.
       </p>
@@ -2148,11 +2146,8 @@ function DocListCard({ title, items }) {
   );
 }
 
-function DocValidator({ links, selectedLane }) {
-  const projectCount =
-    selectedLane?.projects?.length ||
-    selectedLane?.evaluatorState?.current?.projectKeys?.length ||
-    0;
+function DocValidator({ links }) {
+  const projectCount = DOC_ROUND_PROJECT_COUNT;
   return (
     <section>
       <p className="kicker">Round</p>
@@ -2160,7 +2155,7 @@ function DocValidator({ links, selectedLane }) {
       <p>
         Kata does not score every PR immediately. A valid PR waits for the next scheduled
         round. When the round starts, all pending candidates compete under the same rules,
-        same selected projects, same model, and same scoring budget.
+        same 7 selected projects, same model, and same scoring budget.
       </p>
 
       <h2>Round checklist</h2>
@@ -2169,7 +2164,7 @@ function DocValidator({ links, selectedLane }) {
           ["Pending only", "Only PRs with kata:pending can enter scoring. PRs in kata:review or kata:invalid do not compete."],
           ["Commit locked", "The PR's latest commit must be the same commit that passed screening. If new commits were pushed and not screened, the PR is held out."],
           ["Smoke tested", "Before scoring, the agent runs once on a real project. It must run cleanly and return a valid vulnerabilities report shape. It does not need to find a bug in this smoke test."],
-          ["Scored fairly", "Every candidate and the current king use the same selected benchmark projects, same pinned model, same relay, and same inference budget."],
+          ["Scored fairly", "Every candidate and the current king use the same 7 selected benchmark projects, same pinned model, same relay, and same inference budget."],
           ["3 replicas", "Each selected project runs 3 times. A project passes when at least 2 of 3 runs pass."],
           ["Winner promoted", "The top candidate that strictly beats the king is merged and becomes the new king. If nobody beats the king, the king stays."]
         ]}
@@ -2489,6 +2484,10 @@ function duelFormat(lane) {
   const count =
     lane.projects?.length || lane.evaluatorState?.current?.projectKeys?.length || 0;
   return `${count} selected benchmark project${count === 1 ? "" : "s"}`;
+}
+
+function docsRoundFormat() {
+  return `${DOC_ROUND_PROJECT_COUNT} selected benchmark projects`;
 }
 
 function duelStatus(duel) {

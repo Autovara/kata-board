@@ -1224,8 +1224,11 @@ function replicaAwareProblemTotals(project, replicasPerProject = 0) {
       totalFound: Number(project.total_found ?? 0)
     };
   }
+  const projectTruePositives = Number(project.true_positives ?? 0);
+  const projectTotalExpected = Number(project.total_expected ?? 0);
+  const projectTotalFound = Number(project.total_found ?? 0);
   const replicas = normalizeReplicaRows(project, replicasPerProject);
-  return replicas.reduce(
+  const replicaTotals = replicas.reduce(
     (totals, replica) => ({
       truePositives: totals.truePositives + Number(replica.true_positives ?? 0),
       totalExpected: totals.totalExpected + Number(replica.total_expected ?? expectedPerReplica),
@@ -1233,6 +1236,11 @@ function replicaAwareProblemTotals(project, replicasPerProject = 0) {
     }),
     { truePositives: 0, totalExpected: 0, totalFound: 0 }
   );
+  return {
+    truePositives: Math.max(replicaTotals.truePositives, projectTruePositives),
+    totalExpected: Math.max(replicaTotals.totalExpected, projectTotalExpected),
+    totalFound: Math.max(replicaTotals.totalFound, projectTotalFound)
+  };
 }
 
 function formatTpExpectedFound(project, replicasPerProject = 0) {

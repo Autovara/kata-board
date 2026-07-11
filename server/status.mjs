@@ -65,9 +65,10 @@ export async function loadBoardStatus(env) {
     activity,
     identityAliases
   );
-  const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   round = enrichRoundKingIdentity(round, leaderboard);
   leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round);
+  leaderboard = await overlayLiveOpenPulls(leaderboard, env);
+  const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   publicProof = enrichPublicProofWithLiveWinner(publicProof, {
     round,
     roundHistory,
@@ -391,6 +392,197 @@ function dedupeRecentPulls(pulls) {
     result.push(pull);
   }
   return result.sort((left, right) => new Date(right?.updatedAt || 0) - new Date(left?.updatedAt || 0));
+}
+
+async function overlayLiveOpenPulls(leaderboard, env) {
+  let openPulls = [];
+  try {
+    openPulls = await withTimeout(
+      loadLiveOpenPulls(env),
+      readTtlMs(env.KATA_LEADERBOARD_BUILD_TIMEOUT_MS, DEFAULT_LEADERBOARD_BUILD_TIMEOUT_MS),
+      "live open PR overlay"
+    );
+  } catch {
+    openPulls = [];
+  }
+  if (!openPulls.length) {
+    return leaderboard;
+  }
+  const latestLaneWinners = new Map(
+    Object.entries(leaderboard.latestLaneWinners || {})
+  );
+  const byAuthor = new Map();
+  for (const row of leaderboard.rows || []) {
+    mergeLeaderboardRow(byAuthor, row.author, row);
+  }
+  for (const pull of openPulls) {
+    const author = pull.author || "unknown";
+    const existingKey = findAuthorKey(byAuthor, author);
+    const entry = byAuthor.get(existingKey) || createAuthorRow(author);
+    entry.author = existingKey || author;
+    const alreadyKnown = pullKnownByRow(entry, pull.number);
+    const alreadyCountedOpen = liveOpenPullKnownByRow(entry, pull.number);
+    if (!alreadyKnown) {
+      entry.totalSubmissions += 1;
+    }
+    if (!alreadyCountedOpen) {
+      entry.openSubmissions += 1;
+      applyOpenPullStatusCounts(entry, pull.labels);
+    }
+    entry.lastActivityAt = maxDate(entry.lastActivityAt, pull.updatedAt);
+    entry.recentPulls = [
+      {
+        number: pull.number,
+        title: pull.title,
+        htmlUrl: pull.htmlUrl,
+        state: "open",
+        statusLabel: primaryKataStatusLabel(pull.labels),
+        updatedAt: pull.updatedAt
+      },
+      ...(entry.recentPulls || []).filter(
+        (item) => Number(item?.number || 0) !== Number(pull.number)
+      )
+    ].slice(0, 4);
+    byAuthor.set(entry.author, entry);
+  }
+  return {
+    ...leaderboard,
+    source: `${leaderboard.source}+live-open-prs`,
+    rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
+    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+  };
+}
+
+async function loadLiveOpenPulls(env) {
+  const repoSlug = String(env.KATA_REPO_SLUG || "").trim();
+  if (!repoSlug) {
+    return [];
+  }
+  try {
+    const pulls = await githubRequest(
+      `/repos/${repoSlug}/pulls?state=open&per_page=100&sort=updated&direction=desc`,
+      githubReadTokens(env).length ? githubReadTokens(env) : env.KATA_GITHUB_TOKEN
+    );
+    return normalizeLiveOpenPulls(pulls);
+  } catch {
+    return loadLiveOpenPullsFromGhCli(repoSlug);
+  }
+}
+
+function loadLiveOpenPullsFromGhCli(repoSlug) {
+  try {
+    const output = execFileSync(
+      "gh",
+      [
+        "pr",
+        "list",
+        "--repo",
+        repoSlug,
+        "--state",
+        "open",
+        "--limit",
+        "100",
+        "--json",
+        "number,title,updatedAt,url,author,labels"
+      ],
+      {
+        encoding: "utf8",
+        timeout: 10_000,
+        stdio: ["ignore", "pipe", "ignore"]
+      }
+    );
+    const pulls = JSON.parse(output);
+    return normalizeLiveOpenPulls(pulls);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeLiveOpenPulls(pulls) {
+  return (Array.isArray(pulls) ? pulls : [])
+    .map((pull) => ({
+      number: Number(pull?.number || 0),
+      title: String(pull?.title || ""),
+      author: pull?.user?.login || pull?.author?.login || "unknown",
+      labels: normalizeLabelNames(pull?.labels),
+      updatedAt: pull?.updated_at || pull?.updatedAt || null,
+      htmlUrl: pull?.html_url || pull?.url || null
+    }))
+    .filter((pull) => pull.number && pull.labels.some((label) => label.startsWith("kata:")));
+}
+
+function findAuthorKey(byAuthor, author) {
+  const normalized = String(author || "").toLowerCase();
+  for (const key of byAuthor.keys()) {
+    if (String(key || "").toLowerCase() === normalized) {
+      return key;
+    }
+  }
+  return author;
+}
+
+function pullKnownByRow(row, pullNumber) {
+  const number = Number(pullNumber || 0);
+  return (
+    (row.recentPulls || []).some((pull) => Number(pull?.number || 0) === number) ||
+    (row.winnerPulls || []).some((pull) => Number(pull?.pullNumber || 0) === number)
+  );
+}
+
+function liveOpenPullKnownByRow(row, pullNumber) {
+  const number = Number(pullNumber || 0);
+  return (row.recentPulls || []).some(
+    (pull) =>
+      Number(pull?.number || 0) === number &&
+      pull?.state === "open" &&
+      String(pull?.statusLabel || "").startsWith("kata:")
+  );
+}
+
+function applyOpenPullStatusCounts(entry, labels) {
+  const status = new Set(normalizeLabelNames(labels));
+  if (status.has("kata:pending")) {
+    entry.pendingSubmissions += 1;
+  }
+  if (status.has("kata:review")) {
+    entry.reviewSubmissions += 1;
+  }
+  if (status.has("kata:invalid")) {
+    entry.invalidSubmissions += 1;
+  }
+  if (status.has("kata:executing")) {
+    entry.executingSubmissions += 1;
+  }
+  if (status.has("kata:stale")) {
+    entry.staleSubmissions += 1;
+  }
+  if (status.has("kata:hold")) {
+    entry.holdSubmissions += 1;
+  }
+}
+
+function normalizeLabelNames(labels) {
+  return (Array.isArray(labels) ? labels : [])
+    .map((label) => String(label?.name || label || "").trim())
+    .filter(Boolean);
+}
+
+function primaryKataStatusLabel(labels) {
+  const status = new Set(normalizeLabelNames(labels));
+  for (const label of [
+    "kata:executing",
+    "kata:review",
+    "kata:pending",
+    "kata:hold",
+    "kata:invalid",
+    "kata:stale",
+    "kata:losing"
+  ]) {
+    if (status.has(label)) {
+      return label;
+    }
+  }
+  return normalizeLabelNames(labels).find((label) => label.startsWith("kata:winner:")) || null;
 }
 
 function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, leaderboard }) {
@@ -2970,7 +3162,13 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
       const seenPulls = seenPullsByAuthor.get(author) || new Set();
       if (!pullNumber || !seenPulls.has(pullNumber)) {
         entry.totalSubmissions += 1;
-        if (!roundEntry?.beats_king) {
+        if (roundEntry?.selected_winner) {
+          entry.winnerSubmissions += 1;
+        } else if (roundEntry?.beats_king) {
+          // A non-winning candidate can beat the old king but remain open for
+          // a future round. Only live GitHub state should decide whether it is
+          // still open/pending now.
+        } else {
           entry.closedSubmissions += 1;
         }
         if (pullNumber) {
@@ -2983,7 +3181,11 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
           number: pullNumber,
           title: artifact?.submissionId || roundEntry?.submission_id || `PR #${pullNumber}`,
           htmlUrl: null,
-          state: roundEntry?.beats_king ? "merged" : "closed",
+          state: roundEntry?.selected_winner
+            ? "merged"
+            : roundEntry?.beats_king
+              ? "open"
+              : "closed",
           updatedAt: createdAt
         });
         seenPulls.add(-pullNumber);

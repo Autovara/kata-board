@@ -1919,35 +1919,21 @@ function percentMetric(value) {
 }
 
 function precisionFindingFigure(value, truePositives, totalFound) {
-  return qualityFigure(value, [
-    ["TP", truePositives],
-    ["Found", totalFound]
-  ]);
+  return qualityRatio(value, [truePositives, totalFound]);
 }
 
 function f1FindingFigure(value, truePositives, totalExpected, totalFound) {
-  return qualityFigure(value, [
-    ["TP", truePositives],
-    ["Exp", totalExpected],
-    ["Found", totalFound]
-  ]);
+  return qualityRatio(value, [truePositives, totalExpected, totalFound]);
 }
 
-function qualityFigure(value, figures) {
+function qualityRatio(value, figures) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
   return (
-    <div className="quality-figure">
+    <div className="quality-ratio">
       <strong>{percentMetric(value)}</strong>
-      <div className="quality-figure-circles">
-        {figures.map(([label, figure]) => (
-          <span className="quality-circle" key={label}>
-            <b>{formatMetricNumber(figure)}</b>
-            <small>{label}</small>
-          </span>
-        ))}
-      </div>
+      <small>{figures.map((figure) => formatMetricNumber(figure)).join("/")}</small>
     </div>
   );
 }

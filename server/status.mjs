@@ -444,6 +444,7 @@ function enrichRoundProgressSide({
       runRoot,
       variantName,
       pullNumber,
+      side,
       projectKey,
       expectedReplicas,
       allowGenericDuelRoot:
@@ -471,6 +472,7 @@ function findRoundReplicaProject({
   runRoot,
   variantName,
   pullNumber,
+  side = null,
   projectKey,
   expectedReplicas = null,
   allowGenericDuelRoot = true
@@ -487,6 +489,16 @@ function findRoundReplicaProject({
   }
 
   if (!allowGenericDuelRoot) {
+    const matchedDuelRoot =
+      variantName === "candidate"
+        ? findMatchingCompletedCandidateDuelRoot(runRoot, side)
+        : null;
+    if (matchedDuelRoot) {
+      const projectRoot = path.join(matchedDuelRoot, variantName, projectKey);
+      if (fs.existsSync(projectRoot)) {
+        return summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas);
+      }
+    }
     return null;
   }
 
@@ -504,6 +516,55 @@ function findRoundReplicaProject({
     }
   }
   return null;
+}
+
+function findMatchingCompletedCandidateDuelRoot(runRoot, side) {
+  if (!side || typeof side !== "object" || side.state !== "done") {
+    return null;
+  }
+  const duelRoots = listDirectories(runRoot)
+    .filter((name) => name.startsWith("sn60-duel-"))
+    .map((name) => path.join(runRoot, name))
+    .sort();
+  for (const duelRoot of duelRoots) {
+    const summary = readJsonSafe(path.join(duelRoot, "duel_summary.json"));
+    if (completedCandidateSummaryMatchesProgress(summary?.candidate, side)) {
+      return duelRoot;
+    }
+  }
+  return null;
+}
+
+function completedCandidateSummaryMatchesProgress(candidate, progress) {
+  if (!candidate || typeof candidate !== "object") {
+    return false;
+  }
+  const exactFields = [
+    ["true_positives", "true_positives"],
+    ["total_expected", "total_expected"],
+    ["total_found", "total_found"],
+    ["invalid_runs", "invalid_runs"],
+    ["codebase_pass_count", "codebase_pass_count"]
+  ];
+  for (const [summaryKey, progressKey] of exactFields) {
+    const progressValue = progress[progressKey];
+    if (progressValue == null) {
+      continue;
+    }
+    if (Number(candidate[summaryKey] ?? 0) !== Number(progressValue ?? 0)) {
+      return false;
+    }
+  }
+  return numbersClose(candidate.aggregated_score, progress.aggregated_score)
+    && numbersClose(candidate.precision, progress.precision)
+    && numbersClose(candidate.f1_score, progress.f1_score);
+}
+
+function numbersClose(left, right) {
+  if (left == null || right == null) {
+    return true;
+  }
+  return Math.abs(Number(left) - Number(right)) < 1e-9;
 }
 
 function mergeRoundProjectReplicaProgress(existingProject, replicaProject, projectKey) {

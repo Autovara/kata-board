@@ -38,9 +38,10 @@ export function maxDate(left, right) {
 }
 
 export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
+  const now = new Date();
   return [...byAuthor.values()]
     .map((entry) => {
-      const gittensorScore = calculateKataGittensorScore(entry);
+      const gittensorScore = calculateKataGittensorScore(entry, now);
       const currentKings = [...latestLaneWinners.values()].filter(
         (winner) => winner.author === entry.author
       ).length;
@@ -66,6 +67,11 @@ export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
 
 const KATA_GITTENSOR_CONFIG = {
   fixedBaseScore: 1.0,
+  openPrCollateralPercent: 0.2,
+  timeDecayGraceHours: 12,
+  timeDecayMidpointDays: 10,
+  timeDecaySteepness: 0.4,
+  timeDecayMinMultiplier: 0.05,
   defaultLabelMultiplier: 0.0,
   labelMultipliers: {
     "kata:winner:*": 1.0,
@@ -81,21 +87,52 @@ const KATA_GITTENSOR_CONFIG = {
   }
 };
 
-export function calculateKataGittensorScore(entry) {
+export function calculateKataGittensorScore(entry, now = new Date()) {
   const pulls = Array.isArray(entry?.winnerPulls) ? entry.winnerPulls : [];
+  const winnerScore = pulls.reduce(
+    (total, pull) => total + calculateKataWinnerPullScore(pull, now),
+    0
+  );
+  const openCollateralScore =
+    Number(entry?.openSubmissions || 0) *
+    KATA_GITTENSOR_CONFIG.fixedBaseScore *
+    KATA_GITTENSOR_CONFIG.openPrCollateralPercent;
   return Number(
-    pulls
-      .reduce((total, pull) => total + calculateKataWinnerPullScore(pull), 0)
-      .toFixed(4)
+    (winnerScore + openCollateralScore).toFixed(4)
   );
 }
 
-function calculateKataWinnerPullScore(pull) {
+function calculateKataWinnerPullScore(pull, now) {
   const labelMultiplier = resolveKataLabelMultiplier(pull?.labels);
   if (labelMultiplier <= 0) {
     return 0;
   }
-  return KATA_GITTENSOR_CONFIG.fixedBaseScore * labelMultiplier;
+  return (
+    KATA_GITTENSOR_CONFIG.fixedBaseScore *
+    labelMultiplier *
+    calculateKataTimeDecay(pull?.mergedAt, now)
+  );
+}
+
+function calculateKataTimeDecay(mergedAt, now) {
+  const mergedTime = new Date(mergedAt || 0).getTime();
+  const nowTime = new Date(now || Date.now()).getTime();
+  if (!Number.isFinite(mergedTime) || !Number.isFinite(nowTime) || mergedTime <= 0) {
+    return 1.0;
+  }
+  const hoursSinceMerge = Math.max(0, (nowTime - mergedTime) / 3_600_000);
+  if (hoursSinceMerge < KATA_GITTENSOR_CONFIG.timeDecayGraceHours) {
+    return 1.0;
+  }
+  const daysSinceMerge = hoursSinceMerge / 24;
+  const sigmoid =
+    1 /
+    (1 +
+      Math.exp(
+        KATA_GITTENSOR_CONFIG.timeDecaySteepness *
+          (daysSinceMerge - KATA_GITTENSOR_CONFIG.timeDecayMidpointDays)
+      ));
+  return Math.max(sigmoid, KATA_GITTENSOR_CONFIG.timeDecayMinMultiplier);
 }
 
 function resolveKataLabelMultiplier(labels) {

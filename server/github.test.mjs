@@ -120,7 +120,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
   assert.equal(leaderboard.source, "github-cli");
   assert.deepEqual(
     leaderboard.rows.map((row) => row.author),
-    ["jonathanchang31", "davion-knight", "reviewer"]
+    ["jonathanchang31", "reviewer", "davion-knight"]
   );
   assert.equal(leaderboard.rows[0].wins, 1);
   assert.ok(leaderboard.rows[0].gittensorScore > 0);

@@ -31,6 +31,7 @@ let leaderboardRefreshKey = null;
 export async function loadBoardStatus(env) {
   const cacheTtlMs = readCacheTtlMs(env);
   const roots = resolveRoots(env);
+  const runtimeEnv = resolveRuntimeEnv(env, roots);
   if (cachedStatus && Date.now() - cachedAt < cacheTtlMs) {
     // Live round progress is a cheap local-file read that moves fast during a
     // round, while the rest of the payload (GitHub PRs, leaderboard) is slow and
@@ -44,7 +45,7 @@ export async function loadBoardStatus(env) {
     }
     return cachedStatus;
   }
-  const validator = await loadValidatorStatus(env, roots);
+  const validator = await loadValidatorStatus(runtimeEnv, roots);
   let round = loadRoundStatus(roots.roundStatusPath);
   if (round) {
     round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
@@ -52,11 +53,11 @@ export async function loadBoardStatus(env) {
   let roundHistory = loadRoundHistory(roots.roundHistoryPath);
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
   let publicProof = loadPublicProof(roots.publicResultsCurrentPath);
-  const activity = loadRecentActivity(roots.kataRoot, env);
+  const activity = loadRecentActivity(roots.kataRoot, runtimeEnv);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
   const baseLeaderboard = augmentLeaderboardWithRound(
-    await loadLeaderboard(env),
+    await loadLeaderboard(runtimeEnv),
     round,
     identityAliases
   );
@@ -67,7 +68,7 @@ export async function loadBoardStatus(env) {
   );
   round = enrichRoundKingIdentity(round, leaderboard);
   leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round);
-  leaderboard = await overlayLiveOpenPulls(leaderboard, env);
+  leaderboard = await overlayLiveKataPulls(leaderboard, runtimeEnv);
   const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   publicProof = enrichPublicProofWithLiveWinner(publicProof, {
     round,
@@ -88,7 +89,7 @@ export async function loadBoardStatus(env) {
   cachedStatus = {
     generatedAt: new Date().toISOString(),
     publicLinks: {
-      kataRepo: env.KATA_REPO_SLUG || null
+      kataRepo: runtimeEnv.KATA_REPO_SLUG || null
     },
     dataSources: {
       filesystem: true,
@@ -98,7 +99,10 @@ export async function loadBoardStatus(env) {
       validatorHealth: Boolean(validator.health.configured),
       publicProof: Boolean(publicProof)
     },
-    overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus),
+    overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus, {
+      round,
+      publicProof
+    }),
     validator,
     publicProof,
     submissionStatus,
@@ -203,6 +207,40 @@ function resolveRoots(env) {
   };
 }
 
+function resolveRuntimeEnv(env, roots) {
+  return {
+    ...env,
+    KATA_ROOT: roots.kataRoot,
+    KATA_BOT_ROOT: roots.kataBotRoot,
+    KATA_REPO_SLUG:
+      String(env.KATA_REPO_SLUG || "").trim() ||
+      inferGitHubRepoSlug(roots.kataRoot) ||
+      ""
+  };
+}
+
+function inferGitHubRepoSlug(repoRoot) {
+  if (!repoRoot || !fs.existsSync(path.join(repoRoot, ".git"))) {
+    return null;
+  }
+  try {
+    const output = execFileSync("git", ["-C", repoRoot, "remote", "get-url", "origin"], {
+      encoding: "utf8",
+      timeout: 2_000,
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+    const match =
+      output.match(/github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i) ||
+      output.match(/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:[?#].*)?$/i);
+    if (!match) {
+      return null;
+    }
+    return `${match[1]}/${match[2].replace(/\.git$/i, "")}`;
+  } catch {
+    return null;
+  }
+}
+
 function loadRoundHistory(roundHistoryPath) {
   // Public feed of completed rounds + achievements (most recent first).
   const data = readJsonSafe(roundHistoryPath);
@@ -234,6 +272,7 @@ function loadPublicProof(publicResultsCurrentPath) {
     data.latest_round && typeof data.latest_round === "object" ? data.latest_round : {};
   const benchmark =
     data.benchmark && typeof data.benchmark === "object" ? data.benchmark : {};
+  const proofDetail = loadPublicProofRoundDetail(publicResultsCurrentPath, latestRound.proof);
   return {
     schemaVersion: data.schema_version ?? null,
     updatedAt: data.updated_at || null,
@@ -269,8 +308,66 @@ function loadPublicProof(publicResultsCurrentPath) {
       roundSha256: benchmark.round_sha256 || null,
       sandboxCommit: benchmark.sandbox_commit || null,
       scorerVersion: benchmark.scorer_version || null
-    }
+    },
+    selectedProjectCount: proofDetail.selectedProjectCount,
+    selectedProjects: proofDetail.selectedProjects
   };
+}
+
+function loadPublicProofRoundDetail(currentPath, proofPath) {
+  const empty = { selectedProjectCount: null, selectedProjects: [] };
+  if (!proofPath) {
+    return empty;
+  }
+  const proofFile = path.resolve(path.dirname(path.dirname(currentPath)), proofPath);
+  const proof = readJsonSafe(proofFile);
+  if (!proof || typeof proof !== "object") {
+    return empty;
+  }
+  const selectedProjects = extractProjectKeysFromRoundProof(proof);
+  return {
+    selectedProjectCount: selectedProjects.length || null,
+    selectedProjects
+  };
+}
+
+function extractProjectKeysFromRoundProof(proof) {
+  const direct = [
+    proof.project_keys,
+    proof.selected_project_keys,
+    proof.selectedProjects,
+    proof.selected_projects
+  ].find((value) => Array.isArray(value) && value.length);
+  if (direct) {
+    return uniqueStrings(direct);
+  }
+  const sources = [
+    proof.king,
+    ...(Array.isArray(proof.entrants) ? proof.entrants : []),
+    ...(Array.isArray(proof.entries) ? proof.entries : [])
+  ];
+  for (const source of sources) {
+    const projects = Array.isArray(source?.projects)
+      ? source.projects
+      : Array.isArray(source?.candidate?.projects)
+        ? source.candidate.projects
+        : [];
+    const keys = uniqueStrings(projects.map((project) => project?.project_key || project?.projectKey));
+    if (keys.length) {
+      return keys;
+    }
+  }
+  return [];
+}
+
+function uniqueStrings(values) {
+  return [
+    ...new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  ];
 }
 
 function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
@@ -367,15 +464,28 @@ function mergeLeaderboardRow(byAuthor, author, row) {
 }
 
 function dedupeWinnerPulls(pulls) {
-  const seen = new Set();
+  const byKey = new Map();
   const result = [];
   for (const pull of pulls || []) {
-    const key = `${pull?.pullNumber || "run"}:${pull?.mergedAt || ""}`;
-    if (seen.has(key)) {
+    const key = pull?.pullNumber
+      ? `pr:${Number(pull.pullNumber)}`
+      : `run:${pull?.mergedAt || ""}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.labels = uniqueStrings([
+        ...(existing.labels || []),
+        ...(pull?.labels || [])
+      ]);
+      existing.mergedAt =
+        dateIsAfter(pull?.mergedAt, existing.mergedAt) ? pull.mergedAt : existing.mergedAt;
       continue;
     }
-    seen.add(key);
-    result.push(pull);
+    const copy = {
+      ...pull,
+      labels: uniqueStrings(pull?.labels || [])
+    };
+    byKey.set(key, copy);
+    result.push(copy);
   }
   return result.sort((left, right) => new Date(right?.mergedAt || 0) - new Date(left?.mergedAt || 0));
 }
@@ -394,18 +504,18 @@ function dedupeRecentPulls(pulls) {
   return result.sort((left, right) => new Date(right?.updatedAt || 0) - new Date(left?.updatedAt || 0));
 }
 
-async function overlayLiveOpenPulls(leaderboard, env) {
-  let openPulls = [];
+async function overlayLiveKataPulls(leaderboard, env) {
+  let livePulls = [];
   try {
-    openPulls = await withTimeout(
-      loadLiveOpenPulls(env),
+    livePulls = await withTimeout(
+      loadLiveKataPulls(env),
       readTtlMs(env.KATA_LEADERBOARD_BUILD_TIMEOUT_MS, DEFAULT_LEADERBOARD_BUILD_TIMEOUT_MS),
-      "live open PR overlay"
+      "live Kata PR overlay"
     );
   } catch {
-    openPulls = [];
+    livePulls = [];
   }
-  if (!openPulls.length) {
+  if (!livePulls.length) {
     return leaderboard;
   }
   const latestLaneWinners = new Map(
@@ -415,61 +525,78 @@ async function overlayLiveOpenPulls(leaderboard, env) {
   for (const row of leaderboard.rows || []) {
     mergeLeaderboardRow(byAuthor, row.author, row);
   }
-  for (const pull of openPulls) {
+  const pullsByAuthor = new Map();
+  for (const pull of livePulls) {
     const author = pull.author || "unknown";
+    const key = findAuthorKey(byAuthor, author) || author;
+    pullsByAuthor.set(key, [...(pullsByAuthor.get(key) || []), pull]);
+  }
+  for (const [author, pulls] of pullsByAuthor.entries()) {
     const existingKey = findAuthorKey(byAuthor, author);
     const entry = byAuthor.get(existingKey) || createAuthorRow(author);
     entry.author = existingKey || author;
-    const alreadyKnown = pullKnownByRow(entry, pull.number);
-    const alreadyCountedOpen = liveOpenPullKnownByRow(entry, pull.number);
-    if (!alreadyKnown) {
-      entry.totalSubmissions += 1;
-    }
-    if (!alreadyCountedOpen) {
-      entry.openSubmissions += 1;
-      applyOpenPullStatusCounts(entry, pull.labels);
-    }
-    entry.lastActivityAt = maxDate(entry.lastActivityAt, pull.updatedAt);
-    entry.recentPulls = [
-      {
+    resetLiveKataStatusCounts(entry);
+    entry.totalSubmissions = pulls.length;
+    entry.recentPulls = pulls
+      .sort((left, right) => new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0))
+      .slice(0, 4)
+      .map((pull) => ({
         number: pull.number,
         title: pull.title,
         htmlUrl: pull.htmlUrl,
-        state: "open",
+        state: pull.mergedAt ? "merged" : pull.state,
         statusLabel: primaryKataStatusLabel(pull.labels),
         updatedAt: pull.updatedAt
-      },
-      ...(entry.recentPulls || []).filter(
-        (item) => Number(item?.number || 0) !== Number(pull.number)
-      )
-    ].slice(0, 4);
+      }));
+    for (const pull of pulls) {
+      applyLivePullCounts(entry, pull);
+      maybeAttachWinnerPull(entry, pull, latestLaneWinners);
+      entry.lastActivityAt = maxDate(entry.lastActivityAt, pull.updatedAt);
+    }
+    entry.winnerPulls = dedupeWinnerPulls(entry.winnerPulls || []);
+    entry.wins = entry.winnerPulls.length;
     byAuthor.set(entry.author, entry);
   }
   return {
     ...leaderboard,
-    source: `${leaderboard.source}+live-open-prs`,
+    source: `${leaderboard.source}+live-kata-prs`,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners)
   };
 }
 
-async function loadLiveOpenPulls(env) {
+function resetLiveKataStatusCounts(row) {
+  row.totalSubmissions = 0;
+  row.openSubmissions = 0;
+  row.closedSubmissions = 0;
+  row.pendingSubmissions = 0;
+  row.reviewSubmissions = 0;
+  row.invalidSubmissions = 0;
+  row.executingSubmissions = 0;
+  row.staleSubmissions = 0;
+  row.holdSubmissions = 0;
+  row.losingSubmissions = 0;
+  row.winnerSubmissions = 0;
+  row.recentPulls = [];
+}
+
+async function loadLiveKataPulls(env) {
   const repoSlug = String(env.KATA_REPO_SLUG || "").trim();
   if (!repoSlug) {
     return [];
   }
   try {
     const pulls = await githubRequest(
-      `/repos/${repoSlug}/pulls?state=open&per_page=100&sort=updated&direction=desc`,
+      `/repos/${repoSlug}/pulls?state=all&per_page=100&sort=updated&direction=desc`,
       githubReadTokens(env).length ? githubReadTokens(env) : env.KATA_GITHUB_TOKEN
     );
-    return normalizeLiveOpenPulls(pulls);
+    return normalizeLiveKataPulls(pulls);
   } catch {
-    return loadLiveOpenPullsFromGhCli(repoSlug);
+    return loadLiveKataPullsFromGhCli(repoSlug);
   }
 }
 
-function loadLiveOpenPullsFromGhCli(repoSlug) {
+function loadLiveKataPullsFromGhCli(repoSlug) {
   try {
     const output = execFileSync(
       "gh",
@@ -479,11 +606,11 @@ function loadLiveOpenPullsFromGhCli(repoSlug) {
         "--repo",
         repoSlug,
         "--state",
-        "open",
+        "all",
         "--limit",
-        "100",
+        "500",
         "--json",
-        "number,title,updatedAt,url,author,labels"
+        "number,title,state,mergedAt,updatedAt,url,author,labels"
       ],
       {
         encoding: "utf8",
@@ -492,23 +619,30 @@ function loadLiveOpenPullsFromGhCli(repoSlug) {
       }
     );
     const pulls = JSON.parse(output);
-    return normalizeLiveOpenPulls(pulls);
+    return normalizeLiveKataPulls(pulls);
   } catch {
     return [];
   }
 }
 
-function normalizeLiveOpenPulls(pulls) {
+function normalizeLiveKataPulls(pulls) {
   return (Array.isArray(pulls) ? pulls : [])
     .map((pull) => ({
       number: Number(pull?.number || 0),
       title: String(pull?.title || ""),
       author: pull?.user?.login || pull?.author?.login || "unknown",
       labels: normalizeLabelNames(pull?.labels),
+      state: normalizePullState(pull?.state),
+      mergedAt: pull?.merged_at || pull?.mergedAt || null,
       updatedAt: pull?.updated_at || pull?.updatedAt || null,
       htmlUrl: pull?.html_url || pull?.url || null
     }))
     .filter((pull) => pull.number && pull.labels.some((label) => label.startsWith("kata:")));
+}
+
+function normalizePullState(state) {
+  const value = String(state || "").toLowerCase();
+  return value === "open" ? "open" : "closed";
 }
 
 function findAuthorKey(byAuthor, author) {
@@ -521,43 +655,63 @@ function findAuthorKey(byAuthor, author) {
   return author;
 }
 
-function pullKnownByRow(row, pullNumber) {
-  const number = Number(pullNumber || 0);
-  return (
-    (row.recentPulls || []).some((pull) => Number(pull?.number || 0) === number) ||
-    (row.winnerPulls || []).some((pull) => Number(pull?.pullNumber || 0) === number)
-  );
-}
-
-function liveOpenPullKnownByRow(row, pullNumber) {
-  const number = Number(pullNumber || 0);
-  return (row.recentPulls || []).some(
-    (pull) =>
-      Number(pull?.number || 0) === number &&
-      pull?.state === "open" &&
-      String(pull?.statusLabel || "").startsWith("kata:")
-  );
-}
-
-function applyOpenPullStatusCounts(entry, labels) {
-  const status = new Set(normalizeLabelNames(labels));
-  if (status.has("kata:pending")) {
+function applyLivePullCounts(entry, pull) {
+  const status = new Set(normalizeLabelNames(pull?.labels));
+  const isOpen = pull?.state === "open";
+  if (pull?.state === "open") {
+    entry.openSubmissions += 1;
+  } else {
+    entry.closedSubmissions += 1;
+  }
+  if (isOpen && status.has("kata:pending")) {
     entry.pendingSubmissions += 1;
   }
-  if (status.has("kata:review")) {
+  if (isOpen && status.has("kata:review")) {
     entry.reviewSubmissions += 1;
   }
   if (status.has("kata:invalid")) {
     entry.invalidSubmissions += 1;
   }
-  if (status.has("kata:executing")) {
+  if (isOpen && status.has("kata:executing")) {
     entry.executingSubmissions += 1;
   }
-  if (status.has("kata:stale")) {
+  if (isOpen && status.has("kata:stale")) {
     entry.staleSubmissions += 1;
   }
-  if (status.has("kata:hold")) {
+  if (isOpen && status.has("kata:hold")) {
     entry.holdSubmissions += 1;
+  }
+  if (status.has("kata:losing")) {
+    entry.losingSubmissions += 1;
+  }
+  if ([...status].some((label) => label.startsWith("kata:winner:"))) {
+    entry.winnerSubmissions += 1;
+  }
+}
+
+function maybeAttachWinnerPull(entry, pull, latestLaneWinners) {
+  const winnerLabel = normalizeLabelNames(pull?.labels).find((label) =>
+    label.startsWith("kata:winner:")
+  );
+  if (!winnerLabel || !pull?.mergedAt) {
+    return;
+  }
+  entry.winnerPulls = dedupeWinnerPulls([
+    ...(entry.winnerPulls || []),
+    {
+      pullNumber: pull.number,
+      mergedAt: pull.mergedAt,
+      labels: pull.labels
+    }
+  ]);
+  const laneKey = `${winnerLabel.slice("kata:winner:".length)}::miner`;
+  const current = latestLaneWinners.get(laneKey);
+  if (!current || new Date(pull.mergedAt) > new Date(current.mergedAt || 0)) {
+    latestLaneWinners.set(laneKey, {
+      author: entry.author,
+      mergedAt: pull.mergedAt,
+      pullNumber: pull.number
+    });
   }
 }
 
@@ -3624,9 +3778,9 @@ function buildSubmissionStatus(leaderboard, validator) {
         updatedAt: pull.updatedAt || null,
         statusLabel: pull.statusLabel || null
       };
-      if (pull.statusLabel === "kata:pending") {
+      if (pull.state === "open" && pull.statusLabel === "kata:pending") {
         pendingPulls.push(summary);
-      } else if (pull.statusLabel === "kata:review") {
+      } else if (pull.state === "open" && pull.statusLabel === "kata:review") {
         reviewPulls.push(summary);
       } else if (pull.statusLabel === "kata:invalid") {
         invalidPulls.push(summary);
@@ -3654,11 +3808,15 @@ function sortRecentSummaries(items) {
   );
 }
 
-function buildOverview(lanes, activity, leaderboard, validator, submissionStatus) {
-  const projectCount = lanes.reduce(
+function buildOverview(lanes, activity, leaderboard, validator, submissionStatus, context = {}) {
+  const laneProjectCount = lanes.reduce(
     (accumulator, lane) => accumulator + (lane.projects?.length || 0),
     0
   );
+  const projectCount =
+    selectedProjectCountFromRound(context.round) ||
+    positiveIntegerOrNull(context.publicProof?.selectedProjectCount) ||
+    laneProjectCount;
   const rows = Array.isArray(leaderboard?.rows) ? leaderboard.rows : [];
   const totalSubmissions = rows.reduce(
     (total, row) => total + Number(row.totalSubmissions || 0),
@@ -3692,6 +3850,21 @@ function buildOverview(lanes, activity, leaderboard, validator, submissionStatus
     validatorCompletedJobs: validator.queue.counts.completed,
     validatorFailedJobs: validator.queue.counts.failed
   };
+}
+
+function selectedProjectCountFromRound(round) {
+  const liveCount = positiveIntegerOrNull(round?.liveProgress?.projectKeys?.length);
+  if (liveCount) {
+    return liveCount;
+  }
+  const kingProjectCount = positiveIntegerOrNull(round?.king?.projects?.length);
+  if (kingProjectCount) {
+    return kingProjectCount;
+  }
+  const entrantProjectCounts = (Array.isArray(round?.entrants) ? round.entrants : [])
+    .map((entrant) => positiveIntegerOrNull(entrant?.projects?.length))
+    .filter(Boolean);
+  return entrantProjectCounts.length ? Math.max(...entrantProjectCounts) : null;
 }
 
 function calculateCurrentWinnerGittensorScore(lanes, rows) {

@@ -37,7 +37,7 @@ test("uses the highest matching Kata reward label", () => {
   assert.equal(score, 10);
 });
 
-test("keeps winner score stable instead of decaying by age", () => {
+test("applies Gittensor-style time decay to old winner score", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 0,
@@ -51,10 +51,11 @@ test("keeps winner score stable instead of decaying by age", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 10);
+  assert.ok(score < 10);
+  assert.ok(score > 0);
 });
 
-test("open PR count does not erase a verified winner score", () => {
+test("adds Gittensor-style open PR collateral", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 2,
@@ -68,5 +69,5 @@ test("open PR count does not erase a verified winner score", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 10);
+  assert.equal(score, 10.4);
 });

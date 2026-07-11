@@ -319,7 +319,11 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
 function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
   const round = publicProof?.latestRound || {};
   const king = publicProof?.currentKing || {};
-  const projectCount = overview.selectedCodebases ?? overview.benchmarkProjects ?? 0;
+  const projectCount =
+    publicProof?.selectedProjectCount ??
+    overview.selectedCodebases ??
+    overview.benchmarkProjects ??
+    0;
   const kingName = king.author || selectedLane?.currentHolder || "seed king";
   const bestTp = round.bestTruePositives ?? "-";
   const candidateCount = round.candidateCount ?? overview.uniqueChallengers ?? "-";
@@ -390,6 +394,7 @@ function DashboardProof({ publicProof, kataRepoSlug }) {
           candidate count, and timing without exposing private validator secrets.
         </p>
         <div className="dashboard-proof-metrics">
+          <ProofFact label="Projects" value={publicProof.selectedProjectCount ?? "-"} />
           <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
           <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
           <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
@@ -508,6 +513,7 @@ function ProofFact({ label, value }) {
 
 function SubmissionStatusPanel({ submissionStatus }) {
   const counts = submissionStatus?.counts || {};
+  const pendingPulls = submissionStatus?.pendingPulls || [];
   const reviewPulls = submissionStatus?.reviewPulls || [];
   const invalidPulls = submissionStatus?.invalidPulls || [];
   const approvals = submissionStatus?.reviewApprovals?.recent || [];
@@ -521,6 +527,11 @@ function SubmissionStatusPanel({ submissionStatus }) {
         <StatusMetric label="invalid" value={counts.invalid || 0} tone="bad" />
       </div>
       <div className="submission-status-lists">
+        <StatusPullList
+          title="Pending queue"
+          emptyText="No PRs are currently visible with kata:pending."
+          items={pendingPulls}
+        />
         <StatusPullList
           title="Held for review"
           emptyText="No PRs are currently visible with kata:review."

@@ -34,7 +34,7 @@ export async function loadGithubLeaderboard({
     const touchedSubmissions = await fetchSubmissionFilesCached(
       repoSlug,
       pull,
-      githubToken
+      auth
     );
     if (!touchedSubmissions.length) {
       continue;

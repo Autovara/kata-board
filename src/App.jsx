@@ -1569,6 +1569,8 @@ function DuelDetail({
   const kingPassScore = formatPassScore(king, problemKeys.length);
   const candidatePassRatio = entrantPassScore(entrant, problemKeys.length);
   const kingPassRatio = entrantPassScore(king, problemKeys.length);
+  const candidatePassedProjects = entrantPassCount(entrant);
+  const kingPassedProjects = entrantPassCount(king);
   const screeningFailure = screeningFailureDetails(entrant) || screeningFailureDetails(progress);
   const onlyScreeningFailure = Boolean(screeningFailure && !projects.length);
 
@@ -1681,18 +1683,41 @@ function DuelDetail({
         </div>
       ) : null}
 
+      {onlyScreeningFailure ? null : (
+        <DecisionLadder
+          candidate={{
+            passRatio: candidatePassRatio,
+            passScore: candidatePassScore,
+            projectsPassed: candidatePassedProjects,
+            truePositives: entrant.true_positives,
+            invalidRuns: candidateInvalid,
+            precision: entrant.precision,
+            f1: entrant.f1_score
+          }}
+          king={{
+            passRatio: kingPassRatio,
+            passScore: kingPassScore,
+            projectsPassed: kingPassedProjects,
+            truePositives: king?.true_positives,
+            invalidRuns: king ? Number(king.invalid_runs || 0) : null,
+            precision: king?.precision,
+            f1: king?.f1_score
+          }}
+        />
+      )}
+
       {onlyScreeningFailure ? null : <div className="duel-compare-panel">
           <div className="duel-panel-head">
-            <span>candidate vs king</span>
+            <span>quality bars</span>
             <div className="comparison-legend">
               <small><i className="legend-candidate" />Candidate</small>
               <small><i className="legend-king" />King</small>
             </div>
           </div>
+          <ComparisonBar label="project pass score" candidate={candidatePassRatio} king={kingPassRatio} />
           <ComparisonBar label="detection" candidate={entrant.aggregated_score} king={king?.aggregated_score} />
           <ComparisonBar label="precision" candidate={entrant.precision} king={king?.precision} />
           <ComparisonBar label="f1 score" candidate={entrant.f1_score} king={king?.f1_score} />
-          <ComparisonBar label="project pass score" candidate={candidatePassRatio} king={kingPassRatio} />
         </div>}
 
         {onlyScreeningFailure ? null : <div className="duel-snapshot">
@@ -1700,11 +1725,11 @@ function DuelDetail({
           <MetricChip label="king project pass" value={kingPassScore} />
           <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
           <MetricChip
-            label="candidate matched / reported"
+            label="candidate TP / found"
             value={`${entrant.true_positives ?? "—"} / ${entrant.total_found ?? "—"}`}
           />
           <MetricChip
-            label="king matched / reported"
+            label="king TP / found"
             value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
           />
           <MetricChip
@@ -1725,6 +1750,152 @@ function DuelDetail({
         />}
     </div>
   );
+}
+
+function DecisionLadder({ candidate, king }) {
+  const steps = [
+    {
+      rank: 1,
+      label: "Project pass score",
+      note: "First decision signal",
+      candidateValue: candidate.passRatio,
+      kingValue: king.passRatio,
+      candidateDisplay: candidate.passScore,
+      kingDisplay: king.passScore,
+      higherIsBetter: true,
+      primary: true
+    },
+    {
+      rank: 2,
+      label: "Projects passed",
+      note: "Used if pass score is tied",
+      candidateValue: candidate.projectsPassed,
+      kingValue: king.projectsPassed,
+      candidateDisplay: formatMetricNumber(candidate.projectsPassed),
+      kingDisplay: formatMetricNumber(king.projectsPassed),
+      higherIsBetter: true,
+      primary: true
+    },
+    {
+      rank: 3,
+      label: "True positives",
+      note: "Confirmed benchmark matches",
+      candidateValue: candidate.truePositives,
+      kingValue: king.truePositives,
+      candidateDisplay: formatMetricNumber(candidate.truePositives),
+      kingDisplay: formatMetricNumber(king.truePositives),
+      higherIsBetter: true
+    },
+    {
+      rank: 4,
+      label: "Invalid runs",
+      note: "Lower is better",
+      candidateValue: candidate.invalidRuns,
+      kingValue: king.invalidRuns,
+      candidateDisplay: formatMetricNumber(candidate.invalidRuns),
+      kingDisplay: formatMetricNumber(king.invalidRuns),
+      higherIsBetter: false
+    },
+    {
+      rank: 5,
+      label: "Precision",
+      note: "Cleaner reports win ties",
+      candidateValue: candidate.precision,
+      kingValue: king.precision,
+      candidateDisplay: percentMetric(candidate.precision),
+      kingDisplay: percentMetric(king.precision),
+      higherIsBetter: true
+    },
+    {
+      rank: 6,
+      label: "F1 score",
+      note: "Final tie-breaker",
+      candidateValue: candidate.f1,
+      kingValue: king.f1,
+      candidateDisplay: percentMetric(candidate.f1),
+      kingDisplay: percentMetric(king.f1),
+      higherIsBetter: true
+    }
+  ];
+
+  const firstDecider = steps.find((step) => decisionWinner(step) !== "tie") || null;
+
+  return (
+    <section className="decision-ladder">
+      <div className="decision-ladder-head">
+        <div>
+          <span>promotion priority</span>
+          <strong>How this matchup is ranked</strong>
+          <p>
+            Kata checks these signals in order. Lower priority metrics matter only when
+            every signal above them is tied.
+          </p>
+        </div>
+        <div className="decision-ladder-verdict">
+          <span>first deciding signal</span>
+          <strong>{firstDecider ? `#${firstDecider.rank} ${firstDecider.label}` : "Tie so far"}</strong>
+        </div>
+      </div>
+      <div className="decision-ladder-grid">
+        {steps.map((step) => (
+          <DecisionStep key={step.label} step={step} active={firstDecider?.rank === step.rank} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DecisionStep({ step, active }) {
+  const winner = decisionWinner(step);
+  return (
+    <article className={`decision-step decision-step-${winner} ${active ? "decision-step-active" : ""}`}>
+      <div className="decision-step-top">
+        <span className="decision-rank">#{step.rank}</span>
+        <span className="decision-state">
+          {winner === "candidate" ? "candidate leads" : winner === "king" ? "king leads" : "tie"}
+        </span>
+      </div>
+      <strong>{step.label}</strong>
+      <p>{step.note}</p>
+      <div className="decision-values">
+        <span>
+          <small>candidate</small>
+          <b>{step.candidateDisplay}</b>
+        </span>
+        <span>
+          <small>king</small>
+          <b>{step.kingDisplay}</b>
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function decisionWinner(step) {
+  const candidate = normalizedDecisionValue(step.candidateValue);
+  const king = normalizedDecisionValue(step.kingValue);
+  if (candidate == null || king == null || candidate === king) {
+    return "tie";
+  }
+  if (step.higherIsBetter) {
+    return candidate > king ? "candidate" : "king";
+  }
+  return candidate < king ? "candidate" : "king";
+}
+
+function normalizedDecisionValue(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return null;
+  }
+  const numeric = Number(value);
+  return numeric < 0 ? null : numeric;
+}
+
+function formatMetricNumber(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return formatNumber(value);
 }
 
 function BattleSide({ role, name, sub, score, scoreLabel = "detection score", avatarUrl, crown, won }) {

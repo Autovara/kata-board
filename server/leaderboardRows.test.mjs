@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { calculateKataGittensorScore } from "./leaderboardRows.mjs";
 
-test("calculates Kata Gittensor score from reward label and repo time decay", () => {
+test("calculates stable Kata score from the highest reward label", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 0,
@@ -17,7 +17,7 @@ test("calculates Kata Gittensor score from reward label and repo time decay", ()
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 2.64);
+  assert.equal(score, 3);
 });
 
 test("uses the highest matching Kata reward label", () => {
@@ -34,10 +34,10 @@ test("uses the highest matching Kata reward label", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 8.8);
+  assert.equal(score, 10);
 });
 
-test("drops Kata Gittensor score outside the configured PR lookback", () => {
+test("keeps winner score stable instead of decaying by age", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 0,
@@ -51,10 +51,10 @@ test("drops Kata Gittensor score outside the configured PR lookback", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 0);
+  assert.equal(score, 10);
 });
 
-test("applies Kata open PR spam gate to winner score", () => {
+test("open PR count does not erase a verified winner score", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 2,
@@ -68,5 +68,5 @@ test("applies Kata open PR spam gate to winner score", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 0);
+  assert.equal(score, 10);
 });

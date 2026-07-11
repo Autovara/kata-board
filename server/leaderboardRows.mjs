@@ -38,32 +38,34 @@ export function maxDate(left, right) {
 }
 
 export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
-  const now = new Date();
   return [...byAuthor.values()]
     .map((entry) => {
-      const gittensorScore = calculateKataGittensorScore(entry, now);
+      const gittensorScore = calculateKataGittensorScore(entry);
+      const currentKings = [...latestLaneWinners.values()].filter(
+        (winner) => winner.author === entry.author
+      ).length;
+      const latestWinnerAt = latestWinnerTimestamp(entry.winnerPulls);
       return {
         ...entry,
-        currentKings: [...latestLaneWinners.values()].filter(
-          (winner) => winner.author === entry.author
-        ).length,
+        currentKings,
         gittensorBaseScore: entry.wins,
         gittensorScore,
-        score: gittensorScore
+        score: gittensorScore,
+        latestWinnerAt
       };
     })
     .sort(
       (left, right) =>
         right.score - left.score ||
+        right.currentKings - left.currentKings ||
         right.wins - left.wins ||
+        new Date(right.latestWinnerAt || 0) - new Date(left.latestWinnerAt || 0) ||
         right.totalSubmissions - left.totalSubmissions
     );
 }
 
 const KATA_GITTENSOR_CONFIG = {
   fixedBaseScore: 1.0,
-  prLookbackDays: 14,
-  maxOpenPrThreshold: 1,
   defaultLabelMultiplier: 0.0,
   labelMultipliers: {
     "kata:winner:*": 1.0,
@@ -76,39 +78,24 @@ const KATA_GITTENSOR_CONFIG = {
     "kata:stale": 0.0,
     "kata:hold": 0.0,
     "kata:evaluating": 0.0
-  },
-  timeDecay: {
-    gracePeriodHours: 0,
-    sigmoidMidpointDays: 2,
-    sigmoidSteepness: 1.0,
-    minMultiplier: 0.05
   }
 };
 
-export function calculateKataGittensorScore(entry, now = new Date()) {
+export function calculateKataGittensorScore(entry) {
   const pulls = Array.isArray(entry?.winnerPulls) ? entry.winnerPulls : [];
-  const openPrSpamMultiplier =
-    Number(entry?.openSubmissions || 0) <= KATA_GITTENSOR_CONFIG.maxOpenPrThreshold
-      ? 1.0
-      : 0.0;
   return Number(
     pulls
-      .reduce(
-        (total, pull) =>
-          total + calculateKataWinnerPullScore(pull, now) * openPrSpamMultiplier,
-        0
-      )
+      .reduce((total, pull) => total + calculateKataWinnerPullScore(pull), 0)
       .toFixed(4)
   );
 }
 
-function calculateKataWinnerPullScore(pull, now) {
+function calculateKataWinnerPullScore(pull) {
   const labelMultiplier = resolveKataLabelMultiplier(pull?.labels);
   if (labelMultiplier <= 0) {
     return 0;
   }
-  const timeDecayMultiplier = calculateTimeDecayMultiplier(pull?.mergedAt, now);
-  return KATA_GITTENSOR_CONFIG.fixedBaseScore * labelMultiplier * timeDecayMultiplier;
+  return KATA_GITTENSOR_CONFIG.fixedBaseScore * labelMultiplier;
 }
 
 function resolveKataLabelMultiplier(labels) {
@@ -145,27 +132,9 @@ function labelMatchesPattern(label, pattern) {
   return new RegExp(`^${escaped}$`).test(String(label || "").toLowerCase());
 }
 
-function calculateTimeDecayMultiplier(mergedAt, now) {
-  const mergedTime = new Date(mergedAt || 0).getTime();
-  if (!Number.isFinite(mergedTime) || mergedTime <= 0) {
-    return 0;
-  }
-  const hoursSinceMerge = Math.max(0, (now.getTime() - mergedTime) / 3_600_000);
-  const ageDays = hoursSinceMerge / 24;
-  if (ageDays > KATA_GITTENSOR_CONFIG.prLookbackDays) {
-    return 0;
-  }
-  if (hoursSinceMerge < KATA_GITTENSOR_CONFIG.timeDecay.gracePeriodHours) {
-    return 1;
-  }
-  const sigmoid =
-    1 /
-    (1 +
-      Math.exp(
-        KATA_GITTENSOR_CONFIG.timeDecay.sigmoidSteepness *
-          (ageDays - KATA_GITTENSOR_CONFIG.timeDecay.sigmoidMidpointDays)
-      ));
-  return Number(
-    Math.max(sigmoid, KATA_GITTENSOR_CONFIG.timeDecay.minMultiplier).toFixed(2)
-  );
+function latestWinnerTimestamp(pulls) {
+  return (Array.isArray(pulls) ? pulls : [])
+    .map((pull) => pull?.mergedAt)
+    .filter(Boolean)
+    .sort((left, right) => new Date(right) - new Date(left))[0] || null;
 }

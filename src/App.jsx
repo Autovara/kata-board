@@ -398,7 +398,6 @@ function DashboardProof({ publicProof, kataRepoSlug }) {
           <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
           <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
           <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
-          <ProofFact label="Duration" value={formatDuration(round.durationSeconds)} />
         </div>
         <div className="proof-actions">
           {proofHref ? <a href={proofHref} target="_blank" rel="noreferrer">View public proof</a> : null}

@@ -585,6 +585,16 @@ async function loadLiveKataPulls(env) {
   if (!repoSlug) {
     return [];
   }
+  const timeoutMs = readTtlMs(
+    env.KATA_LEADERBOARD_BUILD_TIMEOUT_MS,
+    DEFAULT_LEADERBOARD_BUILD_TIMEOUT_MS
+  );
+  if (timeoutMs >= 100) {
+    const cliPulls = loadLiveKataPullsFromGhCli(repoSlug);
+    if (cliPulls.length) {
+      return cliPulls;
+    }
+  }
   try {
     const pulls = await githubRequest(
       `/repos/${repoSlug}/pulls?state=all&per_page=100&sort=updated&direction=desc`,

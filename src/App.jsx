@@ -1545,13 +1545,15 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
           tone="gold"
         />
         <KingMetricCard
-          label="detection"
-          value={formatDetection(king?.aggregated_score)}
-          hint="True positives over expected vulnerabilities"
+          label="projects passed"
+          value={formatProjectsPassed(king)}
+          hint="Second ranking signal"
           tone="green"
         />
       </div>
       <div className="king-metric-support">
+        <MetricChip label="true positives" value={String(king?.true_positives ?? "—")} />
+        <MetricChip label="fewer invalid runs" value={String(Number(king?.invalid_runs || 0))} />
         <MetricChip
           label="precision"
           value={precisionFindingFigure(king?.precision, king?.true_positives, king?.total_found)}
@@ -1560,11 +1562,6 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
           label="f1 score"
           value={f1FindingFigure(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
         />
-        <MetricChip
-          label="TP / found"
-          value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
-        />
-        <MetricChip label="invalid runs" value={String(Number(king?.invalid_runs || 0))} />
         <MetricChip label="project pass rule" value={passThreshold} />
       </div>
     </section>

@@ -748,7 +748,7 @@ test("completed SN60 screening failure overrides stale lane winner state", async
   assert.equal(active.primary.taskStatuses[0].status, "screening failed");
 });
 
-test("leaderboard excludes losing candidates from run artifacts", async () => {
+test("leaderboard includes losing candidates from run artifacts without score", async () => {
   const root = makeKataRoot();
   const losingRunRoot = path.join(root, "runs", "sn60-duel-loser");
   writeJson(losingRunRoot, "challenge_summary.json", {
@@ -781,8 +781,9 @@ test("leaderboard excludes losing candidates from run artifacts", async () => {
   const status = await loadBoardStatus(boardEnv(root));
   const dave = status.leaderboard.rows.find((row) => row.author === "dave");
 
-  assert.equal(dave, undefined);
-  assert.ok(status.leaderboard.rows.every((row) => row.wins > 0));
+  assert.ok(dave);
+  assert.equal(dave.wins, 0);
+  assert.equal(dave.gittensorScore, 0);
 });
 
 test("leaderboard timeout falls back to local artifacts for live status", async () => {
@@ -815,7 +816,7 @@ test("leaderboard timeout falls back to local artifacts for live status", async 
   await new Promise((resolve) => setTimeout(resolve, 130));
 });
 
-test("leaderboard fallback excludes non-winner round-summary contributors", async () => {
+test("leaderboard fallback includes non-winner round-summary contributors without score", async () => {
   const root = makeKataRoot();
   const roundRoot = path.join(root, "runs", "sn60-round-all");
   writeJson(roundRoot, "round_summary.json", {
@@ -859,9 +860,16 @@ test("leaderboard fallback excludes non-winner round-summary contributors", asyn
   });
 
   const authors = status.leaderboard.rows.map((row) => row.author);
-  assert.equal(authors.includes("statxc"), false);
-  assert.equal(authors.includes("Helios531"), false);
-  assert.ok(status.leaderboard.rows.every((row) => row.wins > 0));
+  assert.ok(authors.includes("statxc"));
+  assert.ok(authors.includes("Helios531"));
+  assert.equal(
+    status.leaderboard.rows.find((row) => row.author === "statxc").gittensorScore,
+    0
+  );
+  assert.equal(
+    status.leaderboard.rows.find((row) => row.author === "Helios531").gittensorScore,
+    0
+  );
 });
 
 test("degrades gracefully when the kata root is empty", async () => {
@@ -933,7 +941,7 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
     KATA_LEADERBOARD_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.leaderboard.source, "events+runs+winners-only");
+  assert.equal(status.leaderboard.source, "events+runs");
   assert.equal(status.dataSources.eventFeed, true);
   const row = status.leaderboard.rows.find((item) => item.author === "alice");
   assert.ok(row);
@@ -984,7 +992,7 @@ test("skips a parseable-but-null event-log line", async () => {
     KATA_LEADERBOARD_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.leaderboard.source, "events+runs+winners-only");
+  assert.equal(status.leaderboard.source, "events+runs");
   assert.ok(status.leaderboard.rows.find((row) => row.author === "alice"));
 });
 
@@ -1256,7 +1264,7 @@ test("leaderboard falls back to round entrants when github history is unavailabl
 
   const authors = status.leaderboard.rows.map((row) => row.author);
   assert.ok(authors.includes("Alice-GitHub"));
-  assert.equal(authors.includes("Charlie-GitHub"), false);
+  assert.ok(authors.includes("Charlie-GitHub"));
   assert.equal(authors.includes("alice"), false);
   assert.equal(authors.includes("charlie"), false);
 });
@@ -1310,7 +1318,7 @@ test("leaderboard reconstructs promoted winners from local git history", async (
     KATA_LEADERBOARD_CACHE_TTL_MS: "0"
   });
 
-  assert.equal(status.leaderboard.source, "local-git+runs+winners-only");
+  assert.equal(status.leaderboard.source, "local-git+runs");
   const jonathan = status.leaderboard.rows.find(
     (row) => row.author === "jonathanchang31"
   );

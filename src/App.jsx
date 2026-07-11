@@ -1509,24 +1509,11 @@ function KingDetail({
         </div>
       ) : null}
 
-      <div className="duel-snapshot">
-        <MetricChip label="project pass score" value={formatPassScore(king, problemKeys.length)} tone="ok" />
-        <MetricChip label="detection" value={formatDetection(king?.aggregated_score)} />
-        <MetricChip
-          label="precision"
-          value={precisionFindingFigure(king?.precision, king?.true_positives, king?.total_found)}
-        />
-        <MetricChip
-          label="f1 score"
-          value={f1FindingFigure(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
-        />
-        <MetricChip
-          label="matched / reported"
-          value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
-        />
-        <MetricChip label="invalid" value={String(Number(king?.invalid_runs || 0))} />
-        <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
-      </div>
+      <KingMetricPanel
+        king={king}
+        projectCount={problemKeys.length}
+        passThreshold={passThreshold || projectPassThresholdLabel(replicasPerProject)}
+      />
 
       <ProblemBreakdown
         projectKeys={problemKeys}
@@ -1537,6 +1524,47 @@ function KingDetail({
         mode="single"
       />
     </div>
+  );
+}
+
+function KingMetricPanel({ king, projectCount, passThreshold }) {
+  return (
+    <section className="king-metric-panel">
+      <div className="king-metric-head">
+        <span>cached king baseline</span>
+        <strong>King scoring snapshot</strong>
+        <p>
+          These are the king numbers every candidate is compared against for this round.
+        </p>
+      </div>
+      <div className="king-metric-grid">
+        <MetricChip
+          label="project pass score"
+          value={formatPassScore(king, projectCount)}
+          tone="ok"
+          emphasis
+        />
+        <MetricChip
+          label="detection"
+          value={formatDetection(king?.aggregated_score)}
+          emphasis
+        />
+        <MetricChip
+          label="precision"
+          value={precisionFindingFigure(king?.precision, king?.true_positives, king?.total_found)}
+        />
+        <MetricChip
+          label="f1 score"
+          value={f1FindingFigure(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
+        />
+        <MetricChip
+          label="TP / found"
+          value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
+        />
+        <MetricChip label="invalid runs" value={String(Number(king?.invalid_runs || 0))} />
+        <MetricChip label="project pass rule" value={passThreshold} />
+      </div>
+    </section>
   );
 }
 
@@ -1895,9 +1923,9 @@ function BattleSide({ role, name, sub, score, scoreLabel = "detection score", av
   );
 }
 
-function MetricChip({ label, value, tone = "neutral" }) {
+function MetricChip({ label, value, tone = "neutral", emphasis = false }) {
   return (
-    <div className={`metric-chip metric-chip-${tone}`}>
+    <div className={`metric-chip metric-chip-${tone} ${emphasis ? "metric-chip-emphasis" : ""}`}>
       <span>{label}</span>
       <div className="metric-chip-value">{value}</div>
     </div>

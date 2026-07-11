@@ -4064,6 +4064,106 @@ html { scroll-behavior: smooth; }
   background: rgba(255, 95, 90, 0.07);
 }
 
+.king-metric-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 212, 121, 0.11), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.016)),
+    rgba(8, 9, 8, 0.56);
+}
+
+.king-metric-head {
+  display: grid;
+  gap: 6px;
+}
+
+.king-metric-head span {
+  color: #ffd479;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.king-metric-head strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.king-metric-head p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.king-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.king-metric-grid .metric-chip {
+  min-height: 112px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.038), transparent),
+    rgba(255, 255, 255, 0.026);
+}
+
+.king-metric-grid .metric-chip-emphasis {
+  grid-column: span 2;
+  min-height: 128px;
+  border-color: rgba(255, 212, 121, 0.28);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 212, 121, 0.13), transparent 42%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.king-metric-grid .metric-chip > span {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.king-metric-grid .metric-chip-value {
+  width: 100%;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  text-align: left;
+}
+
+.king-metric-grid .metric-chip-emphasis .metric-chip-value {
+  color: #ffd479;
+  font-size: clamp(30px, 4vw, 42px);
+}
+
+.king-metric-grid .quality-ratio {
+  justify-items: start;
+}
+
+.king-metric-grid .quality-ratio > strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.king-metric-grid .quality-ratio > small {
+  color: var(--soft);
+  font-size: 12px;
+}
+
 .duel-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.8fr);
@@ -5286,6 +5386,10 @@ html { scroll-behavior: smooth; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .king-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .duel-verdict {
     grid-column: 1 / -1;
   }
@@ -5312,6 +5416,7 @@ html { scroll-behavior: smooth; }
   .duel-command-top,
   .decision-ladder-head,
   .decision-ladder-grid,
+  .king-metric-grid,
   .duel-snapshot,
   .duel-main-grid,
   .table-head,
@@ -5325,6 +5430,10 @@ html { scroll-behavior: smooth; }
   .dashboard-ops,
   .dashboard-flow-card {
     padding: 16px;
+  }
+
+  .king-metric-grid .metric-chip-emphasis {
+    grid-column: auto;
   }
 
   .dashboard-hero-visual .asset-image,

@@ -854,43 +854,6 @@ function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
   );
 }
 
-function ExternalBaselineCard({ baseline, projectCount }) {
-  if (!baseline) {
-    return null;
-  }
-  const manifest = baseline.artifact_manifest || {};
-  const entry = baseline.entry || baseline;
-  const label =
-    manifest.baseline_id ||
-    (manifest.agent_id ? `SN60 Agent ${manifest.agent_id}` : baseline.submission_id || "SN60 baseline");
-  const status = baseline.status || "unknown";
-  const statusTone = status === "completed" ? "ok" : status === "failed" ? "bad" : "warn";
-  return (
-    <div className="baseline-card">
-      <div className="baseline-card-main">
-        <span>external baseline · proof only</span>
-        <strong>{label}</strong>
-        <p>
-          Scored after the round on the same selected projects. It is not a Kata candidate
-          and cannot be promoted.
-        </p>
-      </div>
-      <div className="baseline-card-metrics">
-        <MetricChip label="status" value={status} tone={statusTone} />
-        <MetricChip label="pass score" value={formatPassScore(entry, projectCount)} tone="ok" />
-        <MetricChip label="TP" value={String(entry.true_positives ?? baseline.true_positives ?? "—")} />
-        <MetricChip label="precision" value={percentMetric(entry.precision ?? baseline.precision)} />
-        <MetricChip label="f1" value={percentMetric(entry.f1_score ?? baseline.f1_score)} />
-        <MetricChip
-          label="vs king"
-          value={entry.beats_king === true ? "beat king" : entry.beats_king === false ? "did not beat" : "—"}
-          tone={entry.beats_king === true ? "ok" : entry.beats_king === false ? "bad" : "neutral"}
-        />
-      </div>
-    </div>
-  );
-}
-
 function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selectedPull, setSelectedPull }) {
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
@@ -1101,8 +1064,6 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             passThreshold={passThreshold}
             replicasPerProject={replicasPerProject}
           />
-
-          <ExternalBaselineCard baseline={round.externalBaseline} projectCount={projectKeys.length} />
 
           <div className="table-head round-grid">
             <span>PR</span>
@@ -2523,7 +2484,7 @@ function DocMilestones() {
           ["complete", "Current king", "The promoted best agent is visible on the winners page and in the public repository."],
           ["complete", "Round proof", "Completed rounds publish selected projects, candidate counts, true positives, precision, duration, and winner status."],
           ["complete", "Live arena", "During a round, contributors can watch execution status and per-project progress."],
-          ["current", "Baseline comparison", "Kata can compare the winner against an external baseline under the same selected round conditions."],
+          ["current", "Public proof", "Kata publishes the current king and latest completed round proof in the public repository."],
           ["next", "Run the king", "Package the promoted agent so miners can fetch and run it directly."],
           ["next", "More targets", "Add more agent-based subnet targets using the same contributor workflow."],
           ["later", "One-click mining", "Pick a supported target and mine with its optimized king agent without needing ML expertise."]

@@ -1512,8 +1512,14 @@ function KingDetail({
       <div className="duel-snapshot">
         <MetricChip label="project pass score" value={formatPassScore(king, problemKeys.length)} tone="ok" />
         <MetricChip label="detection" value={formatDetection(king?.aggregated_score)} />
-        <MetricChip label="precision" value={qualityMetric(king?.precision)} />
-        <MetricChip label="f1 score" value={qualityMetric(king?.f1_score)} />
+        <MetricChip
+          label="precision"
+          value={precisionFindingMetric(king?.precision, king?.true_positives, king?.total_found)}
+        />
+        <MetricChip
+          label="f1 score"
+          value={f1FindingMetric(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
+        />
         <MetricChip
           label="matched / reported"
           value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
@@ -1690,6 +1696,8 @@ function DuelDetail({
             passScore: candidatePassScore,
             projectsPassed: candidatePassedProjects,
             truePositives: entrant.true_positives,
+            totalExpected: entrant.total_expected,
+            totalFound: entrant.total_found,
             invalidRuns: candidateInvalid,
             precision: entrant.precision,
             f1: entrant.f1_score
@@ -1699,6 +1707,8 @@ function DuelDetail({
             passScore: kingPassScore,
             projectsPassed: kingPassedProjects,
             truePositives: king?.true_positives,
+            totalExpected: king?.total_expected,
+            totalFound: king?.total_found,
             invalidRuns: king ? Number(king.invalid_runs || 0) : null,
             precision: king?.precision,
             f1: king?.f1_score
@@ -1769,8 +1779,8 @@ function DecisionLadder({ candidate, king }) {
       note: "Cleaner reports win ties",
       candidateValue: candidate.precision,
       kingValue: king.precision,
-      candidateDisplay: qualityMetric(candidate.precision),
-      kingDisplay: qualityMetric(king.precision),
+      candidateDisplay: precisionFindingMetric(candidate.precision, candidate.truePositives, candidate.totalFound),
+      kingDisplay: precisionFindingMetric(king.precision, king.truePositives, king.totalFound),
       higherIsBetter: true
     },
     {
@@ -1779,8 +1789,8 @@ function DecisionLadder({ candidate, king }) {
       note: "Final tie-breaker",
       candidateValue: candidate.f1,
       kingValue: king.f1,
-      candidateDisplay: qualityMetric(candidate.f1),
-      kingDisplay: qualityMetric(king.f1),
+      candidateDisplay: f1FindingMetric(candidate.f1, candidate.truePositives, candidate.totalExpected, candidate.totalFound),
+      kingDisplay: f1FindingMetric(king.f1, king.truePositives, king.totalExpected, king.totalFound),
       higherIsBetter: true
     }
   ];
@@ -1908,20 +1918,18 @@ function percentMetric(value) {
   return `${formatNumber(Number(value) * 100)}%`;
 }
 
-function qualityMetric(value) {
+function precisionFindingMetric(value, truePositives, totalFound) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
-  return `${percentMetric(value)} · ${formatExactNumber(value)}`;
+  return `${percentMetric(value)} · ${formatMetricNumber(truePositives)}/${formatMetricNumber(totalFound)} found`;
 }
 
-function formatExactNumber(value) {
+function f1FindingMetric(value, truePositives, totalExpected, totalFound) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
-  return Number(value).toLocaleString(undefined, {
-    maximumFractionDigits: 6
-  });
+  return `${percentMetric(value)} · TP ${formatMetricNumber(truePositives)} / exp ${formatMetricNumber(totalExpected)} / found ${formatMetricNumber(totalFound)}`;
 }
 
 function formatProjectName(key) {

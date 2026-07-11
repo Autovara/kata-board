@@ -1514,11 +1514,11 @@ function KingDetail({
         <MetricChip label="detection" value={formatDetection(king?.aggregated_score)} />
         <MetricChip
           label="precision"
-          value={precisionFindingMetric(king?.precision, king?.true_positives, king?.total_found)}
+          value={precisionFindingFigure(king?.precision, king?.true_positives, king?.total_found)}
         />
         <MetricChip
           label="f1 score"
-          value={f1FindingMetric(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
+          value={f1FindingFigure(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
         />
         <MetricChip
           label="matched / reported"
@@ -1779,8 +1779,8 @@ function DecisionLadder({ candidate, king }) {
       note: "Cleaner reports win ties",
       candidateValue: candidate.precision,
       kingValue: king.precision,
-      candidateDisplay: precisionFindingMetric(candidate.precision, candidate.truePositives, candidate.totalFound),
-      kingDisplay: precisionFindingMetric(king.precision, king.truePositives, king.totalFound),
+      candidateDisplay: precisionFindingFigure(candidate.precision, candidate.truePositives, candidate.totalFound),
+      kingDisplay: precisionFindingFigure(king.precision, king.truePositives, king.totalFound),
       higherIsBetter: true
     },
     {
@@ -1789,8 +1789,8 @@ function DecisionLadder({ candidate, king }) {
       note: "Final tie-breaker",
       candidateValue: candidate.f1,
       kingValue: king.f1,
-      candidateDisplay: f1FindingMetric(candidate.f1, candidate.truePositives, candidate.totalExpected, candidate.totalFound),
-      kingDisplay: f1FindingMetric(king.f1, king.truePositives, king.totalExpected, king.totalFound),
+      candidateDisplay: f1FindingFigure(candidate.f1, candidate.truePositives, candidate.totalExpected, candidate.totalFound),
+      kingDisplay: f1FindingFigure(king.f1, king.truePositives, king.totalExpected, king.totalFound),
       higherIsBetter: true
     }
   ];
@@ -1837,11 +1837,11 @@ function DecisionStep({ step, active }) {
       <div className="decision-values">
         <span>
           <small>candidate</small>
-          <b>{step.candidateDisplay}</b>
+          <div className="decision-value-main">{step.candidateDisplay}</div>
         </span>
         <span>
           <small>king</small>
-          <b>{step.kingDisplay}</b>
+          <div className="decision-value-main">{step.kingDisplay}</div>
         </span>
       </div>
     </article>
@@ -1899,7 +1899,7 @@ function MetricChip({ label, value, tone = "neutral" }) {
   return (
     <div className={`metric-chip metric-chip-${tone}`}>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <div className="metric-chip-value">{value}</div>
     </div>
   );
 }
@@ -1918,18 +1918,38 @@ function percentMetric(value) {
   return `${formatNumber(Number(value) * 100)}%`;
 }
 
-function precisionFindingMetric(value, truePositives, totalFound) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
-  return `${percentMetric(value)} · ${formatMetricNumber(truePositives)}/${formatMetricNumber(totalFound)} found`;
+function precisionFindingFigure(value, truePositives, totalFound) {
+  return qualityFigure(value, [
+    ["TP", truePositives],
+    ["Found", totalFound]
+  ]);
 }
 
-function f1FindingMetric(value, truePositives, totalExpected, totalFound) {
+function f1FindingFigure(value, truePositives, totalExpected, totalFound) {
+  return qualityFigure(value, [
+    ["TP", truePositives],
+    ["Exp", totalExpected],
+    ["Found", totalFound]
+  ]);
+}
+
+function qualityFigure(value, figures) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
-  return `${percentMetric(value)} · TP ${formatMetricNumber(truePositives)} / exp ${formatMetricNumber(totalExpected)} / found ${formatMetricNumber(totalFound)}`;
+  return (
+    <div className="quality-figure">
+      <strong>{percentMetric(value)}</strong>
+      <div className="quality-figure-circles">
+        {figures.map(([label, figure]) => (
+          <span className="quality-circle" key={label}>
+            <b>{formatMetricNumber(figure)}</b>
+            <small>{label}</small>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function formatProjectName(key) {

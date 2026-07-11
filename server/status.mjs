@@ -70,6 +70,7 @@ export async function loadBoardStatus(env) {
   leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round);
   leaderboard = await overlayLiveKataPulls(leaderboard, runtimeEnv);
   const submissionStatus = buildSubmissionStatus(leaderboard, validator);
+  const displayLeaderboard = buildWinnerLeaderboard(leaderboard);
   publicProof = enrichPublicProofWithLiveWinner(publicProof, {
     round,
     roundHistory,
@@ -99,7 +100,7 @@ export async function loadBoardStatus(env) {
       validatorHealth: Boolean(validator.health.configured),
       publicProof: Boolean(publicProof)
     },
-    overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus, {
+    overview: buildOverview(lanes, activity, displayLeaderboard, validator, submissionStatus, {
       round,
       publicProof
     }),
@@ -110,7 +111,7 @@ export async function loadBoardStatus(env) {
     roundHistory,
     lanes,
     activity,
-    leaderboard,
+    leaderboard: displayLeaderboard,
     notes
   };
   cachedAt = Date.now();
@@ -723,6 +724,32 @@ function maybeAttachWinnerPull(entry, pull, latestLaneWinners) {
       pullNumber: pull.number
     });
   }
+}
+
+function buildWinnerLeaderboard(leaderboard) {
+  const rows = (Array.isArray(leaderboard?.rows) ? leaderboard.rows : [])
+    .filter((row) => Number(row?.wins || 0) > 0 && Array.isArray(row?.winnerPulls) && row.winnerPulls.length)
+    .map((row) => ({
+      ...row,
+      totalSubmissions: row.winnerPulls.length,
+      openSubmissions: 0,
+      pendingSubmissions: 0,
+      reviewSubmissions: 0,
+      invalidSubmissions: 0,
+      executingSubmissions: 0,
+      staleSubmissions: 0,
+      holdSubmissions: 0,
+      losingSubmissions: 0,
+      winnerSubmissions: row.winnerPulls.length,
+      recentPulls: (row.recentPulls || []).filter((pull) =>
+        String(pull?.statusLabel || "").startsWith("kata:winner:")
+      )
+    }));
+  return {
+    ...leaderboard,
+    source: `${leaderboard?.source || "unknown"}+winners-only`,
+    rows
+  };
 }
 
 function normalizeLabelNames(labels) {

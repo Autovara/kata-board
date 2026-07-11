@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { calculateKataGittensorScore } from "./leaderboardRows.mjs";
 
-test("calculates stable Kata score from the highest reward label", () => {
+test("calculates Kata score from the highest reward label and Gittensor decay", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 0,
@@ -17,7 +17,7 @@ test("calculates stable Kata score from the highest reward label", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 3);
+  assert.equal(score, 2.6424);
 });
 
 test("uses the highest matching Kata reward label", () => {
@@ -34,7 +34,7 @@ test("uses the highest matching Kata reward label", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 10);
+  assert.equal(score, 8.808);
 });
 
 test("applies Gittensor-style time decay to old winner score", () => {
@@ -55,7 +55,7 @@ test("applies Gittensor-style time decay to old winner score", () => {
   assert.ok(score > 0);
 });
 
-test("adds Gittensor-style open PR collateral", () => {
+test("does not count open PRs as leaderboard miner score", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 2,
@@ -69,5 +69,5 @@ test("adds Gittensor-style open PR collateral", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 10.4);
+  assert.equal(score, 8.808);
 });

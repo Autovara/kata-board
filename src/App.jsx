@@ -1900,7 +1900,7 @@ function RoundHistory({ rounds }) {
         <SectionTitle title="Recent rounds" />
         <p className="section-lead">Highlights from completed competition rounds.</p>
       </div>
-      <section className="table-section">
+      <section className="table-section leaderboard-table">
         <div className="table-head round-hist-grid">
           <span>round</span>
           <span>highlights</span>
@@ -2060,21 +2060,19 @@ function Leaderboard({ leaderboard }) {
     <div className="stack">
       <PageIntro
         eyebrow="Leaderboard"
-        title="Top challengers"
-        text="Track miners, crowned kings, submissions, and the current ranking across Kata challenges."
+        title="Promoted miners"
+        text="Only merged Kata winners appear here. Pending and review PRs stay in the live queue, not the miner leaderboard."
       />
 
       <section className="table-section">
         <div className="table-head">
           <span>rank</span>
           <span>miner</span>
-          <span>kings</span>
-          <span>submissions</span>
-          <span>open</span>
-          <span>pending</span>
-          <span>review</span>
-          <span>invalid</span>
-          <span>score</span>
+          <span>active king</span>
+          <span>wins</span>
+          <span>latest win</span>
+          <span>reward</span>
+          <span>Gittensor score</span>
         </div>
         {rows.length ? (
           rows.map((row, index) => (
@@ -2088,15 +2086,13 @@ function Leaderboard({ leaderboard }) {
                 sub={
                   row.currentKings
                     ? `${row.currentKings} active king${row.currentKings === 1 ? "" : "s"}`
-                    : "challenger"
+                    : "promoted miner"
                 }
               />
+              <span className="lb-num">{row.currentKings ? "yes" : "no"}</span>
               <span className="lb-num">{row.wins}</span>
-              <span className="lb-num">{row.totalSubmissions}</span>
-              <span className="lb-num">{row.openSubmissions}</span>
-              <span className="lb-num">{row.pendingSubmissions || 0}</span>
-              <span className="lb-num">{row.reviewSubmissions || 0}</span>
-              <span className="lb-num">{row.invalidSubmissions || 0}</span>
+              <span className="lb-num">{formatShortDate(latestWinnerAt(row))}</span>
+              <span className="lb-num">{winnerRewardTier(row)}</span>
               <strong className="lb-score">
                 {formatNumber(row.gittensorScore ?? row.score)}
               </strong>
@@ -2108,6 +2104,24 @@ function Leaderboard({ leaderboard }) {
       </section>
     </div>
   );
+}
+
+function latestWinnerAt(row) {
+  return (row?.winnerPulls || [])
+    .map((pull) => pull?.mergedAt)
+    .filter(Boolean)
+    .sort((left, right) => new Date(right) - new Date(left))[0] || null;
+}
+
+function winnerRewardTier(row) {
+  const labels = (row?.winnerPulls || [])
+    .flatMap((pull) => pull?.labels || [])
+    .map((label) => String(label || "").toLowerCase());
+  if (labels.includes("kata:reward:xl")) return "XL";
+  if (labels.includes("kata:reward:l")) return "L";
+  if (labels.includes("kata:reward:m")) return "M";
+  if (labels.includes("kata:reward:s")) return "S";
+  return "base";
 }
 
 function rankBadge(index) {

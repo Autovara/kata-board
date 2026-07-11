@@ -4206,6 +4206,11 @@ html { scroll-behavior: smooth; }
   grid-template-columns: 72px minmax(190px, 1fr) 70px 100px 70px 80px 80px 80px 130px;
 }
 
+.leaderboard-table .table-head,
+.leaderboard-table .table-row {
+  grid-template-columns: 72px minmax(220px, 1fr) 100px 80px 120px 90px 140px;
+}
+
 .submission-status-panel {
   display: grid;
   gap: 18px;
@@ -5224,6 +5229,11 @@ html { scroll-behavior: smooth; }
   .table-head,
   .table-row {
     grid-template-columns: 56px minmax(160px, 1fr) 64px 84px 64px 70px 70px 70px 110px;
+  }
+
+  .leaderboard-table .table-head,
+  .leaderboard-table .table-row {
+    grid-template-columns: 56px minmax(160px, 1fr) 82px 64px 96px 70px 105px;
   }
 
   .submission-status-grid,

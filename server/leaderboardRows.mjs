@@ -67,10 +67,9 @@ export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
 
 const KATA_GITTENSOR_CONFIG = {
   fixedBaseScore: 1.0,
-  openPrCollateralPercent: 0.2,
-  timeDecayGraceHours: 12,
-  timeDecayMidpointDays: 10,
-  timeDecaySteepness: 0.4,
+  timeDecayGraceHours: 0,
+  timeDecayMidpointDays: 2,
+  timeDecaySteepness: 1.0,
   timeDecayMinMultiplier: 0.05,
   defaultLabelMultiplier: 0.0,
   labelMultipliers: {
@@ -89,16 +88,10 @@ const KATA_GITTENSOR_CONFIG = {
 
 export function calculateKataGittensorScore(entry, now = new Date()) {
   const pulls = Array.isArray(entry?.winnerPulls) ? entry.winnerPulls : [];
-  const winnerScore = pulls.reduce(
-    (total, pull) => total + calculateKataWinnerPullScore(pull, now),
-    0
-  );
-  const openCollateralScore =
-    Number(entry?.openSubmissions || 0) *
-    KATA_GITTENSOR_CONFIG.fixedBaseScore *
-    KATA_GITTENSOR_CONFIG.openPrCollateralPercent;
   return Number(
-    (winnerScore + openCollateralScore).toFixed(4)
+    pulls
+      .reduce((total, pull) => total + calculateKataWinnerPullScore(pull, now), 0)
+      .toFixed(4)
   );
 }
 

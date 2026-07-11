@@ -1512,8 +1512,8 @@ function KingDetail({
       <div className="duel-snapshot">
         <MetricChip label="project pass score" value={formatPassScore(king, problemKeys.length)} tone="ok" />
         <MetricChip label="detection" value={formatDetection(king?.aggregated_score)} />
-        <MetricChip label="precision" value={percentMetric(king?.precision)} />
-        <MetricChip label="f1 score" value={percentMetric(king?.f1_score)} />
+        <MetricChip label="precision" value={qualityMetric(king?.precision)} />
+        <MetricChip label="f1 score" value={qualityMetric(king?.f1_score)} />
         <MetricChip
           label="matched / reported"
           value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
@@ -1769,8 +1769,8 @@ function DecisionLadder({ candidate, king }) {
       note: "Cleaner reports win ties",
       candidateValue: candidate.precision,
       kingValue: king.precision,
-      candidateDisplay: percentMetric(candidate.precision),
-      kingDisplay: percentMetric(king.precision),
+      candidateDisplay: qualityMetric(candidate.precision),
+      kingDisplay: qualityMetric(king.precision),
       higherIsBetter: true
     },
     {
@@ -1779,8 +1779,8 @@ function DecisionLadder({ candidate, king }) {
       note: "Final tie-breaker",
       candidateValue: candidate.f1,
       kingValue: king.f1,
-      candidateDisplay: percentMetric(candidate.f1),
-      kingDisplay: percentMetric(king.f1),
+      candidateDisplay: qualityMetric(candidate.f1),
+      kingDisplay: qualityMetric(king.f1),
       higherIsBetter: true
     }
   ];
@@ -1906,6 +1906,22 @@ function percentMetric(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)}%`;
+}
+
+function qualityMetric(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${percentMetric(value)} · ${formatExactNumber(value)}`;
+}
+
+function formatExactNumber(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 6
+  });
 }
 
 function formatProjectName(key) {

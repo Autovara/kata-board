@@ -51,7 +51,7 @@ export async function loadBoardStatus(env) {
   }
   let roundHistory = loadRoundHistory(roots.roundHistoryPath);
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
-  const publicProof = loadPublicProof(roots.publicResultsCurrentPath);
+  let publicProof = loadPublicProof(roots.publicResultsCurrentPath);
   const activity = loadRecentActivity(roots.kataRoot, env);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
@@ -60,13 +60,19 @@ export async function loadBoardStatus(env) {
     round,
     identityAliases
   );
-  const leaderboard = augmentLeaderboardWithActivity(
+  let leaderboard = augmentLeaderboardWithActivity(
     baseLeaderboard,
     activity,
     identityAliases
   );
   const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   round = enrichRoundKingIdentity(round, leaderboard);
+  leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round);
+  publicProof = enrichPublicProofWithLiveWinner(publicProof, {
+    round,
+    roundHistory,
+    leaderboard
+  });
   const lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
     latestLaneWinners: leaderboard.latestLaneWinners,
@@ -264,6 +270,183 @@ function loadPublicProof(publicResultsCurrentPath) {
       scorerVersion: benchmark.scorer_version || null
     }
   };
+}
+
+function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
+  if (round?.state !== "completed" || !round.winnerSubmissionId) {
+    return leaderboard;
+  }
+  const winnerPullNumber = prNumberFromSubmissionId(round.winnerSubmissionId);
+  const winnerEntrant = findWinnerEntrant(round, winnerPullNumber);
+  if (!winnerEntrant?.author) {
+    return leaderboard;
+  }
+  const laneKey = "sn60__bitsec::miner";
+  const current = leaderboard?.latestLaneWinners?.[laneKey] || {};
+  return {
+    ...leaderboard,
+    latestLaneWinners: {
+      ...(leaderboard?.latestLaneWinners || {}),
+      [laneKey]: {
+        ...current,
+        author: winnerEntrant.author,
+        mergedAt: current.mergedAt || round.finishedAt || round.generatedAt || null,
+        pullNumber:
+          Number(winnerEntrant.pull_number ?? winnerEntrant.pullNumber) ||
+          current.pullNumber ||
+          winnerPullNumber ||
+          null,
+        submissionId:
+          winnerEntrant.submission_id ||
+          winnerEntrant.submissionId ||
+          current.submissionId ||
+          null
+      }
+    }
+  };
+}
+
+function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, leaderboard }) {
+  const proof = publicProof
+    ? {
+        ...publicProof,
+        currentKing: { ...(publicProof.currentKing || {}) },
+        latestRound: { ...(publicProof.latestRound || {}) }
+      }
+    : {
+        schemaVersion: 1,
+        updatedAt: null,
+        activePack: "sn60__bitsec",
+        activeMode: "miner",
+        dashboardUrl: null,
+        currentKing: {},
+        latestRound: {},
+        benchmark: {}
+      };
+  const activePack = proof.activePack || "sn60__bitsec";
+  const activeMode = proof.activeMode || "miner";
+  const latestWinner =
+    leaderboard?.latestLaneWinners?.[`${activePack}::${activeMode}`] ||
+    leaderboard?.latestLaneWinners?.["sn60__bitsec::miner"] ||
+    null;
+  const completedRound =
+    round?.state === "completed" && round.winnerSubmissionId ? round : null;
+  const latestRound =
+    completedRound ||
+    (Array.isArray(roundHistory)
+      ? roundHistory.find((item) => item?.winnerSubmissionId)
+      : null);
+  const winnerPullNumber =
+    latestWinner?.pullNumber ||
+    prNumberFromSubmissionId(latestRound?.winnerSubmissionId);
+  const winnerEntrant = findWinnerEntrant(latestRound, winnerPullNumber);
+  const winnerSubmissionId =
+    latestWinner?.submissionId ||
+    winnerEntrant?.submission_id ||
+    winnerEntrant?.submissionId ||
+    latestRound?.winnerSubmissionId ||
+    null;
+  const winnerAuthor =
+    latestWinner?.author ||
+    winnerEntrant?.author ||
+    inferSubmissionAuthorFromId(winnerSubmissionId) ||
+    proof.currentKing.author ||
+    null;
+  const promotedAt =
+    latestWinner?.mergedAt ||
+    latestRound?.generatedAt ||
+    latestRound?.finishedAt ||
+    proof.currentKing.promotedAt ||
+    null;
+  const proofPromotionTime = proof.currentKing.promotedAt || proof.latestRound.finishedAt;
+  const shouldReplaceKing =
+    winnerAuthor &&
+    (!proof.currentKing.author ||
+      proof.currentKing.author !== winnerAuthor ||
+      dateIsAfter(promotedAt, proofPromotionTime));
+
+  if (shouldReplaceKing) {
+    proof.currentKing = {
+      ...proof.currentKing,
+      author: winnerAuthor,
+      submissionId: winnerSubmissionId || null,
+      sourcePullRequest: winnerPullNumber ?? null,
+      path: proof.currentKing.path || `kings/${activePack}/${activeMode}`,
+      promotedAt
+    };
+  }
+
+  if (latestRound?.runId || latestRound?.winnerSubmissionId) {
+    const entrants = Array.isArray(latestRound.entrants) ? latestRound.entrants : [];
+    const sameProofRound =
+      latestRound.runId && latestRound.runId === proof.latestRound.roundId;
+    proof.latestRound = {
+      ...proof.latestRound,
+      roundId: latestRound.runId || proof.latestRound.roundId || null,
+      roundNumber: latestRound.roundNumber ?? proof.latestRound.roundNumber ?? null,
+      competitionMode: latestRound.competitionMode || proof.latestRound.competitionMode || null,
+      startedAt: latestRound.startedAt || (sameProofRound ? proof.latestRound.startedAt : null),
+      finishedAt:
+        latestRound.finishedAt ||
+        latestRound.generatedAt ||
+        (sameProofRound ? proof.latestRound.finishedAt : null) ||
+        null,
+      durationSeconds:
+        latestRound.durationSeconds ?? (sameProofRound ? proof.latestRound.durationSeconds : null),
+      candidateCount:
+        latestRound.candidateCount ??
+        (entrants.length ? entrants.length : proof.latestRound.candidateCount ?? null),
+      outcome: latestRound.winnerSubmissionId ? "king_promoted" : proof.latestRound.outcome,
+      winnerPullRequest: winnerPullNumber ?? proof.latestRound.winnerPullRequest ?? null,
+      winnerAuthor: winnerAuthor || proof.latestRound.winnerAuthor || null,
+      winnerSubmissionId: winnerSubmissionId || proof.latestRound.winnerSubmissionId || null,
+      bestTruePositives:
+        maxEntrantMetric(entrants, "true_positives") ??
+        latestRound.bestTruePositives ??
+        proof.latestRound.bestTruePositives ??
+        null,
+      bestDetectionScore:
+        maxEntrantMetric(entrants, "aggregated_score") ??
+        latestRound.bestDetection ??
+        proof.latestRound.bestDetectionScore ??
+        null,
+      proof: sameProofRound ? proof.latestRound.proof : null
+    };
+  }
+  return proof;
+}
+
+function findWinnerEntrant(round, winnerPullNumber) {
+  const entrants = Array.isArray(round?.entrants) ? round.entrants : [];
+  return (
+    entrants.find((entrant) => entrant?.selected_winner === true || entrant?.status === "winner") ||
+    entrants.find((entrant) => Number(entrant?.pull_number ?? entrant?.pullNumber) === Number(winnerPullNumber)) ||
+    null
+  );
+}
+
+function prNumberFromSubmissionId(submissionId) {
+  const match = /^pr-(\d+)$/.exec(String(submissionId || ""));
+  return match ? Number(match[1]) : null;
+}
+
+function maxEntrantMetric(entrants, key) {
+  if (!Array.isArray(entrants) || !entrants.length) {
+    return null;
+  }
+  const values = entrants
+    .map((entrant) => Number(entrant?.[key] ?? 0))
+    .filter((value) => Number.isFinite(value));
+  return values.length ? Math.max(...values) : null;
+}
+
+function dateIsAfter(left, right) {
+  if (!left) {
+    return false;
+  }
+  const leftTime = new Date(left).getTime();
+  const rightTime = right ? new Date(right).getTime() : 0;
+  return Number.isFinite(leftTime) && leftTime > (Number.isFinite(rightTime) ? rightTime : 0);
 }
 
 function assignRoundSequence(round, roundHistory) {
@@ -676,14 +859,32 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     updatedAt: state.king?.promotion_timestamp || state.king?.updated_at || null,
     seeded: !state.king?.current_king_submission_id
   };
-  // Lane state is authoritative for who holds the king; PR history is only a
-  // fallback (it can be incomplete, pending promotion recovery, or stale
-  // after a manual lane repair).
+  const latestWinnerIsNewer =
+    latestWinner?.author && dateIsAfter(latestWinner.mergedAt, king.updatedAt);
+  const latestWinnerDiffers =
+    latestWinner?.author && king.author && latestWinner.author !== king.author;
+  const displayKing =
+    latestWinner && (latestWinnerIsNewer || latestWinnerDiffers || !king.author)
+      ? {
+          ...king,
+          author: latestWinner.author,
+          source: "latest merged winner",
+          updatedAt: latestWinner.mergedAt || king.updatedAt,
+          sourcePullRequest: latestWinner.pullNumber ?? null,
+          staleLaneKing: king.author
+            ? {
+                author: king.author,
+                submissionId: king.submissionId,
+                updatedAt: king.updatedAt
+              }
+            : null
+        }
+      : king;
   const currentHolder =
-    king.author || latestWinner?.author || humanizeKingSource(king.source);
+    displayKing.author || latestWinner?.author || humanizeKingSource(displayKing.source);
   const latestWinnerMatchesKing =
     Boolean(latestWinner?.author) &&
-    (!king.author || latestWinner.author === king.author);
+    (!displayKing.author || latestWinner.author === displayKing.author);
   const selectedProjectsRaw = state.challengeState?.selected_project_keys;
   const selectedProjects = Array.isArray(selectedProjectsRaw)
     ? selectedProjectsRaw
@@ -696,11 +897,11 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     repoRef: null,
     mode,
     updatedAt: lane.updated_at || state.king?.updated_at || null,
-    kingUpdatedAt: state.king?.updated_at || lane.updated_at || null,
+    kingUpdatedAt: displayKing.updatedAt || state.king?.updated_at || lane.updated_at || null,
     currentHolder,
     currentHolderMergedAt: latestWinnerMatchesKing ? latestWinner.mergedAt : null,
     currentHolderPullNumber: latestWinnerMatchesKing ? latestWinner.pullNumber : null,
-    king,
+    king: displayKing,
     projects: selectedProjects.map((projectKey) => ({
       taskId: projectKey,
       title: projectKey,
@@ -3042,7 +3243,8 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
         latestLaneWinners.set(laneKey, {
           author,
           mergedAt: item.createdAt,
-          pullNumber: null
+          pullNumber: null,
+          submissionId: item.candidateSubmissionId || null
         });
       }
     }

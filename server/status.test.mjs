@@ -1047,11 +1047,11 @@ test("sanitizes validator health payload before exposing status", async () => {
   }
 });
 
-test("lane state wins over PR history for the current holder", async () => {
+test("newer merged winner updates the displayed current holder", async () => {
   const root = makeKataRoot();
   const eventLogPath = path.join(root, "events.jsonl");
-  // PR history claims mallory merged last on this lane, but lane state says
-  // the king is alice's submission.
+  // The lane file can lag after a promotion. The board should show the newer
+  // confirmed merge so dashboard/winners update in real time.
   fs.writeFileSync(
     eventLogPath,
     JSON.stringify({
@@ -1071,11 +1071,10 @@ test("lane state wins over PR history for the current holder", async () => {
   });
 
   const lane = status.lanes[0];
-  assert.equal(lane.currentHolder, "alice");
-  // Merged-PR metadata belongs to a different author, so it must not be
-  // attributed to the current king.
+  assert.equal(lane.currentHolder, "mallory");
   assert.equal(lane.currentHolderPullNumber, null);
-  assert.equal(lane.currentHolderMergedAt, null);
+  assert.equal(lane.currentHolderMergedAt, "2026-07-02T01:00:00+00:00");
+  assert.equal(lane.king.staleLaneKing.author, "alice");
 });
 
 test("accepts subnet_pack in event log leaderboard entries", async () => {
@@ -1503,7 +1502,7 @@ test("exposes public proof from kata public-results/current.json", async () => {
   const root = makeKataRoot();
   writeJson(path.join(root, "public-results"), "current.json", {
     schema_version: 1,
-    updated_at: "2026-07-09T17:30:15Z",
+    updated_at: "2026-07-01T17:30:15Z",
     active_pack: "sn60__bitsec",
     active_mode: "miner",
     dashboard_url: "https://dashboardking.ngrok.app",
@@ -1513,7 +1512,7 @@ test("exposes public proof from kata public-results/current.json", async () => {
       source_pull_request: 98,
       path: "kings/sn60__bitsec/miner",
       artifact_hash: "king-hash",
-      promoted_at: "2026-07-09T16:14:37Z"
+      promoted_at: "2026-07-01T16:14:37Z"
     },
     latest_round: {
       round_id: "sn60-round-x",
@@ -1541,10 +1540,13 @@ test("exposes public proof from kata public-results/current.json", async () => {
 
   const status = await loadBoardStatus(boardEnv(root));
 
-  assert.equal(status.publicProof.currentKing.author, "kiannidev");
-  assert.equal(status.publicProof.currentKing.sourcePullRequest, 98);
+  assert.equal(status.publicProof.currentKing.author, "bob");
+  assert.equal(status.publicProof.currentKing.submissionId, "bob-20260702-01");
+  assert.equal(status.publicProof.currentKing.sourcePullRequest, null);
   assert.equal(status.publicProof.latestRound.roundNumber, 2);
   assert.equal(status.publicProof.latestRound.durationSeconds, 4984);
+  assert.equal(status.publicProof.latestRound.winnerAuthor, "kiannidev");
+  assert.equal(status.publicProof.latestRound.winnerSubmissionId, "kiannidev-20260708-01");
   assert.equal(status.publicProof.latestRound.bestTruePositives, 4);
   assert.equal(status.publicProof.benchmark.roundSha256, "benchmark-sha");
 });

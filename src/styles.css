@@ -3944,7 +3944,6 @@ html { scroll-behavior: smooth; }
 .duel-verdict,
 .duel-gap,
 .metric-chip,
-.duel-compare-panel,
 .duel-next-panel {
   border: 1px solid rgba(255, 255, 255, 0.095);
   border-radius: 18px;
@@ -4213,7 +4212,6 @@ html { scroll-behavior: smooth; }
   white-space: nowrap;
 }
 
-.duel-compare-panel,
 .duel-next-panel {
   padding: 18px;
 }
@@ -4224,103 +4222,6 @@ html { scroll-behavior: smooth; }
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
-}
-
-.comparison-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.comparison-legend small {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-}
-
-.comparison-legend i {
-  display: inline-block;
-  width: 24px;
-  height: 6px;
-  border-radius: 999px;
-}
-
-.legend-candidate {
-  background: linear-gradient(90deg, var(--green), var(--cyan));
-}
-
-.legend-king {
-  background: rgba(255, 255, 255, 0.36);
-}
-
-.comparison-bar {
-  display: grid;
-  gap: 10px;
-  padding: 14px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.comparison-bar-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--soft);
-  font-size: 12px;
-}
-
-.comparison-bar-head strong {
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.comparison-bar-head span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  white-space: nowrap;
-}
-
-.comparison-track {
-  display: grid;
-  gap: 7px;
-}
-
-.comparison-lane {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.comparison-lane span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-}
-
-.comparison-lane b {
-  height: 9px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.075);
-}
-
-.comparison-lane i {
-  display: block;
-  height: 100%;
-  min-width: 2px;
-  border-radius: inherit;
-  transition: width 300ms ease;
-}
-
-.comparison-fill-candidate {
-  background: linear-gradient(90deg, var(--green), var(--cyan));
-}
-
-.comparison-fill-king {
-  background: rgba(255, 255, 255, 0.44);
 }
 
 .duel-next-panel {
@@ -5359,8 +5260,7 @@ html { scroll-behavior: smooth; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .duel-verdict,
-  .duel-compare-panel {
+  .duel-verdict {
     grid-column: 1 / -1;
   }
 
@@ -5420,8 +5320,7 @@ html { scroll-behavior: smooth; }
     height: 64px;
   }
 
-  .duel-panel-head,
-  .comparison-bar-head {
+  .duel-panel-head {
     align-items: flex-start;
     flex-direction: column;
   }

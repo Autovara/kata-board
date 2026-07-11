@@ -1706,40 +1706,7 @@ function DuelDetail({
         />
       )}
 
-      {onlyScreeningFailure ? null : <div className="duel-compare-panel">
-          <div className="duel-panel-head">
-            <span>quality bars</span>
-            <div className="comparison-legend">
-              <small><i className="legend-candidate" />Candidate</small>
-              <small><i className="legend-king" />King</small>
-            </div>
-          </div>
-          <ComparisonBar label="project pass score" candidate={candidatePassRatio} king={kingPassRatio} />
-          <ComparisonBar label="detection" candidate={entrant.aggregated_score} king={king?.aggregated_score} />
-          <ComparisonBar label="precision" candidate={entrant.precision} king={king?.precision} />
-          <ComparisonBar label="f1 score" candidate={entrant.f1_score} king={king?.f1_score} />
-        </div>}
-
-        {onlyScreeningFailure ? null : <div className="duel-snapshot">
-          <MetricChip label="candidate project pass" value={candidatePassScore} tone="ok" />
-          <MetricChip label="king project pass" value={kingPassScore} />
-          <MetricChip label="project pass rule" value={passThreshold || projectPassThresholdLabel(replicasPerProject)} />
-          <MetricChip
-            label="candidate TP / found"
-            value={`${entrant.true_positives ?? "—"} / ${entrant.total_found ?? "—"}`}
-          />
-          <MetricChip
-            label="king TP / found"
-            value={`${king?.true_positives ?? "—"} / ${king?.total_found ?? "—"}`}
-          />
-          <MetricChip
-            label="invalid"
-            value={`C ${candidateInvalid} · K ${Number(king?.invalid_runs || 0)}`}
-            tone={candidateInvalid > 0 ? "bad" : "ok"}
-          />
-        </div>}
-
-        {onlyScreeningFailure ? null : <ProblemBreakdown
+      {onlyScreeningFailure ? null : <ProblemBreakdown
           projectKeys={problemKeys}
           primaryByKey={candidateByKey}
           primaryLabel="candidate"
@@ -1918,27 +1885,6 @@ function BattleSide({ role, name, sub, score, scoreLabel = "detection score", av
   );
 }
 
-function ComparisonBar({ label, candidate, king }) {
-  return (
-    <div className="comparison-bar">
-      <div className="comparison-bar-head">
-        <strong>{label}</strong>
-        <span>C {percentMetric(candidate)} · K {percentMetric(king)}</span>
-      </div>
-      <div className="comparison-track">
-        <div className="comparison-lane">
-          <span>C</span>
-          <b><i className="comparison-fill-candidate" style={{ width: `${ratioWidth(candidate)}%` }} /></b>
-        </div>
-        <div className="comparison-lane">
-          <span>K</span>
-          <b><i className="comparison-fill-king" style={{ width: `${ratioWidth(king)}%` }} /></b>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function MetricChip({ label, value, tone = "neutral" }) {
   return (
     <div className={`metric-chip metric-chip-${tone}`}>
@@ -1960,13 +1906,6 @@ function percentMetric(value) {
     return "-";
   }
   return `${formatNumber(Number(value) * 100)}%`;
-}
-
-function ratioWidth(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return 0;
-  }
-  return Math.max(0, Math.min(100, Number(value) * 100));
 }
 
 function formatProjectName(key) {

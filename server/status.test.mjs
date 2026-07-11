@@ -1241,11 +1241,13 @@ test("leaderboard falls back to round entrants when github history is unavailabl
       {
         pull_number: 10,
         submission_id: "alice-20260702-01",
+        author: "Alice-GitHub",
         status: "winner"
       },
       {
         pull_number: 11,
         submission_id: "charlie-20260702-01",
+        author: "Charlie-GitHub",
         status: "losing"
       }
     ]
@@ -1259,9 +1261,11 @@ test("leaderboard falls back to round entrants when github history is unavailabl
   });
 
   const authors = status.leaderboard.rows.map((row) => row.author);
-  assert.ok(authors.includes("alice"));
-  assert.ok(authors.includes("charlie"));
-  const charlie = status.leaderboard.rows.find((row) => row.author === "charlie");
+  assert.ok(authors.includes("Alice-GitHub"));
+  assert.ok(authors.includes("Charlie-GitHub"));
+  assert.equal(authors.includes("alice"), false);
+  assert.equal(authors.includes("charlie"), false);
+  const charlie = status.leaderboard.rows.find((row) => row.author === "Charlie-GitHub");
   assert.equal(charlie.totalSubmissions, 1);
   assert.equal(charlie.closedSubmissions, 1);
 });

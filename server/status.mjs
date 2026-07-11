@@ -283,27 +283,114 @@ function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
   }
   const laneKey = "sn60__bitsec::miner";
   const current = leaderboard?.latestLaneWinners?.[laneKey] || {};
-  return {
-    ...leaderboard,
-    latestLaneWinners: {
-      ...(leaderboard?.latestLaneWinners || {}),
-      [laneKey]: {
-        ...current,
-        author: winnerEntrant.author,
-        mergedAt: current.mergedAt || round.finishedAt || round.generatedAt || null,
-        pullNumber:
-          Number(winnerEntrant.pull_number ?? winnerEntrant.pullNumber) ||
-          current.pullNumber ||
-          winnerPullNumber ||
-          null,
-        submissionId:
-          winnerEntrant.submission_id ||
-          winnerEntrant.submissionId ||
-          current.submissionId ||
-          null
-      }
+  const winnerPull =
+    Number(winnerEntrant.pull_number ?? winnerEntrant.pullNumber) ||
+    current.pullNumber ||
+    winnerPullNumber ||
+    null;
+  const latestLaneWinners = {
+    ...(leaderboard?.latestLaneWinners || {}),
+    [laneKey]: {
+      ...current,
+      author: winnerEntrant.author,
+      mergedAt: current.mergedAt || round.finishedAt || round.generatedAt || null,
+      pullNumber: winnerPull,
+      submissionId:
+        winnerEntrant.submission_id ||
+        winnerEntrant.submissionId ||
+        current.submissionId ||
+        null
     }
   };
+  return {
+    ...leaderboard,
+    rows: normalizeLeaderboardWinnerAuthor(
+      leaderboard.rows,
+      winnerPull,
+      winnerEntrant.author,
+      latestLaneWinners
+    ),
+    latestLaneWinners
+  };
+}
+
+function normalizeLeaderboardWinnerAuthor(rows, winnerPullNumber, author, latestLaneWinners) {
+  const normalizedAuthor = String(author || "").trim();
+  const pullNumber = Number(winnerPullNumber || 0);
+  if (!normalizedAuthor || !pullNumber || !Array.isArray(rows)) {
+    return rows || [];
+  }
+  const byAuthor = new Map();
+  for (const row of rows) {
+    const ownsWinnerPull = (row?.winnerPulls || []).some(
+      (pull) => Number(pull?.pullNumber || 0) === pullNumber
+    );
+    const rowAuthor = ownsWinnerPull ? normalizedAuthor : row.author;
+    mergeLeaderboardRow(byAuthor, rowAuthor, row);
+  }
+  return finalizeLeaderboardRows(
+    byAuthor,
+    new Map(Object.entries(latestLaneWinners || {}))
+  );
+}
+
+function mergeLeaderboardRow(byAuthor, author, row) {
+  const key = String(author || row?.author || "unknown");
+  const target = byAuthor.get(key) || createAuthorRow(key);
+  for (const field of [
+    "totalSubmissions",
+    "openSubmissions",
+    "closedSubmissions",
+    "pendingSubmissions",
+    "reviewSubmissions",
+    "invalidSubmissions",
+    "executingSubmissions",
+    "staleSubmissions",
+    "holdSubmissions",
+    "losingSubmissions",
+    "winnerSubmissions"
+  ]) {
+    target[field] = Number(target[field] || 0) + Number(row?.[field] || 0);
+  }
+  target.lastActivityAt = maxDate(target.lastActivityAt, row?.lastActivityAt);
+  target.winnerPulls = dedupeWinnerPulls([
+    ...(target.winnerPulls || []),
+    ...(row?.winnerPulls || [])
+  ]);
+  target.wins = target.winnerPulls.length || Math.max(Number(target.wins || 0), Number(row?.wins || 0));
+  target.recentPulls = dedupeRecentPulls([
+    ...(target.recentPulls || []),
+    ...(row?.recentPulls || [])
+  ]).slice(0, 4);
+  byAuthor.set(key, target);
+}
+
+function dedupeWinnerPulls(pulls) {
+  const seen = new Set();
+  const result = [];
+  for (const pull of pulls || []) {
+    const key = `${pull?.pullNumber || "run"}:${pull?.mergedAt || ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(pull);
+  }
+  return result.sort((left, right) => new Date(right?.mergedAt || 0) - new Date(left?.mergedAt || 0));
+}
+
+function dedupeRecentPulls(pulls) {
+  const seen = new Set();
+  const result = [];
+  for (const pull of pulls || []) {
+    const key = `${pull?.number || "run"}:${pull?.title || ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(pull);
+  }
+  return result.sort((left, right) => new Date(right?.updatedAt || 0) - new Date(left?.updatedAt || 0));
 }
 
 function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, leaderboard }) {
@@ -3021,6 +3108,15 @@ function normalizeIsoDate(value) {
 
 function buildIdentityAliases({ validator, round }) {
   const aliases = new Map();
+  for (const entrant of round?.entrants || []) {
+    const login = entrant?.author || null;
+    const submissionId = entrant?.submission_id || entrant?.submissionId || null;
+    if (!login || !submissionId) {
+      continue;
+    }
+    addIdentityAlias(aliases, submissionId, login);
+    addIdentityAlias(aliases, inferSubmissionAuthorFromId(submissionId), login);
+  }
   const active = validator?.activeEvaluation || null;
   const login = active?.candidateGithubLogin || active?.candidateAuthor || null;
   const pullNumber = active?.pullNumber || null;

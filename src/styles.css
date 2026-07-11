@@ -4066,23 +4066,27 @@ html { scroll-behavior: smooth; }
 
 .king-metric-panel {
   display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.095);
-  border-radius: 22px;
+  gap: 18px;
+  padding: clamp(18px, 2.5vw, 24px);
+  border: 1px solid rgba(255, 212, 121, 0.16);
+  border-radius: 24px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(255, 212, 121, 0.11), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.016)),
-    rgba(8, 9, 8, 0.56);
+    radial-gradient(circle at 0% 0%, rgba(255, 212, 121, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.018)),
+    rgba(9, 10, 8, 0.66);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
 }
 
 .king-metric-head {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
 }
 
 .king-metric-head span {
-  color: #ffd479;
+  display: block;
+  color: rgba(255, 212, 121, 0.9);
   font-family: "IBM Plex Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.09em;
@@ -4090,46 +4094,56 @@ html { scroll-behavior: smooth; }
 }
 
 .king-metric-head strong {
+  display: block;
+  margin-top: 6px;
   color: var(--text);
-  font-size: 22px;
+  font-size: clamp(22px, 3vw, 30px);
   line-height: 1.1;
 }
 
 .king-metric-head p {
-  max-width: 720px;
+  max-width: 430px;
   margin: 0;
   color: var(--muted);
+  text-align: right;
   line-height: 1.45;
 }
 
-.king-metric-grid {
+.king-metric-primary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.king-metric-grid .metric-chip {
-  min-height: 112px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.038), transparent),
-    rgba(255, 255, 255, 0.026);
 }
 
-.king-metric-grid .metric-chip-emphasis {
-  grid-column: span 2;
-  min-height: 128px;
+.king-metric-card {
+  min-height: 148px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.king-metric-card-gold {
   border-color: rgba(255, 212, 121, 0.28);
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 212, 121, 0.13), transparent 42%),
-    rgba(255, 255, 255, 0.04);
+    radial-gradient(circle at 100% 0%, rgba(255, 212, 121, 0.14), transparent 46%),
+    linear-gradient(145deg, rgba(255, 212, 121, 0.075), rgba(255, 255, 255, 0.02));
 }
 
-.king-metric-grid .metric-chip > span {
+.king-metric-card-green {
+  border-color: rgba(185, 255, 93, 0.24);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(185, 255, 93, 0.11), transparent 46%),
+    linear-gradient(145deg, rgba(185, 255, 93, 0.055), rgba(255, 255, 255, 0.02));
+}
+
+.king-metric-card span,
+.king-metric-support .metric-chip > span {
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
   font-size: 10px;
@@ -4137,7 +4151,45 @@ html { scroll-behavior: smooth; }
   text-transform: uppercase;
 }
 
-.king-metric-grid .metric-chip-value {
+.king-metric-card strong {
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: clamp(38px, 5vw, 58px);
+  line-height: 0.95;
+}
+
+.king-metric-card-gold strong {
+  color: #ffd479;
+}
+
+.king-metric-card-green strong {
+  color: var(--green);
+}
+
+.king-metric-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.king-metric-support {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.king-metric-support .metric-chip {
+  min-height: 106px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(255, 255, 255, 0.026);
+}
+
+.king-metric-support .metric-chip-value {
   width: 100%;
   color: var(--text);
   font-size: 20px;
@@ -4145,21 +4197,16 @@ html { scroll-behavior: smooth; }
   text-align: left;
 }
 
-.king-metric-grid .metric-chip-emphasis .metric-chip-value {
-  color: #ffd479;
-  font-size: clamp(30px, 4vw, 42px);
-}
-
-.king-metric-grid .quality-ratio {
+.king-metric-support .quality-ratio {
   justify-items: start;
 }
 
-.king-metric-grid .quality-ratio > strong {
+.king-metric-support .quality-ratio > strong {
   color: var(--text);
   font-size: 18px;
 }
 
-.king-metric-grid .quality-ratio > small {
+.king-metric-support .quality-ratio > small {
   color: var(--soft);
   font-size: 12px;
 }
@@ -5386,7 +5433,8 @@ html { scroll-behavior: smooth; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .king-metric-grid {
+  .king-metric-primary,
+  .king-metric-support {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -5416,7 +5464,8 @@ html { scroll-behavior: smooth; }
   .duel-command-top,
   .decision-ladder-head,
   .decision-ladder-grid,
-  .king-metric-grid,
+  .king-metric-primary,
+  .king-metric-support,
   .duel-snapshot,
   .duel-main-grid,
   .table-head,
@@ -5432,8 +5481,12 @@ html { scroll-behavior: smooth; }
     padding: 16px;
   }
 
-  .king-metric-grid .metric-chip-emphasis {
-    grid-column: auto;
+  .king-metric-head {
+    display: grid;
+  }
+
+  .king-metric-head p {
+    text-align: left;
   }
 
   .dashboard-hero-visual .asset-image,

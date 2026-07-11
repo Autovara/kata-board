@@ -1531,24 +1531,27 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
   return (
     <section className="king-metric-panel">
       <div className="king-metric-head">
-        <span>cached king baseline</span>
-        <strong>King scoring snapshot</strong>
-        <p>
-          These are the king numbers every candidate is compared against for this round.
-        </p>
+        <div>
+          <span>cached king baseline</span>
+          <strong>King scoring snapshot</strong>
+        </div>
+        <p>Every candidate in this round is compared against this cached king result.</p>
       </div>
-      <div className="king-metric-grid">
-        <MetricChip
+      <div className="king-metric-primary">
+        <KingMetricCard
           label="project pass score"
           value={formatPassScore(king, projectCount)}
-          tone="ok"
-          emphasis
+          hint="First ranking signal"
+          tone="gold"
         />
-        <MetricChip
+        <KingMetricCard
           label="detection"
           value={formatDetection(king?.aggregated_score)}
-          emphasis
+          hint="True positives over expected vulnerabilities"
+          tone="green"
         />
+      </div>
+      <div className="king-metric-support">
         <MetricChip
           label="precision"
           value={precisionFindingFigure(king?.precision, king?.true_positives, king?.total_found)}
@@ -1565,6 +1568,16 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
         <MetricChip label="project pass rule" value={passThreshold} />
       </div>
     </section>
+  );
+}
+
+function KingMetricCard({ label, value, hint, tone = "neutral" }) {
+  return (
+    <article className={`king-metric-card king-metric-card-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{hint}</small>
+    </article>
   );
 }
 
@@ -1923,9 +1936,9 @@ function BattleSide({ role, name, sub, score, scoreLabel = "detection score", av
   );
 }
 
-function MetricChip({ label, value, tone = "neutral", emphasis = false }) {
+function MetricChip({ label, value, tone = "neutral" }) {
   return (
-    <div className={`metric-chip metric-chip-${tone} ${emphasis ? "metric-chip-emphasis" : ""}`}>
+    <div className={`metric-chip metric-chip-${tone}`}>
       <span>{label}</span>
       <div className="metric-chip-value">{value}</div>
     </div>

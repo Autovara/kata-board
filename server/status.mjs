@@ -3951,7 +3951,7 @@ function summarizeScoreSeriesDelta(candidate, king) {
   return candidateSummary.average - kingSummary.average;
 }
 
-function buildNotes({ leaderboard, validator, lanes }) {
+function buildNotes({ leaderboard, validator }) {
   const notes = [];
   if (!leaderboard.rows.length) {
     notes.push(

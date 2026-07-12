@@ -130,7 +130,6 @@ export default function App() {
 
   const payload = state.payload;
   const lanes = payload?.lanes || [];
-  const activity = payload?.activity || [];
 
   useEffect(() => {
     if (!lanes.length) {
@@ -146,13 +145,6 @@ export default function App() {
     () => lanes.find((lane) => lane.id === selectedLaneId) || lanes[0] || null,
     [lanes, selectedLaneId]
   );
-  const laneActivity = useMemo(() => {
-    if (!selectedLane) {
-      return [];
-    }
-    return activity.filter((item) => item.laneId === selectedLane.id);
-  }, [activity, selectedLane]);
-
   function navigate(nextPath) {
     if (nextPath === pathname) {
       return;
@@ -1176,7 +1168,6 @@ function replicaAwareProblemTotals(project, replicasPerProject = 0) {
     return null;
   }
   const actualReplicas = Array.isArray(project.replicas) ? project.replicas : [];
-  const replicaTotal = projectReplicaTotal(project, replicasPerProject);
   const expectedPerReplica = Number(project.total_expected ?? actualReplicas[0]?.total_expected ?? 0);
   if (!actualReplicas.length) {
     return {
@@ -2970,12 +2961,6 @@ function proofFileLink(relativePath, repoSlug) {
     return relativePath;
   }
   return `https://github.com/${repoSlug}/blob/main/${relativePath}`;
-}
-
-function humanizeOutcome(value) {
-  return String(value || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatPercent(value) {

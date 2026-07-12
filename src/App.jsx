@@ -601,16 +601,6 @@ function StatusApprovalList({ approvals }) {
   );
 }
 
-function HowStep({ step, title, text }) {
-  return (
-    <div className="how-step">
-      <span className="how-step-num">{step}</span>
-      <strong>{title}</strong>
-      <p>{text}</p>
-    </div>
-  );
-}
-
 const ROUND_STATE_BANNER = {
   idle: {
     label: "idle",
@@ -1605,7 +1595,6 @@ function DuelDetail({
   projects.forEach((project) => {
     candidateByKey[project.project_key] = project;
   });
-  const candidateByKey_count = projects.length;
   const problemKeys =
     projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
   const candidatePassScore = formatPassScore(entrant, problemKeys.length);
@@ -1941,12 +1930,6 @@ function MetricChip({ label, value, tone = "neutral" }) {
   );
 }
 
-function percentScore(value) {
-  if (value === null || value === undefined) {
-    return "-";
-  }
-  return `${formatNumber(Number(value) * 100)} pts`;
-}
 
 function percentMetric(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -2868,15 +2851,6 @@ function MinerIdentity({ name, sub, size = "compact" }) {
   );
 }
 
-function Stat({ label, value, sub = null }) {
-  return (
-    <div className="stat">
-      <span>{label}</span>
-      <strong>{value ?? "-"}</strong>
-      {sub ? <small>{sub}</small> : null}
-    </div>
-  );
-}
 
 function KeyValue({ label, value }) {
   const isLink = typeof value === "string" && value.startsWith("https://");
@@ -2929,14 +2903,6 @@ function normalizeRoute(value) {
   return withLeading === "" ? "/" : withLeading;
 }
 
-function duelFormat(lane) {
-  if (!lane) {
-    return "not configured";
-  }
-  const count =
-    lane.projects?.length || lane.evaluatorState?.current?.projectKeys?.length || 0;
-  return `${count} selected benchmark project${count === 1 ? "" : "s"}`;
-}
 
 function docsRoundFormat() {
   return `${DOC_ROUND_PROJECT_COUNT} selected benchmark projects`;
@@ -3012,58 +2978,11 @@ function humanizeOutcome(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function friendlyMode(value) {
-  if (value === "candidate_only") {
-    return "Candidate-only recovery";
-  }
-  if (value === "king_duel") {
-    return "King duel";
-  }
-  return humanizeOutcome(value || "Completed round");
-}
-
-function friendlyBenchmarkName(value) {
-  if (!value) {
-    return "Benchmark";
-  }
-  if (String(value).includes("curated-highs-only")) {
-    return "Curated highs benchmark";
-  }
-  return String(value)
-    .replace(/\.json$/i, "")
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function formatPercent(value) {
   if (value == null || Number.isNaN(Number(value))) {
     return "-";
   }
   return `${(Number(value) * 100).toFixed(2)}%`;
-}
-
-function percentValue(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return 0;
-  }
-  return Math.max(0, Math.min(100, Number(value) * 100));
-}
-
-function formatDuration(seconds) {
-  const total = Number(seconds);
-  if (!Number.isFinite(total) || total < 0) {
-    return "-";
-  }
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = Math.floor(total % 60);
-  if (hours) {
-    return `${hours}h ${minutes}m ${secs}s`;
-  }
-  if (minutes) {
-    return `${minutes}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 function avatarUrl(name) {

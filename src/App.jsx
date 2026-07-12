@@ -1,29 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import GridBackground from "./GridBackground.jsx";
-
-const STATUS_URL = import.meta.env.VITE_STATUS_URL || "/api/status";
-const STREAM_URL = import.meta.env.VITE_STREAM_URL || "/api/stream";
-const KATA_ASSET_BASE = import.meta.env.VITE_KATA_ASSET_BASE || "/kata-assets";
-const POLL_INTERVAL_MS = 2000;
-const DOC_ROUND_PROJECT_COUNT = 7;
-const PAGES = [
-  { path: "/", label: "Dashboard" },
-  { path: "/arena", label: "Arena" },
-  { path: "/winners", label: "Winners" },
-  { path: "/leaderboard", label: "Leaderboard" },
-  { path: "/docs", label: "Docs" }
-];
-const KATA_IMAGES = {
-  heroDashboard: assetUrl("hero-dashboard.png"),
-  proof: assetUrl("proof.png"),
-  benchmarkProjects: assetUrl("BenchmarkProjects.png"),
-  vulnerabilityFinding: assetUrl("VulnerabilityFinding.png"),
-  currentKing: assetUrl("CurrentKing.png")
-};
-
-function assetUrl(filename) {
-  return `${KATA_ASSET_BASE}/${encodeURIComponent(filename)}`;
-}
+import {
+  DOC_ROUND_PROJECT_COUNT,
+  KATA_IMAGES,
+  PAGES,
+  POLL_INTERVAL_MS,
+  ROUND_STATE_BANNER,
+  ROUND_STATUS_LABEL
+} from "./constants.js";
+import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js";
 
 export default function App() {
   const [pathname, setPathname] = useState(readCurrentRoute);
@@ -592,44 +577,6 @@ function StatusApprovalList({ approvals }) {
     </div>
   );
 }
-
-const ROUND_STATE_BANNER = {
-  idle: {
-    label: "idle",
-    tone: "neutral",
-    text: "Waiting for the next round to start."
-  },
-  executing: {
-    label: "scoring now",
-    tone: "warn",
-    text: "Every candidate is being scored against the king right now."
-  },
-  completed: {
-    label: "round complete",
-    tone: "ok",
-    text: "Scoring finished — see the result below."
-  },
-  skipped: {
-    label: "round skipped",
-    tone: "warn",
-    text: "The round did not run. See the reason below."
-  },
-  failed: {
-    label: "round failed",
-    tone: "bad",
-    text: "The round stopped before validation. See the reason below."
-  }
-};
-
-const ROUND_STATUS_LABEL = {
-  pending: "pending",
-  executing: "scoring",
-  winner: "winner",
-  losing: "did not beat king",
-  invalid: "invalid",
-  stale: "stale",
-  hold: "on hold"
-};
 
 function RoundStatusPill({ status }) {
   const label = ROUND_STATUS_LABEL[status] || status || "—";
@@ -2870,30 +2817,6 @@ function CodeBlock({ value }) {
 function Empty({ text }) {
   return <div className="empty">{text}</div>;
 }
-
-function statusUrl() {
-  return STATUS_URL;
-}
-
-function streamUrl() {
-  return STREAM_URL;
-}
-
-function readCurrentRoute() {
-  return normalizeRoute(window.location.pathname);
-}
-
-function routeUrl(routePath) {
-  return normalizeRoute(routePath);
-}
-
-function normalizeRoute(value) {
-  const path = value || "/";
-  const withoutQuery = path.split("?")[0].split("#")[0] || "/";
-  const withLeading = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
-  return withLeading === "" ? "/" : withLeading;
-}
-
 
 function docsRoundFormat() {
   return `${DOC_ROUND_PROJECT_COUNT} selected benchmark projects`;

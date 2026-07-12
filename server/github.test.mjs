@@ -136,3 +136,47 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
     "jonathanchang31"
   );
 });
+
+test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a historical win", () => {
+  const output = JSON.stringify([
+    {
+      number: 98,
+      title: "feat(sn60): add kianni miner",
+      state: "MERGED",
+      mergedAt: "2026-07-09T10:00:00Z",
+      updatedAt: "2026-07-09T10:00:00Z",
+      url: "https://github.com/Autovara/kata/pull/98",
+      author: { login: "kiannidev" },
+      labels: [{ name: "kata:defeat" }],
+      files: [{ path: "submissions/sn60__bitsec/miner/kianni-20260708-01/agent.py" }]
+    },
+    {
+      number: 124,
+      title: "feat(sn60): add daedalus miner",
+      state: "MERGED",
+      mergedAt: "2026-07-11T01:26:38Z",
+      updatedAt: "2026-07-11T01:26:38Z",
+      url: "https://github.com/Autovara/kata/pull/124",
+      author: { login: "Daedalus-Icarus" },
+      labels: [{ name: "kata:winner:sn60__bitsec" }],
+      files: [{ path: "submissions/sn60__bitsec/miner/daedalus-20260710-01/agent.py" }]
+    }
+  ]);
+
+  const leaderboard = loadGithubCliLeaderboard({
+    repoSlug: "Autovara/kata",
+    run: () => output
+  });
+
+  const kianni = leaderboard.rows.find((row) => row.author === "kiannidev");
+  const daedalus = leaderboard.rows.find((row) => row.author === "Daedalus-Icarus");
+  // Both won a round, so each keeps one historical win.
+  assert.equal(kianni.wins, 1, "dethroned king should still have 1 win");
+  assert.equal(daedalus.wins, 1);
+  // But the current king is the kata:winner PR, not the dethroned (kata:defeat) one.
+  assert.equal(
+    leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,
+    "Daedalus-Icarus"
+  );
+  assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].pullNumber, 124);
+});

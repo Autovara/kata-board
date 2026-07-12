@@ -78,6 +78,7 @@ const KATA_GITTENSOR_CONFIG = {
     "kata:reward:l": 5.0,
     "kata:reward:m": 3.0,
     "kata:reward:s": 1.5,
+    "kata:defeat": 0.25,
     "kata:invalid": 0.0,
     "kata:losing": 0.0,
     "kata:stale": 0.0,

@@ -141,7 +141,9 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
     incrementStatusCounts(entry, pull.labels);
     if (pull.state === "open") {
       entry.openSubmissions += 1;
-    } else if (pull.mergedAt && pull.winnerEligible) {
+    } else if (pull.mergedAt && hasKataWinHistory(pull)) {
+      // Count both the reigning king (kata:winner) and dethroned kings
+      // (kata:defeat) as historical wins so a former king keeps its win total.
       entry.wins += 1;
       entry.winnerPulls.push({
         pullNumber: pull.number,
@@ -198,6 +200,18 @@ function normalizePullState(state) {
 function isKataWinnerPull(pull) {
   const labels = normalizeLabelNames(pull?.labels);
   return labels.some((label) => label.startsWith("kata:winner:"));
+}
+
+// A dethroned king carries `kata:defeat` (its `kata:winner` label was stripped on
+// promotion of the next king). It is no longer the current king, but it did win a
+// round, so it still counts toward a contributor's historical win total.
+function isKataDefeatedPull(pull) {
+  const labels = normalizeLabelNames(pull?.labels);
+  return labels.some((label) => label.startsWith("kata:defeat"));
+}
+
+function hasKataWinHistory(pull) {
+  return isKataWinnerPull(pull) || isKataDefeatedPull(pull);
 }
 
 function normalizeLabelNames(labels) {

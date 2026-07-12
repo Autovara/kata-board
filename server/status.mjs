@@ -22,6 +22,11 @@ import {
   readTextSafe,
   statMtimeIso
 } from "./status/fsUtil.mjs";
+import {
+  applyRoundIdentityAliases,
+  buildIdentityAliases,
+  resolveAuthorAlias
+} from "./status/identity.mjs";
 
 const DEFAULT_CACHE_TTL_MS = 3_000;
 // The GitHub leaderboard fans out one files-request per PR, so it gets its
@@ -3459,70 +3464,6 @@ function normalizeIsoDate(value) {
     return null;
   }
   return date.toISOString();
-}
-
-function buildIdentityAliases({ validator, round }) {
-  const aliases = new Map();
-  for (const entrant of round?.entrants || []) {
-    const login = entrant?.author || null;
-    const submissionId = entrant?.submission_id || entrant?.submissionId || null;
-    if (!login || !submissionId) {
-      continue;
-    }
-    addIdentityAlias(aliases, submissionId, login);
-    addIdentityAlias(aliases, inferSubmissionAuthorFromId(submissionId), login);
-  }
-  const active = validator?.activeEvaluation || null;
-  const login = active?.candidateGithubLogin || active?.candidateAuthor || null;
-  const pullNumber = active?.pullNumber || null;
-  if (!login || !pullNumber || active?.finalAction !== "merge") {
-    return aliases;
-  }
-  const winnerEntrant = (round?.entrants || []).find(
-    (entrant) => entrant?.pull_number === pullNumber
-  );
-  if (!winnerEntrant?.submission_id) {
-    return aliases;
-  }
-  addIdentityAlias(aliases, winnerEntrant.submission_id, login);
-  addIdentityAlias(
-    aliases,
-    inferSubmissionAuthorFromId(winnerEntrant.submission_id),
-    login
-  );
-  return aliases;
-}
-
-function addIdentityAlias(aliases, from, to) {
-  const source = String(from || "").trim();
-  const target = String(to || "").trim();
-  if (!source || !target || source === target) {
-    return;
-  }
-  aliases.set(source, target);
-  aliases.set(source.toLowerCase(), target);
-}
-
-function resolveAuthorAlias(author, aliases = new Map()) {
-  const value = String(author || "").trim();
-  if (!value) {
-    return author;
-  }
-  return aliases.get(value) || aliases.get(value.toLowerCase()) || author;
-}
-
-function applyRoundIdentityAliases(round, identityAliases = new Map()) {
-  if (!round) {
-    return round;
-  }
-  return {
-    ...round,
-    kingAuthor: resolveAuthorAlias(round.kingAuthor, identityAliases),
-    entrants: (round.entrants || []).map((entrant) => ({
-      ...entrant,
-      author: resolveAuthorAlias(entrant.author, identityAliases)
-    }))
-  };
 }
 
 function enrichRoundKingIdentity(round, leaderboard) {

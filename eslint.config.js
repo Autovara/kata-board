@@ -39,4 +39,13 @@ export default [
       globals: { ...globals.node },
     },
   },
+  {
+    // Test files run under Vitest in a jsdom environment (browser + node globals).
+    files: ["src/**/*.test.{js,jsx}", "test/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ];

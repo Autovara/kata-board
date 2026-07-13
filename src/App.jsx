@@ -886,15 +886,19 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       ...selectedEntrant,
       ...(result
         ? {
+            // Fall back to the entrant's own values for every field: a live result
+            // can exist before these metrics are computed, and overwriting with
+            // undefined would blank the per-problem breakdown and precision/F1 for
+            // an entrant that already carried them (see the ranked-table merge).
             aggregated_score: result.aggregated_score ?? selectedEntrant.aggregated_score,
             true_positives: result.true_positives ?? selectedEntrant.true_positives,
-            precision: result.precision,
-            f1_score: result.f1_score,
-            total_found: result.total_found,
-            total_expected: result.total_expected,
-            invalid_runs: result.invalid_runs,
+            precision: result.precision ?? selectedEntrant.precision,
+            f1_score: result.f1_score ?? selectedEntrant.f1_score,
+            total_found: result.total_found ?? selectedEntrant.total_found,
+            total_expected: result.total_expected ?? selectedEntrant.total_expected,
+            invalid_runs: result.invalid_runs ?? selectedEntrant.invalid_runs,
             beats_king: result.beats_king ?? selectedEntrant.beats_king,
-            projects: result.projects,
+            projects: result.projects ?? selectedEntrant.projects,
             screening_result: result.screening_result ?? selectedEntrant.screening_result,
             status: result.state === "failed" ? "invalid" : selectedEntrant.status
           }

@@ -59,13 +59,26 @@ app.get("/api/stream", async (_request, response) => {
     }
     try {
       const payload = await loadBoardStatus(process.env);
-      if (payload.generatedAt !== lastStamp) {
-        lastStamp = payload.generatedAt;
+      // The client may have disconnected during the await; writing to an ended
+      // response throws an unhandled rejection out of the interval callback.
+      if (closed) {
+        return;
+      }
+      // Gate on a stamp that also reflects live round progress. On a cache hit
+      // loadBoardStatus refreshes round.liveProgress but keeps the same
+      // generatedAt, so gating on generatedAt alone would drop every mid-round
+      // progress frame and the round would only animate once per cache TTL.
+      const stamp = streamStamp(payload);
+      if (stamp !== lastStamp) {
+        lastStamp = stamp;
         response.write(`data: ${JSON.stringify(payload)}\n\n`);
       } else {
         response.write(":\n\n"); // keep-alive comment
       }
     } catch (error) {
+      if (closed) {
+        return;
+      }
       const message = error instanceof Error ? error.message : "unknown error";
       response.write(`data: ${JSON.stringify({ __error: message })}\n\n`);
     }
@@ -104,21 +117,34 @@ if (fs.existsSync(distRoot)) {
   });
 }
 
-const server = app.listen(port, () => {
-  console.log(`kata-board listening on http://localhost:${port}`);
-});
+// Only bind the port when run directly (node server/index.mjs); importing this
+// module in tests must not start a server.
+const isMainModule =
+  process.argv[1] && path.resolve(process.argv[1]) === __filename;
+if (isMainModule) {
+  const server = app.listen(port, () => {
+    console.log(`kata-board listening on http://localhost:${port}`);
+  });
 
-server.on("error", (error) => {
-  if (error?.code === "EADDRINUSE") {
-    console.error(
-      `kata-board could not start because port ${port} is already in use. ` +
-        `Stop the existing process or rerun with PORT=<free-port> npm run dev`
-    );
-    process.exit(1);
-  }
+  server.on("error", (error) => {
+    if (error?.code === "EADDRINUSE") {
+      console.error(
+        `kata-board could not start because port ${port} is already in use. ` +
+          `Stop the existing process or rerun with PORT=<free-port> npm run dev`
+      );
+      process.exit(1);
+    }
 
-  throw error;
-});
+    throw error;
+  });
+}
+
+// A stream identity for the payload: the generatedAt timestamp plus the live
+// round progress, which changes on a cache hit while generatedAt does not.
+export function streamStamp(payload) {
+  const progress = payload?.round?.liveProgress;
+  return `${payload?.generatedAt ?? ""}|${progress ? JSON.stringify(progress) : ""}`;
+}
 
 function streamIntervalMs(env) {
   const parsed = Number.parseInt(env.KATA_STREAM_INTERVAL_MS || "1000", 10);

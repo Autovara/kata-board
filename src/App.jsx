@@ -829,15 +829,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       screeningByPull[entry.pullNumber] = entry;
     }
   });
-  const mainScoringStarted = (live?.candidates || []).some(
-    (candidate) =>
-      Number(candidate?.done || 0) > 0 ||
-      (Array.isArray(candidate?.projects) && candidate.projects.length > 0) ||
-      ["scoring", "done", "failed"].includes(candidate?.state)
-  );
   const showScreeningGate =
     Boolean(live?.screening) &&
-    (!mainScoringStarted || live.screening.state !== "complete" || live.screening.failed > 0);
+    live.screening.state !== "complete";
 
   // Per-PR result feed (published as each PR finishes, and after the round ends) —
   // used by the detail page so a finished PR keeps its full result. Not gated on

@@ -976,15 +976,15 @@ function loadRoundProgress(roundProgressPath, kataRoot = null) {
   }
   return enrichRoundProgressWithReplicas(
     {
-    state: data.state || null,
-    runId: data.run_id || null,
-    competitionMode: data.competition_mode || "king_duel",
-    kingSkippedReason: data.king_skipped_reason || null,
-    updatedAt: data.updated_at || null,
-    projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
-    replicasPerProject: inferRoundReplicasPerProject(data),
-    king: data.king && typeof data.king === "object" ? data.king : null,
-    candidates: Array.isArray(data.candidates) ? data.candidates : []
+      state: data.state || null,
+      runId: data.run_id || null,
+      competitionMode: data.competition_mode || "king_duel",
+      kingSkippedReason: data.king_skipped_reason || null,
+      updatedAt: data.updated_at || null,
+      projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
+      replicasPerProject: inferRoundReplicasPerProject(data),
+      king: data.king && typeof data.king === "object" ? data.king : null,
+      candidates: Array.isArray(data.candidates) ? data.candidates : []
     },
     kataRoot
   );
@@ -1026,8 +1026,11 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
   }
   const projectKeys = Array.isArray(progress.projectKeys) ? progress.projectKeys : [];
   const expectedReplicas = positiveIntegerOrNull(progress.replicasPerProject);
+  const screening = summarizeRoundScreeningProgress(progress, runRoot);
   return {
     ...progress,
+    updatedAt: maxDate(progress.updatedAt, screening?.updatedAt),
+    screening,
     king: progress.king
       ? enrichRoundProgressSide({
           side: progress.king,
@@ -1049,6 +1052,143 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
         expectedReplicas
       });
     })
+  };
+}
+
+function summarizeRoundScreeningProgress(progress, runRoot) {
+  const candidates = Array.isArray(progress?.candidates) ? progress.candidates : [];
+  if (!candidates.length) {
+    return null;
+  }
+  const entries = candidates
+    .map((candidate) =>
+      summarizeRoundScreeningCandidate({
+        candidate,
+        runRoot,
+        fallbackProjectKey: progress.projectKeys?.[0] || null
+      })
+    )
+    .filter(Boolean);
+  if (!entries.length) {
+    return null;
+  }
+  const counts = entries.reduce(
+    (acc, entry) => {
+      acc[entry.state] = (acc[entry.state] || 0) + 1;
+      return acc;
+    },
+    { passed: 0, failed: 0, running: 0, queued: 0 }
+  );
+  const terminal = counts.passed + counts.failed;
+  const updatedAt = entries.reduce((latest, entry) => maxDate(latest, entry.updatedAt), null);
+  return {
+    state: terminal >= entries.length ? "complete" : "screening",
+    total: entries.length,
+    passed: counts.passed || 0,
+    failed: counts.failed || 0,
+    running: counts.running || 0,
+    queued: counts.queued || 0,
+    current:
+      entries.find((entry) => entry.state === "running") ||
+      entries.find((entry) => entry.state === "queued") ||
+      null,
+    updatedAt,
+    entries
+  };
+}
+
+function summarizeRoundScreeningCandidate({ candidate, runRoot, fallbackProjectKey = null }) {
+  const pullNumber = pullNumberFromProgressId(candidate?.submission_id);
+  if (!pullNumber) {
+    return null;
+  }
+  const screeningRoot = path.join(runRoot, `pr-${pullNumber}`, "screening");
+  const base = {
+    pullNumber,
+    submission_id: candidate.submission_id || `pr-${pullNumber}`,
+    projectKey: fallbackProjectKey,
+    runId: null,
+    startedAt: null,
+    updatedAt: null,
+    screening_result: null
+  };
+  if (!fs.existsSync(screeningRoot)) {
+    return {
+      ...base,
+      state: "queued"
+    };
+  }
+  const latestRunRoot = latestDirectoryPath(screeningRoot);
+  if (!latestRunRoot) {
+    return {
+      ...base,
+      state: "running",
+      updatedAt: newestMtimeIso(screeningRoot) || statMtimeIso(screeningRoot)
+    };
+  }
+  const result = readJsonSafe(path.join(latestRunRoot, "screening_result.json"));
+  const projectKey =
+    result?.project_key ||
+    result?.projectKey ||
+    inferScreeningProjectKey(latestRunRoot) ||
+    fallbackProjectKey;
+  const updatedAt =
+    result?.created_at ||
+    newestMtimeIso(latestRunRoot) ||
+    statMtimeIso(path.join(latestRunRoot, "screening_result.json")) ||
+    statMtimeIso(latestRunRoot);
+  return {
+    ...base,
+    state: screeningResultState(result),
+    runId: result?.run_id || path.basename(latestRunRoot),
+    projectKey,
+    startedAt: statMtimeIso(latestRunRoot),
+    updatedAt,
+    screening_result: publicRoundScreeningResult(result)
+  };
+}
+
+function latestDirectoryPath(rootPath) {
+  return listDirectories(rootPath)
+    .map((name) => path.join(rootPath, name))
+    .sort((left, right) => {
+      const byMtime = new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0);
+      return byMtime || right.localeCompare(left);
+    })[0] || null;
+}
+
+function inferScreeningProjectKey(screeningRunRoot) {
+  const reportRoot = path.join(screeningRunRoot, "reports");
+  return listDirectories(reportRoot).sort()[0] || null;
+}
+
+function screeningResultState(result) {
+  if (!result || typeof result !== "object") {
+    return "running";
+  }
+  const status = String(result.status || "").toLowerCase();
+  if (["passed", "pass", "success", "true"].includes(status)) {
+    return "passed";
+  }
+  if (["failed", "fail", "error", "false"].includes(status)) {
+    return "failed";
+  }
+  return "running";
+}
+
+function publicRoundScreeningResult(result) {
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+  return {
+    run_id: result.run_id || null,
+    status: result.status || null,
+    stage: result.stage || null,
+    project_key: result.project_key || result.projectKey || null,
+    reasons: Array.isArray(result.reasons)
+      ? result.reasons.map((reason) => String(reason)).filter(Boolean)
+      : [],
+    created_at: result.created_at || null
   };
 }
 

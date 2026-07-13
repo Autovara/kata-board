@@ -823,6 +823,21 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       }
     });
   }
+  const screeningByPull = {};
+  (live?.screening?.entries || []).forEach((entry) => {
+    if (entry?.pullNumber) {
+      screeningByPull[entry.pullNumber] = entry;
+    }
+  });
+  const mainScoringStarted = (live?.candidates || []).some(
+    (candidate) =>
+      Number(candidate?.done || 0) > 0 ||
+      (Array.isArray(candidate?.projects) && candidate.projects.length > 0) ||
+      ["scoring", "done", "failed"].includes(candidate?.state)
+  );
+  const showScreeningGate =
+    Boolean(live?.screening) &&
+    (!mainScoringStarted || live.screening.state !== "complete" || live.screening.failed > 0);
 
   // Per-PR result feed (published as each PR finishes, and after the round ends) —
   // used by the detail page so a finished PR keeps its full result. Not gated on
@@ -1008,6 +1023,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             replicasPerProject={replicasPerProject}
           />
 
+          {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
+
           <div className="table-head round-grid">
             <span>PR</span>
             <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
@@ -1089,7 +1106,13 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
                     <BeatsKingBadge beats={entrant.beats_king} />
                   )}
                 </span>
-                <span>{renderEntrantStatus(entrant, progressByPull[entrant.pull_number])}</span>
+                <span>
+                  {renderEntrantStatus(
+                    entrant,
+                    progressByPull[entrant.pull_number],
+                    screeningByPull[entrant.pull_number]
+                  )}
+                </span>
               </div>
             ))
           ) : (
@@ -1924,6 +1947,68 @@ function RoundMeta({ label, value }) {
   );
 }
 
+function ScreeningGatePanel({ screening }) {
+  if (!screening) {
+    return null;
+  }
+  const done = Number(screening.passed || 0) + Number(screening.failed || 0);
+  const current = screening.current;
+  return (
+    <div className="round-screening-gate">
+      <div className="round-screening-main">
+        <div>
+          <span>screening gate</span>
+          <strong>
+            {screening.state === "complete"
+              ? `complete ${done}/${screening.total}`
+              : `checking ${done}/${screening.total}`}
+          </strong>
+        </div>
+        <ProgressBar done={done} total={screening.total} label={`${done}/${screening.total}`} tone="screening" />
+      </div>
+      <div className="round-screening-meta">
+        <RoundMeta label="passed" value={screening.passed || 0} />
+        <RoundMeta label="running" value={screening.running || 0} />
+        <RoundMeta label="queued" value={screening.queued || 0} />
+        <RoundMeta label="failed" value={screening.failed || 0} />
+        {current ? (
+          <RoundMeta
+            label={current.state === "queued" ? "next" : "current"}
+            value={`PR #${current.pullNumber}`}
+          />
+        ) : null}
+      </div>
+      <div className="round-screening-list">
+        {(screening.entries || []).map((entry) => (
+          <span
+            className={`screening-chip screening-chip-${entry.state}`}
+            title={entry.projectKey || entry.runId || ""}
+            key={entry.pullNumber}
+          >
+            #{entry.pullNumber} {screeningStatusLabel(entry)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function screeningStatusLabel(entry) {
+  if (!entry) {
+    return "queued";
+  }
+  if (entry.state === "passed") {
+    return "passed";
+  }
+  if (entry.state === "failed") {
+    return "failed";
+  }
+  if (entry.state === "running") {
+    return "screening";
+  }
+  return "queued";
+}
+
 function ProgressBar({ done, total, label, tone = "candidate" }) {
   const safeTotal = total > 0 ? total : 0;
   const pct = safeTotal > 0 ? Math.round((done / safeTotal) * 100) : 0;
@@ -1950,12 +2035,23 @@ function EntrantIdentity({ author, submissionId }) {
   );
 }
 
-function renderEntrantStatus(entrant, progress) {
-  const failure = screeningFailureDetails(progress) || screeningFailureDetails(entrant);
+function renderEntrantStatus(entrant, progress, screening) {
+  const failure =
+    screeningFailureDetails(screening) ||
+    screeningFailureDetails(progress) ||
+    screeningFailureDetails(entrant);
   if (failure) {
     return <ScreeningFailureBadge failure={failure} />;
   }
+  const hasScoringProgress =
+    progress &&
+    (progress.state !== "queued" ||
+      Number(progress.done || 0) > 0 ||
+      (Array.isArray(progress.projects) && progress.projects.length > 0));
   if (progress) {
+    if (!hasScoringProgress && screening) {
+      return <ScreeningStatusBadge screening={screening} />;
+    }
     if (progress.state === "queued") {
       return <span className="rstat rstat-pending">queued</span>;
     }
@@ -1968,7 +2064,27 @@ function renderEntrantStatus(entrant, progress) {
         : `scoring ${progress.done}/${progress.total}`;
     return <ProgressBar done={progress.done} total={progress.total} label={label} />;
   }
+  if (screening) {
+    return <ScreeningStatusBadge screening={screening} />;
+  }
   return <RoundStatusPill status={entrant.status} />;
+}
+
+function ScreeningStatusBadge({ screening }) {
+  const label = screeningStatusLabel(screening);
+  const className =
+    screening?.state === "passed"
+      ? "rstat-screening-passed"
+      : screening?.state === "running"
+        ? "rstat-screening-running"
+        : screening?.state === "failed"
+          ? "rstat-screening-failed"
+          : "rstat-pending";
+  return (
+    <span className={`rstat ${className}`} title={screening?.projectKey || ""}>
+      {label}
+    </span>
+  );
 }
 
 function formatDetection(value) {

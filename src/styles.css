@@ -5644,6 +5644,74 @@ html { scroll-behavior: smooth; }
   font-size: 10px;
   white-space: nowrap;
 }
+.round-screening-gate {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(280px, 1.4fr);
+  gap: 14px 22px;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, rgba(37, 208, 171, 0.1), transparent 62%),
+    rgba(8, 9, 8, 0.42);
+}
+.round-screening-main {
+  display: grid;
+  gap: 10px;
+}
+.round-screening-main > div:first-child span {
+  display: block;
+  color: var(--cyan);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.round-screening-main > div:first-child strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 18px;
+}
+.round-screening-meta {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(64px, 1fr));
+  gap: 10px;
+}
+.round-screening-list {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.screening-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 9px;
+  color: var(--muted);
+  background: rgba(244, 247, 239, 0.04);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.screening-chip-passed {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.42);
+  background: rgba(185, 255, 93, 0.07);
+}
+.screening-chip-running {
+  color: var(--cyan);
+  border-color: rgba(37, 208, 171, 0.5);
+  background: rgba(37, 208, 171, 0.08);
+}
+.screening-chip-failed {
+  color: #ffb2ad;
+  border-color: rgba(255, 95, 90, 0.52);
+  background: rgba(255, 95, 90, 0.1);
+}
 .round-banner-state {
   display: flex;
   align-items: center;
@@ -5761,6 +5829,16 @@ html { scroll-behavior: smooth; }
   border-color: rgba(255, 95, 90, 0.55);
   background: rgba(255, 95, 90, 0.1);
 }
+.rstat-screening-passed {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.45);
+  background: rgba(185, 255, 93, 0.08);
+}
+.rstat-screening-running {
+  color: var(--cyan);
+  border-color: rgba(37, 208, 171, 0.5);
+  background: rgba(37, 208, 171, 0.08);
+}
 .rstat-stale     { color: #ff8a4c; border-color: rgba(255, 138, 76, 0.45); }
 .rstat-hold      { color: #b18cff; border-color: rgba(177, 140, 255, 0.45); }
 .rstat-king      { color: #ffd479; border-color: rgba(255, 212, 121, 0.5); }
@@ -5857,6 +5935,14 @@ html { scroll-behavior: smooth; }
     justify-content: flex-start;
   }
 
+  .round-screening-gate {
+    grid-template-columns: 1fr;
+  }
+
+  .round-screening-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
 }
 
 /* live round progress bars */
@@ -5887,6 +5973,9 @@ html { scroll-behavior: smooth; }
 }
 .progress-king .progress-track i {
   background: #ffd479;
+}
+.progress-screening .progress-track i {
+  background: var(--cyan);
 }
 
 /* entrant identity: github avatar + username in the round table */

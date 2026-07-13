@@ -1710,6 +1710,39 @@ test("attaches live per-candidate progress while a round is executing", async ()
     status: "success",
     result: { result: "PASS", true_positives: 2, total_expected: 3, total_found: 3 }
   });
+  writeJson(
+    path.join(
+      root,
+      "runs",
+      "sn60-round-live",
+      "pr-5",
+      "screening",
+      "sn60-screening-pr-5"
+    ),
+    "screening_result.json",
+    {
+      schema_version: 1,
+      run_id: "sn60-screening-pr-5",
+      status: "passed",
+      stage: "execution",
+      project_key: "project-alpha",
+      reasons: [],
+      created_at: "2026-07-06T12:00:02Z"
+    }
+  );
+  fs.mkdirSync(
+    path.join(
+      root,
+      "runs",
+      "sn60-round-live",
+      "pr-6",
+      "screening",
+      "sn60-screening-pr-6",
+      "reports",
+      "project-alpha"
+    ),
+    { recursive: true }
+  );
   writeJson(root, "round-history.json", {
     schema_version: 1,
     rounds: [
@@ -1745,6 +1778,14 @@ test("attaches live per-candidate progress while a round is executing", async ()
   assert.equal(status.round.liveProgress.candidates[0].projects[0].replicas[0].status, "pass");
   assert.equal(status.round.liveProgress.candidates[1].submission_id, "pr-6");
   assert.deepEqual(status.round.liveProgress.candidates[1].projects, []);
+  assert.equal(status.round.liveProgress.screening.state, "screening");
+  assert.equal(status.round.liveProgress.screening.total, 2);
+  assert.equal(status.round.liveProgress.screening.passed, 1);
+  assert.equal(status.round.liveProgress.screening.running, 1);
+  assert.equal(status.round.liveProgress.screening.entries[0].pullNumber, 5);
+  assert.equal(status.round.liveProgress.screening.entries[0].state, "passed");
+  assert.equal(status.round.liveProgress.screening.entries[1].pullNumber, 6);
+  assert.equal(status.round.liveProgress.screening.entries[1].state, "running");
 });
 
 test("live project pass uses replica threshold instead of last replica row", async () => {

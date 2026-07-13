@@ -1120,6 +1120,11 @@ function findRoundReplicaProject({
   if (pullNumber) {
     directRoots.push(path.join(runRoot, `pr-${pullNumber}`, variantName, projectKey));
   }
+  // Per-label round layout (plugin orchestrator): each variant runs under its own
+  // label dir -> runRoot/<label>/<variant>/<project>. The king's label is "king"
+  // (so runRoot/king/king/...); candidates use the pr-<n> path above.
+  directRoots.push(path.join(runRoot, variantName, variantName, projectKey));
+  // Legacy single-run layout: runRoot/<variant>/<project>.
   directRoots.push(path.join(runRoot, variantName, projectKey));
   for (const projectRoot of directRoots) {
     if (fs.existsSync(projectRoot)) {

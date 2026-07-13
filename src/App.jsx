@@ -1953,60 +1953,99 @@ function ScreeningGatePanel({ screening }) {
   }
   const done = Number(screening.passed || 0) + Number(screening.failed || 0);
   const current = screening.current;
+  const next = nextScreeningEntry(screening);
+  const headline = screeningHeadline(screening);
   return (
     <div className="round-screening-gate">
-      <div className="round-screening-main">
-        <div>
+      <div className="round-screening-head">
+        <div className="round-screening-title">
           <span>screening gate</span>
-          <strong>
-            {screening.state === "complete"
-              ? `complete ${done}/${screening.total}`
-              : `checking ${done}/${screening.total}`}
-          </strong>
+          <strong>{headline}</strong>
+          <small>
+            {done} of {screening.total} PR{screening.total === 1 ? "" : "s"} checked
+          </small>
         </div>
         <ProgressBar done={done} total={screening.total} label={`${done}/${screening.total}`} tone="screening" />
       </div>
-      <div className="round-screening-meta">
-        <RoundMeta label="passed" value={screening.passed || 0} />
-        <RoundMeta label="running" value={screening.running || 0} />
-        <RoundMeta label="queued" value={screening.queued || 0} />
-        <RoundMeta label="failed" value={screening.failed || 0} />
+      <div className="round-screening-meta" aria-label="Screening status counts">
+        <ScreeningCount label="cleared" value={screening.passed || 0} tone="passed" />
+        <ScreeningCount label="screening" value={screening.running || 0} tone="running" />
+        <ScreeningCount label="waiting" value={screening.queued || 0} tone="queued" />
+        <ScreeningCount label="failed" value={screening.failed || 0} tone="failed" />
         {current ? (
-          <RoundMeta
+          <ScreeningCount
             label={current.state === "queued" ? "next" : "current"}
-            value={`PR #${current.pullNumber}`}
+            value={`#${current.pullNumber}`}
+            tone={current.state}
           />
         ) : null}
+        {!current && next ? <ScreeningCount label="next" value={`#${next.pullNumber}`} tone="queued" /> : null}
       </div>
-      <div className="round-screening-list">
+      <div className="round-screening-steps" aria-label="Per-PR screening progress">
         {(screening.entries || []).map((entry) => (
-          <span
-            className={`screening-chip screening-chip-${entry.state}`}
-            title={entry.projectKey || entry.runId || ""}
+          <div
+            className={`screening-step screening-step-${entry.state}`}
+            aria-current={entry.pullNumber === current?.pullNumber ? "step" : undefined}
             key={entry.pullNumber}
+            title={entry.projectKey || entry.runId || ""}
           >
-            #{entry.pullNumber} {screeningStatusLabel(entry)}
-          </span>
+            <i aria-hidden="true" />
+            <span>#{entry.pullNumber}</span>
+            <small>{screeningStatusLabel(entry, { short: true })}</small>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-function screeningStatusLabel(entry) {
+function ScreeningCount({ label, value, tone }) {
+  return (
+    <div className={`screening-count screening-count-${tone || "neutral"}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function screeningHeadline(screening) {
+  if (!screening) {
+    return "Waiting for screening";
+  }
+  if (screening.failed > 0) {
+    return `${screening.failed} PR${screening.failed === 1 ? "" : "s"} failed screening`;
+  }
+  if (screening.state === "complete") {
+    return "Screening complete";
+  }
+  const current = screening.current;
+  if (current?.state === "running") {
+    return `Screening PR #${current.pullNumber}`;
+  }
+  if (current?.state === "queued") {
+    return `PR #${current.pullNumber} is next`;
+  }
+  return "Waiting for screening";
+}
+
+function nextScreeningEntry(screening) {
+  return (screening?.entries || []).find((entry) => entry.state === "queued") || null;
+}
+
+function screeningStatusLabel(entry, { short = false } = {}) {
   if (!entry) {
-    return "queued";
+    return short ? "wait" : "waiting";
   }
   if (entry.state === "passed") {
-    return "passed";
+    return short ? "clear" : "cleared";
   }
   if (entry.state === "failed") {
     return "failed";
   }
   if (entry.state === "running") {
-    return "screening";
+    return short ? "now" : "screening now";
   }
-  return "queued";
+  return short ? "wait" : "waiting";
 }
 
 function ProgressBar({ done, total, label, tone = "candidate" }) {

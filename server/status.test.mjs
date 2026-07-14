@@ -192,6 +192,23 @@ test("discovers the active SN60 lane from the central pack registry", async () =
   assert.equal(lane.king.submissionId, "alice-20260701-01");
 });
 
+test("byLane mirrors the single-lane globals keyed by lane id", async () => {
+  const root = makeKataRoot();
+  const status = await loadBoardStatus(boardEnv(root));
+  const laneId = status.lanes[0].id;
+  assert.equal(laneId, "sn60__bitsec:miner");
+  assert.ok(status.byLane, "payload has byLane");
+  // The active lane owns the (single-global) competition fields, by identity, so the top-level
+  // fields remain the byte-identical single-lane alias.
+  const entry = status.byLane[laneId];
+  assert.ok(entry, "byLane has the active lane");
+  assert.equal(entry.round, status.round);
+  assert.equal(entry.roundHistory, status.roundHistory);
+  assert.equal(entry.publicProof, status.publicProof);
+  assert.equal(entry.leaderboard, status.leaderboard);
+  assert.equal(entry.activity, status.activity);
+});
+
 test("renders the SN60 duel state from lane state files", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));

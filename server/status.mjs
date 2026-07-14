@@ -41,6 +41,20 @@ let cachedLeaderboardKey = null;
 let leaderboardRefreshPromise = null;
 let leaderboardRefreshKey = null;
 
+// Group the per-competition fields under the lane they belong to, keyed by `lane.id`
+// (`<subnetPack>:<mode>`), so the client can read `byLane[selectedLaneId]`. Today the round /
+// proof / leaderboard / activity are single-global (one active competition), so the active lane
+// owns them; the values are the SAME object references as the top-level fields, so the cache-hit
+// liveProgress refresh propagates to both. Per-lane computation lands in a later step; the
+// top-level fields stay as the single-lane alias (byte-identical for a single-lane deploy).
+export function buildByLane(lanes, fields) {
+  const primary = Array.isArray(lanes) ? lanes[0] : null;
+  if (!primary || !primary.id) {
+    return {};
+  }
+  return { [primary.id]: { ...fields } };
+}
+
 export async function loadBoardStatus(env) {
   const cacheTtlMs = readCacheTtlMs(env);
   const roots = resolveRoots(env);
@@ -98,6 +112,13 @@ export async function loadBoardStatus(env) {
     validator,
     lanes
   });
+  const byLane = buildByLane(lanes, {
+    round,
+    roundHistory,
+    publicProof,
+    leaderboard,
+    activity
+  });
 
   cachedStatus = {
     generatedAt: new Date().toISOString(),
@@ -124,6 +145,7 @@ export async function loadBoardStatus(env) {
     lanes,
     activity,
     leaderboard,
+    byLane,
     notes
   };
   cachedAt = Date.now();

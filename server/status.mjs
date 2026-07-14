@@ -1583,7 +1583,8 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     projects: selectedProjects.map((projectKey) => ({
       taskId: projectKey,
       title: projectKey,
-      tags: ["sn60", "bitsec"]
+      // Derived from the lane's pack ("sn60__bitsec" -> ["sn60", "bitsec"]) so any subnet tags right.
+      tags: subnetPack.split("__").filter(Boolean)
     })),
     // Project only the derived state the UI consumes; the raw lane files
     // contain internal fields (server paths, full screening payloads) that

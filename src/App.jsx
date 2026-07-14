@@ -330,7 +330,10 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
         </p>
         <div className="dashboard-hero-badges" aria-label="Kata network context">
           <span>Gittensor / SN74 supported</span>
-          <span>Live target: SN60 Bitsec</span>
+          <span>
+            Live target:{" "}
+            {selectedLane?.subnetPack ? formatPackLabel(selectedLane.subnetPack) : "SN60 Bitsec"}
+          </span>
           <span>One-click mining roadmap</span>
         </div>
         <div className="actions">
@@ -1935,10 +1938,9 @@ function formatPackLabel(value) {
   if (!value) {
     return "-";
   }
+  // Generic for any subnet pack: "sn60__bitsec" -> "SN60 Bitsec", "sn22__desearch" -> "SN22
+  // Desearch". Split on the pack separators, upper-case the SNxx token and title-case the rest.
   const normalized = String(value).replace(/__/g, " ").replace(/_/g, " ").trim();
-  if (/^sn60 bitsec$/i.test(normalized)) {
-    return "SN60 Bitsec";
-  }
   return normalized.replace(/\bsn(\d+)\b/gi, "SN$1").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 

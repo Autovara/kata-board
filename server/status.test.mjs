@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadBoardStatus } from "./status.mjs";
+import { loadBoardStatus, loadPublicProof } from "./status.mjs";
 
 function writeJson(dir, name, payload) {
   fs.mkdirSync(dir, { recursive: true });
@@ -190,6 +190,22 @@ test("discovers the active SN60 lane from the central pack registry", async () =
   assert.equal(lane.repoPack, "sn60__bitsec");
   assert.equal(lane.mode, "miner");
   assert.equal(lane.king.submissionId, "alice-20260701-01");
+});
+
+test("public proof resolves the round proof relative to kataRoot, incl. a per-lane subdir", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-proof-"));
+  const laneDir = path.join(root, "public-results", "sn22__desearch");
+  // The bot writes `proof` relative to KATA_ROOT, prefixed with the lane subdir.
+  writeJson(laneDir, "current.json", {
+    current_king: {},
+    benchmark: {},
+    latest_round: { proof: "public-results/sn22__desearch/rounds/r1.json" }
+  });
+  writeJson(path.join(laneDir, "rounds"), "r1.json", { project_keys: ["p1", "p2"] });
+
+  const proof = loadPublicProof(path.join(laneDir, "current.json"), root);
+  assert.equal(proof.selectedProjectCount, 2);
+  assert.deepEqual(proof.selectedProjects, ["p1", "p2"]);
 });
 
 test("byLane mirrors the single-lane globals keyed by lane id", async () => {

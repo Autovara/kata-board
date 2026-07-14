@@ -79,7 +79,7 @@ export async function loadBoardStatus(env) {
   }
   let roundHistory = loadRoundHistory(roots.roundHistoryPath);
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
-  let publicProof = loadPublicProof(roots.publicResultsCurrentPath);
+  let publicProof = loadPublicProof(roots.publicResultsCurrentPath, roots.kataRoot);
   const activity = loadRecentActivity(roots.kataRoot, runtimeEnv);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
@@ -296,7 +296,7 @@ function loadRoundHistory(roundHistoryPath) {
     .reverse();
 }
 
-function loadPublicProof(publicResultsCurrentPath) {
+export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
   const data = readJsonSafe(publicResultsCurrentPath);
   if (!data || typeof data !== "object") {
     return null;
@@ -307,7 +307,7 @@ function loadPublicProof(publicResultsCurrentPath) {
     data.latest_round && typeof data.latest_round === "object" ? data.latest_round : {};
   const benchmark =
     data.benchmark && typeof data.benchmark === "object" ? data.benchmark : {};
-  const proofDetail = loadPublicProofRoundDetail(publicResultsCurrentPath, latestRound.proof);
+  const proofDetail = loadPublicProofRoundDetail(kataRoot, latestRound.proof);
   return {
     schemaVersion: data.schema_version ?? null,
     updatedAt: data.updated_at || null,
@@ -349,12 +349,15 @@ function loadPublicProof(publicResultsCurrentPath) {
   };
 }
 
-function loadPublicProofRoundDetail(currentPath, proofPath) {
+function loadPublicProofRoundDetail(kataRoot, proofPath) {
   const empty = { selectedProjectCount: null, selectedProjects: [] };
-  if (!proofPath) {
+  if (!proofPath || !kataRoot) {
     return empty;
   }
-  const proofFile = path.resolve(path.dirname(path.dirname(currentPath)), proofPath);
+  // The bot writes `proof` relative to KATA_ROOT (`public-results[/<lane_id>]/rounds/<id>.json`),
+  // so resolve against kataRoot. For a root current.json this equals the old
+  // dirname(dirname(currentPath)); for a per-lane `<lane_id>/current.json` it stays correct.
+  const proofFile = path.resolve(kataRoot, proofPath);
   const proof = readJsonSafe(proofFile);
   if (!proof || typeof proof !== "object") {
     return empty;

@@ -158,6 +158,10 @@ export default function App() {
           onNavigate={navigate}
         />
 
+        {lanes.length > 1 ? (
+          <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
+        ) : null}
+
         {state.error ? <div className="alert">{state.error}</div> : null}
         {!payload && state.loading ? <div className="empty-page">Loading board...</div> : null}
 
@@ -172,12 +176,10 @@ export default function App() {
         ) : null}
         {payload && (pathname === "/arena" || pathname === "/live") ? (
           <Arena
-            lanes={lanes}
             selectedLane={selectedLane}
             round={laneData.round}
             roundHistory={laneData.roundHistory}
             kataRepoSlug={payload.publicLinks?.kataRepo}
-            setSelectedLaneId={setSelectedLaneId}
           />
         ) : null}
         {payload && (pathname === "/winners" || pathname === "/champions") ? (
@@ -2192,28 +2194,17 @@ function RoundHistory({ rounds }) {
   );
 }
 
-function Arena({
-  lanes,
-  selectedLane,
-  round,
-  roundHistory,
-  kataRepoSlug,
-  setSelectedLaneId
-}) {
+function Arena({ selectedLane, round, roundHistory, kataRepoSlug }) {
   const [selectedPull, setSelectedPull] = useState(null);
   const entrants = round?.entrants || [];
-  // A duel detail page is open — hide everything else (lanes, recent rounds) so
-  // the page shows only that PR's duel.
+  // A duel detail page is open — hide everything else (recent rounds) so the page
+  // shows only that PR's duel.
   const detailOpen =
     selectedPull === "king" ||
     (selectedPull != null && entrants.some((e) => e.pull_number === selectedPull));
 
   return (
     <div className="stack">
-      {!detailOpen && lanes.length > 1 ? (
-        <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
-      ) : null}
-
       <RoundPanel
         round={round}
         kataRepoSlug={kataRepoSlug}

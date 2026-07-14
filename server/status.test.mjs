@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadBoardStatus, loadPublicProof } from "./status.mjs";
+import { buildByLane, loadBoardStatus, loadPublicProof } from "./status.mjs";
 
 function writeJson(dir, name, payload) {
   fs.mkdirSync(dir, { recursive: true });
@@ -206,6 +206,48 @@ test("public proof resolves the round proof relative to kataRoot, incl. a per-la
   const proof = loadPublicProof(path.join(laneDir, "current.json"), root);
   assert.equal(proof.selectedProjectCount, 2);
   assert.deepEqual(proof.selectedProjects, ["p1", "p2"]);
+});
+
+test("byLane reads each lane's own round and proof when there are multiple lanes", () => {
+  const kataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-bylane-"));
+  const stateDir = path.join(kataRoot, "state");
+  // Lane a__x: its own round-status + published king.
+  writeJson(path.join(stateDir, "a__x"), "round-status.json", {
+    state: "executing",
+    run_id: "a-round-1",
+    competition_mode: "king_duel",
+    entrants: []
+  });
+  writeJson(path.join(kataRoot, "public-results", "a__x"), "current.json", {
+    current_king: { submission_id: "alice-1" },
+    benchmark: {},
+    latest_round: {}
+  });
+  // Lane b__y: a published king but no active round.
+  writeJson(path.join(kataRoot, "public-results", "b__y"), "current.json", {
+    current_king: { submission_id: "bob-1" },
+    benchmark: {},
+    latest_round: {}
+  });
+
+  const lanes = [
+    { id: "a__x:miner", laneId: "a__x" },
+    { id: "b__y:miner", laneId: "b__y" }
+  ];
+  const sharedLeaderboard = { rows: [] };
+  const byLane = buildByLane(
+    lanes,
+    { round: null, roundHistory: [], publicProof: null, leaderboard: sharedLeaderboard, activity: { hits: 1 } },
+    { kataRoot, stateDir }
+  );
+
+  assert.equal(byLane["a__x:miner"].round?.runId, "a-round-1");
+  assert.equal(byLane["a__x:miner"].publicProof.currentKing.submissionId, "alice-1");
+  assert.equal(byLane["b__y:miner"].round, null); // no round-status for b__y
+  assert.equal(byLane["b__y:miner"].publicProof.currentKing.submissionId, "bob-1");
+  // Leaderboard + activity stay the shared cross-lane view.
+  assert.equal(byLane["a__x:miner"].leaderboard, sharedLeaderboard);
+  assert.equal(byLane["b__y:miner"].activity.hits, 1);
 });
 
 test("byLane mirrors the single-lane globals keyed by lane id", async () => {

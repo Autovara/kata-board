@@ -41,18 +41,65 @@ let cachedLeaderboardKey = null;
 let leaderboardRefreshPromise = null;
 let leaderboardRefreshKey = null;
 
+// This lane's published proof: `public-results/<laneId>/current.json`, falling back to the ROOT
+// `public-results/current.json` (a single catch-all lane publishes at the root -> byte-identical).
+function lanePublicResultsCurrentPath(kataRoot, laneId) {
+  const perLane = path.resolve(kataRoot, "public-results", laneId, "current.json");
+  if (fs.existsSync(perLane)) {
+    return perLane;
+  }
+  return path.resolve(kataRoot, "public-results", "current.json");
+}
+
+// One lane's competition fields, read from its lane-scoped bot state (`state/<laneId>/…`) and its
+// published proof. The round/history are sequenced the same way the global flow does.
+function loadLaneCompetition(kataRoot, stateDir, laneId) {
+  const laneStateDir = path.join(stateDir, laneId);
+  let round = loadRoundStatus(path.join(laneStateDir, "round-status.json"));
+  if (round) {
+    round.liveProgress = loadRoundProgress(
+      path.join(laneStateDir, "round-progress.json"),
+      kataRoot
+    );
+  }
+  let roundHistory = loadRoundHistory(path.join(laneStateDir, "round-history.json"));
+  ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
+  const publicProof = loadPublicProof(
+    lanePublicResultsCurrentPath(kataRoot, laneId),
+    kataRoot
+  );
+  return { round, roundHistory, publicProof };
+}
+
 // Group the per-competition fields under the lane they belong to, keyed by `lane.id`
-// (`<subnetPack>:<mode>`), so the client can read `byLane[selectedLaneId]`. Today the round /
-// proof / leaderboard / activity are single-global (one active competition), so the active lane
-// owns them; the values are the SAME object references as the top-level fields, so the cache-hit
-// liveProgress refresh propagates to both. Per-lane computation lands in a later step; the
-// top-level fields stay as the single-lane alias (byte-identical for a single-lane deploy).
-export function buildByLane(lanes, fields) {
-  const primary = Array.isArray(lanes) ? lanes[0] : null;
-  if (!primary || !primary.id) {
+// (`<subnetPack>:<mode>`), so the client can read `byLane[selectedLaneId]`.
+//
+// One lane (the deployed case): that lane owns the already-computed single-global fields BY
+// REFERENCE, so the top-level fields stay the byte-identical single-lane alias and the cache-hit
+// liveProgress refresh propagates to both. Multiple lanes: each reads its own round + public proof
+// from its lane-scoped bot state / public-results; the leaderboard and activity stay the shared
+// cross-lane view for now.
+export function buildByLane(lanes, fields, context = {}) {
+  if (!Array.isArray(lanes) || !lanes.length) {
     return {};
   }
-  return { [primary.id]: { ...fields } };
+  if (lanes.length === 1) {
+    return { [lanes[0].id]: { ...fields } };
+  }
+  const { kataRoot, stateDir } = context;
+  const out = {};
+  for (const lane of lanes) {
+    const laneId = lane.laneId || lane.subnetPack;
+    const competition = loadLaneCompetition(kataRoot, stateDir, laneId);
+    out[lane.id] = {
+      round: competition.round,
+      roundHistory: competition.roundHistory,
+      publicProof: competition.publicProof,
+      leaderboard: fields.leaderboard,
+      activity: fields.activity
+    };
+  }
+  return out;
 }
 
 export async function loadBoardStatus(env) {
@@ -112,13 +159,17 @@ export async function loadBoardStatus(env) {
     validator,
     lanes
   });
-  const byLane = buildByLane(lanes, {
-    round,
-    roundHistory,
-    publicProof,
-    leaderboard,
-    activity
-  });
+  const byLane = buildByLane(
+    lanes,
+    {
+      round,
+      roundHistory,
+      publicProof,
+      leaderboard,
+      activity
+    },
+    { kataRoot: roots.kataRoot, stateDir: path.dirname(roots.roundStatusPath) }
+  );
 
   cachedStatus = {
     generatedAt: new Date().toISOString(),
@@ -1517,6 +1568,7 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     : [];
   return {
     id: `${subnetPack}:${mode}`,
+    laneId,
     subnetPack,
     repoPack,
     repoName: displaySubnetPack(subnetPack),

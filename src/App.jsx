@@ -130,6 +130,14 @@ export default function App() {
     () => lanes.find((lane) => lane.id === selectedLaneId) || lanes[0] || null,
     [lanes, selectedLaneId]
   );
+  // The selected lane's competition fields (round / proof / leaderboard / activity). On a
+  // single-lane board byLane[selectedLane.id] holds the same objects as the top-level payload, so
+  // this is byte-identical; the `payload` fallback keeps a lane with no byLane entry rendering the
+  // global data.
+  const laneData = useMemo(
+    () => (selectedLane && payload?.byLane?.[selectedLane.id]) || payload || {},
+    [payload, selectedLane]
+  );
   function navigate(nextPath) {
     if (nextPath === pathname) {
       return;
@@ -166,8 +174,8 @@ export default function App() {
           <Arena
             lanes={lanes}
             selectedLane={selectedLane}
-            round={payload.round}
-            roundHistory={payload.roundHistory}
+            round={laneData.round}
+            roundHistory={laneData.roundHistory}
             kataRepoSlug={payload.publicLinks?.kataRepo}
             setSelectedLaneId={setSelectedLaneId}
           />
@@ -176,11 +184,11 @@ export default function App() {
           <Winners
             lanes={lanes}
             kataRepoSlug={payload.publicLinks?.kataRepo}
-            publicProof={payload.publicProof}
+            publicProof={laneData.publicProof}
           />
         ) : null}
         {payload && pathname === "/leaderboard" ? (
-          <Leaderboard leaderboard={payload.leaderboard} />
+          <Leaderboard leaderboard={laneData.leaderboard} />
         ) : null}
         {payload && pathname === "/docs" ? (
           <Docs selectedLane={selectedLane} kataRepoSlug={payload.publicLinks?.kataRepo} />

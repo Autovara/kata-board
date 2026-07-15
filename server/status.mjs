@@ -525,7 +525,6 @@ function mergeLeaderboardRow(byAuthor, author, row) {
     "openSubmissions",
     "closedSubmissions",
     "pendingSubmissions",
-    "reviewSubmissions",
     "invalidSubmissions",
     "executingSubmissions",
     "staleSubmissions",
@@ -654,7 +653,6 @@ function resetLiveKataStatusCounts(row) {
   row.openSubmissions = 0;
   row.closedSubmissions = 0;
   row.pendingSubmissions = 0;
-  row.reviewSubmissions = 0;
   row.invalidSubmissions = 0;
   row.executingSubmissions = 0;
   row.staleSubmissions = 0;
@@ -760,9 +758,6 @@ function applyLivePullCounts(entry, pull) {
   if (isOpen && status.has("kata:pending")) {
     entry.pendingSubmissions += 1;
   }
-  if (isOpen && status.has("kata:review")) {
-    entry.reviewSubmissions += 1;
-  }
   if (status.has("kata:invalid")) {
     entry.invalidSubmissions += 1;
   }
@@ -817,12 +812,10 @@ function laneKeyFromWinnerPull(pull, winnerLabel) {
   if (!subnetPack) {
     return null;
   }
-  const labels = normalizeLabelNames(pull?.labels);
-  const modeLabel = labels.find((label) => label.startsWith("kata:mode:"));
   const artifact = (pull?.files || [])
     .map((file) => inferArtifactSubmission(file?.path))
     .find(Boolean);
-  const mode = modeLabel?.slice("kata:mode:".length) || artifact?.mode || "miner";
+  const mode = artifact?.mode || "miner";
   return `${subnetPack}::${mode}`;
 }
 
@@ -836,7 +829,6 @@ function primaryKataStatusLabel(labels) {
   const status = new Set(normalizeLabelNames(labels));
   for (const label of [
     "kata:executing",
-    "kata:review",
     "kata:pending",
     "kata:hold",
     "kata:invalid",
@@ -1711,7 +1703,6 @@ function buildEvaluatorCurrentState({
     invalidRuns: promotionRecord?.invalid_runs || {},
     localReplicaScores: promotionRecord?.local_replica_scores || {},
     finalWinner: promotionRecord?.final_winner || null,
-    rewardLabelApplied: promotionRecord?.reward_label_applied || null,
     recordedAt: promotionRecord?.recorded_at || null,
     finalMetrics,
     scores: {
@@ -3438,7 +3429,7 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
     entry.winnerPulls.push({
       pullNumber,
       mergedAt,
-      labels: [`kata:winner:${lane.subnetPack}`, `kata:mode:${lane.mode}`],
+      labels: [`kata:winner:${lane.subnetPack}`],
     });
     entry.lastActivityAt = maxDate(entry.lastActivityAt, mergedAt);
     if (entry.recentPulls.length < 4) {
@@ -3889,7 +3880,6 @@ function buildSubmissionStatus(leaderboard, validator) {
     total: 0,
     open: 0,
     pending: 0,
-    review: 0,
     approvedReview: Number(validator?.reviewApprovals?.count || 0),
     invalid: 0,
     executing: 0,
@@ -3900,14 +3890,13 @@ function buildSubmissionStatus(leaderboard, validator) {
     closed: 0,
   };
   const pendingPulls = [];
-  const reviewPulls = [];
+  const holdPulls = [];
   const invalidPulls = [];
 
   for (const row of rows) {
     counts.total += Number(row.totalSubmissions || 0);
     counts.open += Number(row.openSubmissions || 0);
     counts.pending += Number(row.pendingSubmissions || 0);
-    counts.review += Number(row.reviewSubmissions || 0);
     counts.invalid += Number(row.invalidSubmissions || 0);
     counts.executing += Number(row.executingSubmissions || 0);
     counts.stale += Number(row.staleSubmissions || 0);
@@ -3927,8 +3916,8 @@ function buildSubmissionStatus(leaderboard, validator) {
       };
       if (pull.state === "open" && pull.statusLabel === "kata:pending") {
         pendingPulls.push(summary);
-      } else if (pull.state === "open" && pull.statusLabel === "kata:review") {
-        reviewPulls.push(summary);
+      } else if (pull.state === "open" && pull.statusLabel === "kata:hold") {
+        holdPulls.push(summary);
       } else if (pull.statusLabel === "kata:invalid") {
         invalidPulls.push(summary);
       }
@@ -3939,7 +3928,7 @@ function buildSubmissionStatus(leaderboard, validator) {
     source: leaderboard?.source || "unknown",
     counts,
     pendingPulls: sortRecentSummaries(pendingPulls).slice(0, 8),
-    reviewPulls: sortRecentSummaries(reviewPulls).slice(0, 8),
+    holdPulls: sortRecentSummaries(holdPulls).slice(0, 8),
     invalidPulls: sortRecentSummaries(invalidPulls).slice(0, 8),
     reviewApprovals: validator?.reviewApprovals || {
       available: false,
@@ -3989,7 +3978,7 @@ function buildOverview(lanes, activity, leaderboard, validator, submissionStatus
     totalGittensorScore: Number(totalGittensorScore.toFixed(4)),
     currentWinnerGittensorScore: Number(currentWinnerGittensorScore.toFixed(4)),
     submissionPending: submissionStatus.counts.pending,
-    submissionReview: submissionStatus.counts.review,
+    submissionHold: submissionStatus.counts.hold,
     submissionApprovedReview: submissionStatus.counts.approvedReview,
     submissionInvalid: submissionStatus.counts.invalid,
     validatorPendingJobs: validator.queue.counts.pending,

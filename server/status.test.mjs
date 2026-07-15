@@ -111,7 +111,6 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
     true_positives: { king: 6, candidate: 12 },
     invalid_runs: { king: 0, candidate: 0 },
     final_winner: "candidate",
-    reward_label_applied: null,
     recorded_at: "2026-07-02T01:00:00+00:00",
   });
 
@@ -1069,7 +1068,7 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
         mode: "miner",
         final_action: "merge",
         pull_number: 7,
-        labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
+        labels: ["kata:winner:sn60__bitsec"],
       }),
       '{"created_at":"2026-07-02T00:00:00Z","author":"bob","repo_',
     ].join("\n") + "\n"
@@ -1203,7 +1202,7 @@ test("newer merged winner updates the displayed current holder", async () => {
       mode: "miner",
       final_action: "merge",
       pull_number: 9,
-      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
+      labels: ["kata:winner:sn60__bitsec"],
     }) + "\n"
   );
 
@@ -1232,7 +1231,7 @@ test("accepts subnet_pack in event log leaderboard entries", async () => {
       mode: "miner",
       final_action: "merge",
       pull_number: 7,
-      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
+      labels: ["kata:winner:sn60__bitsec"],
     }) + "\n"
   );
 
@@ -1261,7 +1260,7 @@ test("leaderboard does not split a known PR winner by submission id prefix", asy
       mode: "miner",
       final_action: "merge",
       pull_number: 12,
-      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
+      labels: ["kata:winner:sn60__bitsec"],
     }) + "\n"
   );
 
@@ -1284,7 +1283,7 @@ test("leaderboard does not split a known PR winner by submission id prefix", asy
     {
       pullNumber: 12,
       mergedAt: "2026-07-02T01:02:00Z",
-      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
+      labels: ["kata:winner:sn60__bitsec"],
     },
   ]);
 });

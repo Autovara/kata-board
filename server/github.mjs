@@ -130,7 +130,8 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
       entry.openSubmissions += 1;
     } else if (pull.mergedAt && hasKataWinHistory(pull)) {
       // Count both the reigning king (kata:winner) and dethroned kings
-      // (kata:defeat) as historical wins so a former king keeps its win total.
+      // (kata:defeat:<subnet-pack>) as historical wins so a former king keeps
+      // its win total.
       entry.wins += 1;
       entry.winnerPulls.push({
         pullNumber: pull.number,
@@ -189,12 +190,12 @@ function isKataWinnerPull(pull) {
   return labels.some((label) => label.startsWith("kata:winner:"));
 }
 
-// A dethroned king carries `kata:defeat` (its `kata:winner` label was stripped on
-// promotion of the next king). It is no longer the current king, but it did win a
-// round, so it still counts toward a contributor's historical win total.
+// A dethroned king carries `kata:defeat:<subnet-pack>` (its winner label was
+// stripped on promotion of the next king). It is no longer the current king,
+// but it did win a round, so it still counts toward a contributor's history.
 function isKataDefeatedPull(pull) {
   const labels = normalizeLabelNames(pull?.labels);
-  return labels.some((label) => label.startsWith("kata:defeat"));
+  return labels.some((label) => label.startsWith("kata:defeat:"));
 }
 
 function hasKataWinHistory(pull) {
@@ -211,9 +212,6 @@ function incrementStatusCounts(entry, labels) {
   const status = new Set(normalizeLabelNames(labels));
   if (status.has("kata:pending")) {
     entry.pendingSubmissions += 1;
-  }
-  if (status.has("kata:review")) {
-    entry.reviewSubmissions += 1;
   }
   if (status.has("kata:invalid")) {
     entry.invalidSubmissions += 1;
@@ -239,7 +237,6 @@ function primaryKataStatusLabel(labels) {
   const status = new Set(normalizeLabelNames(labels));
   for (const label of [
     "kata:executing",
-    "kata:review",
     "kata:pending",
     "kata:hold",
     "kata:invalid",

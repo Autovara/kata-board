@@ -3,38 +3,38 @@ import test from "node:test";
 
 import { calculateKataGittensorScore } from "./leaderboardRows.mjs";
 
-test("calculates Kata score from the highest reward label and Gittensor decay", () => {
+test("calculates Kata score from a subnet-qualified winner label and Gittensor decay", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 0,
       winnerPulls: [
         {
           mergedAt: "2026-07-08T17:30:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:m"],
+          labels: ["kata:winner:sn60__bitsec"],
         },
       ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 2.6424);
+  assert.equal(score, 0.8808);
 });
 
-test("uses the highest matching Kata reward label", () => {
+test("uses the subnet-qualified defeat multiplier for a dethroned king", () => {
   const score = calculateKataGittensorScore(
     {
       openSubmissions: 0,
       winnerPulls: [
         {
           mergedAt: "2026-07-08T17:30:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:s", "kata:reward:xl"],
+          labels: ["kata:defeat:sn60__bitsec"],
         },
       ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 8.808);
+  assert.equal(score, 0.2202);
 });
 
 test("applies Gittensor-style time decay to old winner score", () => {
@@ -44,14 +44,14 @@ test("applies Gittensor-style time decay to old winner score", () => {
       winnerPulls: [
         {
           mergedAt: "2026-06-01T00:00:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:xl"],
+          labels: ["kata:winner:sn60__bitsec"],
         },
       ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.ok(score < 10);
+  assert.ok(score < 1);
   assert.ok(score > 0);
 });
 
@@ -62,14 +62,14 @@ test("does not count open PRs as leaderboard miner score", () => {
       winnerPulls: [
         {
           mergedAt: "2026-07-08T17:30:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:xl"],
+          labels: ["kata:winner:sn60__bitsec"],
         },
       ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 8.808);
+  assert.equal(score, 0.8808);
 });
 
 test("does not award a score when a reconstructed winner has no trusted Kata label", () => {

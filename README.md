@@ -194,7 +194,7 @@ Expected JSONL shape:
   "mode": "contributor",
   "final_action": "merge",
   "pull_number": 12,
-  "labels": ["kata:winner:e35ventura__taopedia-articles", "kata:mode:contributor"]
+  "labels": ["kata:winner:e35ventura__taopedia-articles"]
 }
 ```
 

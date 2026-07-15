@@ -92,7 +92,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       updatedAt: "2026-07-07T18:00:00Z",
       url: "https://github.com/Autovara/kata/pull/85",
       author: { login: "reviewer" },
-      labels: [{ name: "kata:review" }],
+      labels: [{ name: "kata:hold" }],
       files: [{ path: "submissions/sn60__bitsec/miner/reviewer-20260707-01/agent.py" }],
     },
     {
@@ -123,14 +123,14 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
   assert.ok(leaderboard.rows[0].gittensorScore <= 1);
   const reviewer = leaderboard.rows.find((row) => row.author === "reviewer");
   const davion = leaderboard.rows.find((row) => row.author === "davion-knight");
-  assert.equal(reviewer.reviewSubmissions, 1);
-  assert.equal(reviewer.recentPulls[0].statusLabel, "kata:review");
+  assert.equal(reviewer.holdSubmissions, 1);
+  assert.equal(reviewer.recentPulls[0].statusLabel, "kata:hold");
   assert.equal(davion.closedSubmissions, 1);
   assert.equal(davion.losingSubmissions, 1);
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].author, "jonathanchang31");
 });
 
-test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a historical win", () => {
+test("loadGithubCliLeaderboard counts a subnet-qualified defeat as a historical win", () => {
   const output = JSON.stringify([
     {
       number: 98,
@@ -140,7 +140,7 @@ test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a histor
       updatedAt: "2026-07-09T10:00:00Z",
       url: "https://github.com/Autovara/kata/pull/98",
       author: { login: "kiannidev" },
-      labels: [{ name: "kata:defeat" }],
+      labels: [{ name: "kata:defeat:sn60__bitsec" }],
       files: [{ path: "submissions/sn60__bitsec/miner/kianni-20260708-01/agent.py" }],
     },
     {
@@ -166,7 +166,7 @@ test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a histor
   // Both won a round, so each keeps one historical win.
   assert.equal(kianni.wins, 1, "dethroned king should still have 1 win");
   assert.equal(daedalus.wins, 1);
-  // But the current king is the kata:winner PR, not the dethroned (kata:defeat) one.
+  // But the current king is the winner PR, not the dethroned one.
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].author, "Daedalus-Icarus");
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].pullNumber, 124);
 });

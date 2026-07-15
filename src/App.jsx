@@ -512,6 +512,7 @@ function ProofFact({ label, value }) {
 function SubmissionStatusPanel({ submissionStatus }) {
   const counts = submissionStatus?.counts || {};
   const pendingPulls = submissionStatus?.pendingPulls || [];
+  const reviewPulls = submissionStatus?.reviewPulls || [];
   const holdPulls = submissionStatus?.holdPulls || [];
   const invalidPulls = submissionStatus?.invalidPulls || [];
   const approvals = submissionStatus?.reviewApprovals?.recent || [];
@@ -520,6 +521,7 @@ function SubmissionStatusPanel({ submissionStatus }) {
       <SectionTitle title="Submission screening status" />
       <div className="submission-status-grid">
         <StatusMetric label="pending" value={counts.pending || 0} tone="ok" />
+        <StatusMetric label="review" value={counts.review || 0} tone="warn" />
         <StatusMetric label="on hold" value={counts.hold || 0} tone="warn" />
         <StatusMetric label="approved reviews" value={counts.approvedReview || 0} tone="ok" />
         <StatusMetric label="invalid" value={counts.invalid || 0} tone="bad" />
@@ -529,6 +531,11 @@ function SubmissionStatusPanel({ submissionStatus }) {
           title="Pending queue"
           emptyText="No PRs are currently visible with kata:pending."
           items={pendingPulls}
+        />
+        <StatusPullList
+          title="Screening review"
+          emptyText="No PRs are currently visible with kata:review."
+          items={reviewPulls}
         />
         <StatusPullList
           title="On hold"
@@ -2447,7 +2454,7 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Contributor leaderboard"
-        text="All Kata contributors are shown here. Gittensor score is earned only by promoted winner PRs, while open, pending, hold, and invalid counts show the live submission state."
+        text="All Kata contributors are shown here. Gittensor score is earned only by promoted winner PRs, while open, pending, review, and invalid counts show the live submission state."
       />
 
       <section className="table-section">
@@ -2458,7 +2465,7 @@ function Leaderboard({ leaderboard }) {
           <span>submissions</span>
           <span>open</span>
           <span>pending</span>
-          <span>hold</span>
+          <span>review</span>
           <span>invalid</span>
           <span>Gittensor score</span>
         </div>
@@ -2485,7 +2492,7 @@ function Leaderboard({ leaderboard }) {
               <span className="lb-num">{row.totalSubmissions}</span>
               <span className="lb-num">{row.openSubmissions}</span>
               <span className="lb-num">{row.pendingSubmissions || 0}</span>
-              <span className="lb-num">{row.holdSubmissions || 0}</span>
+              <span className="lb-num">{row.reviewSubmissions || 0}</span>
               <span className="lb-num">{row.invalidSubmissions || 0}</span>
               <strong className="lb-score">{formatNumber(row.gittensorScore ?? row.score)}</strong>
             </div>
@@ -2644,7 +2651,7 @@ function DocMiner({ links, selectedLane }) {
           ],
           [
             "Pass screening",
-            "Valid PRs become kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:hold.",
+            "Valid PRs become kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review.",
           ],
           [
             "Compete in a round",
@@ -2728,8 +2735,8 @@ function DocMiner({ links, selectedLane }) {
         ]}
       />
       <DocCallout
-        title="A hold is not a score"
-        text="kata:hold means Kata needs human attention before the PR can continue, such as suspicious but non-conclusive screening evidence or a promotion safety issue. The PR cannot enter a round until it is cleared or updated. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
+        title="Review is not a score"
+        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round until it is cleared or updated. kata:hold is reserved for a merge or promotion safety problem. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
       />
       <RequirementList
         title="Validation rules"
@@ -2931,7 +2938,7 @@ function DocValidator({ links, selectedLane }) {
         items={[
           [
             "Pending only",
-            "Only PRs with kata:pending can enter scoring. PRs in kata:hold or kata:invalid do not compete.",
+            "Only PRs with kata:pending can enter scoring. PRs in kata:review, kata:hold, or kata:invalid do not compete.",
           ],
           [
             "Commit locked",

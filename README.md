@@ -264,8 +264,9 @@ The board mirrors the current **round-based** Kata workflow:
 - each evaluator publishes its own score metrics, replica rule, and promotion evidence; the top
   candidate that strictly beats the king is merged and becomes the new king
 - outcome labels are color-coded: `kata:pending` (blue), `kata:executing` (yellow),
-  `kata:winner:<pack>` (green), `kata:losing` (grey), `kata:invalid` (red), `kata:stale`
-  (orange), `kata:hold` (purple)
+  `kata:winner:<pack>` (green), `kata:defeat:<pack>` (maroon), `kata:losing` (grey),
+  `kata:invalid` (red), `kata:review` (gold), `kata:stale` (orange), and `kata:hold`
+  (purple)
 - agents receive the project contents and an inference endpoint, not oracle files or
   benchmark answers
 

@@ -10,6 +10,7 @@ export function createAuthorRow(author) {
     openSubmissions: 0,
     closedSubmissions: 0,
     pendingSubmissions: 0,
+    reviewSubmissions: 0,
     invalidSubmissions: 0,
     executingSubmissions: 0,
     staleSubmissions: 0,
@@ -78,7 +79,7 @@ const KATA_GITTENSOR_CONFIG = {
     "kata:losing": 0.0,
     "kata:stale": 0.0,
     "kata:hold": 0.0,
-    "kata:evaluating": 0.0,
+    "kata:review": 0.0,
   },
 };
 

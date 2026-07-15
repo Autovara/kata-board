@@ -213,6 +213,9 @@ function incrementStatusCounts(entry, labels) {
   if (status.has("kata:pending")) {
     entry.pendingSubmissions += 1;
   }
+  if (status.has("kata:review")) {
+    entry.reviewSubmissions += 1;
+  }
   if (status.has("kata:invalid")) {
     entry.invalidSubmissions += 1;
   }
@@ -237,6 +240,7 @@ function primaryKataStatusLabel(labels) {
   const status = new Set(normalizeLabelNames(labels));
   for (const label of [
     "kata:executing",
+    "kata:review",
     "kata:pending",
     "kata:hold",
     "kata:invalid",

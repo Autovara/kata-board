@@ -92,7 +92,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       updatedAt: "2026-07-07T18:00:00Z",
       url: "https://github.com/Autovara/kata/pull/85",
       author: { login: "reviewer" },
-      labels: [{ name: "kata:hold" }],
+      labels: [{ name: "kata:review" }],
       files: [{ path: "submissions/sn60__bitsec/miner/reviewer-20260707-01/agent.py" }],
     },
     {
@@ -123,8 +123,8 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
   assert.ok(leaderboard.rows[0].gittensorScore <= 1);
   const reviewer = leaderboard.rows.find((row) => row.author === "reviewer");
   const davion = leaderboard.rows.find((row) => row.author === "davion-knight");
-  assert.equal(reviewer.holdSubmissions, 1);
-  assert.equal(reviewer.recentPulls[0].statusLabel, "kata:hold");
+  assert.equal(reviewer.reviewSubmissions, 1);
+  assert.equal(reviewer.recentPulls[0].statusLabel, "kata:review");
   assert.equal(davion.closedSubmissions, 1);
   assert.equal(davion.losingSubmissions, 1);
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].author, "jonathanchang31");

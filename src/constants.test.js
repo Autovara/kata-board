@@ -3,9 +3,7 @@ import { KATA_IMAGES, PAGES, assetUrl } from "./constants.js";
 
 describe("assetUrl", () => {
   it("URL-encodes the filename under the asset base", () => {
-    expect(assetUrl("Community Competition.png")).toContain(
-      "Community%20Competition.png"
-    );
+    expect(assetUrl("Community Competition.png")).toContain("Community%20Competition.png");
   });
 });
 
@@ -21,7 +19,7 @@ describe("constants", () => {
       "/arena",
       "/winners",
       "/leaderboard",
-      "/docs"
+      "/docs",
     ]);
   });
 });

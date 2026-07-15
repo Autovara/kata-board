@@ -27,12 +27,7 @@ export default [
     },
   },
   {
-    files: [
-      "server/**/*.mjs",
-      "scripts/**/*.mjs",
-      "shared/**/*.mjs",
-      "*.config.{js,mjs}",
-    ],
+    files: ["server/**/*.mjs", "scripts/**/*.mjs", "shared/**/*.mjs", "*.config.{js,mjs}"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

@@ -26,11 +26,7 @@ export function buildIdentityAliases({ validator, round }) {
     return aliases;
   }
   addIdentityAlias(aliases, winnerEntrant.submission_id, login);
-  addIdentityAlias(
-    aliases,
-    inferSubmissionAuthorFromId(winnerEntrant.submission_id),
-    login
-  );
+  addIdentityAlias(aliases, inferSubmissionAuthorFromId(winnerEntrant.submission_id), login);
   return aliases;
 }
 
@@ -61,7 +57,7 @@ export function applyRoundIdentityAliases(round, identityAliases = new Map()) {
     kingAuthor: resolveAuthorAlias(round.kingAuthor, identityAliases),
     entrants: (round.entrants || []).map((entrant) => ({
       ...entrant,
-      author: resolveAuthorAlias(entrant.author, identityAliases)
-    }))
+      author: resolveAuthorAlias(entrant.author, identityAliases),
+    })),
   };
 }

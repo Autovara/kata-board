@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The decorative canvas background is irrelevant to page smoke tests and needs
@@ -28,9 +28,7 @@ function mockStatus(payload = FIXTURE) {
 async function renderRoute(path) {
   window.history.pushState({}, "", path);
   render(<App />);
-  await waitFor(() =>
-    expect(screen.queryByText("Loading board...")).not.toBeInTheDocument()
-  );
+  await waitFor(() => expect(screen.queryByText("Loading board...")).not.toBeInTheDocument());
 }
 
 describe("App routes render without crashing", () => {
@@ -58,5 +56,16 @@ describe("App routes render without crashing", () => {
     window.history.pushState({}, "", "/");
     render(<App />);
     await waitFor(() => expect(screen.getByText("boom")).toBeInTheDocument());
+  });
+
+  it("documents miner-funded inference without obsolete validator caps", async () => {
+    await renderRoute("/docs");
+    fireEvent.click(screen.getByRole("tab", { name: /submit/i }));
+
+    expect(screen.getByText("Miner-funded inference")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Kata does not impose validator model, token, call, or retry caps/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/qwen\/qwen/i)).not.toBeInTheDocument();
   });
 });

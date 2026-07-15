@@ -16,8 +16,8 @@ improve it. You don't need to use Bittensor or Discord to run or contribute to t
 board — but that's where the work comes from and how contributors get credit.
 
 > **Two subnets, two roles — keep them straight.** **SN74 / Gittensor** funds and
-> coordinates the *development of this repository*. **SN60 / Bitsec** is the
-> *competition target* — the subnet Kata currently builds an agent for, and the one
+> coordinates the _development of this repository_. **SN60 / Bitsec** is the
+> _competition target_ — the subnet Kata currently builds an agent for, and the one
 > lane this board renders live today. Kata itself is **subnet-agnostic**; SN60 is
 > simply the first live lane, and more will be added through the pack registry.
 
@@ -33,7 +33,7 @@ This repo reads the current Kata system and shows:
 - benchmark pack health
 - the live current competition round — every candidate PR, its status, and its score
 - a round-history highlights feed (achievements: new king, first true positive, record detection)
-- recent challenge activity and per-round SN60 scores/provenance
+- recent challenge activity and evaluator-provided scores/provenance
 - optional miner leaderboard
 
 It supports two leaderboard sources:
@@ -115,6 +115,9 @@ Important variables:
 
 - `KATA_ROOT`
 - `KATA_BOT_ROOT`
+- `KATA_BENCHMARK_FILE` — optional evaluator benchmark file used to show
+  expected-finding counts during live progress (the legacy
+  `KATA_SN60_BENCHMARK_FILE` remains accepted)
 - `KATA_WORK_ROOT`
 - `KATA_QUEUE_STATE_PATH`
 - `KATA_LIVE_STATUS_PATH`
@@ -173,7 +176,7 @@ submission PRs under:
 
 - `submissions/<subnet-pack>/<mode>/<submission-id>/...`
 
-Merged submission PRs count as verified wins.
+Only merged PRs carrying trusted Kata winner labels count toward the reward score.
 
 ### Event log mode
 
@@ -184,7 +187,15 @@ Set:
 Expected JSONL shape:
 
 ```json
-{"created_at":"2026-06-30T04:00:00Z","author":"carlos4s","subnet_pack":"e35ventura__taopedia-articles","mode":"contributor","final_action":"merge","pull_number":12}
+{
+  "created_at": "2026-06-30T04:00:00Z",
+  "author": "carlos4s",
+  "subnet_pack": "e35ventura__taopedia-articles",
+  "mode": "contributor",
+  "final_action": "merge",
+  "pull_number": 12,
+  "labels": ["kata:winner:e35ventura__taopedia-articles", "kata:mode:contributor"]
+}
 ```
 
 This mode is useful once `kata-bot` starts persisting results directly.
@@ -213,10 +224,10 @@ The browser always reads `/api/status`, so the page reflects queue state,
 current king data, the live round, benchmark counts, and GitHub PR history
 dynamically.
 
-Recommended ngrok split:
-
-- `kingpawnusa.ngrok.app` forwards to `kata-bot` on `localhost:8080`
-- `dashboardking.ngrok.app` forwards to `kata-board` on `localhost:8787`
+Put the board behind the HTTPS reverse proxy or tunnel chosen for your
+deployment. Route the board's public origin to `localhost:8787`; route the
+resident `kata-bot` service separately to `localhost:8080` when GitHub needs
+to deliver webhooks.
 
 Run the board:
 
@@ -226,16 +237,17 @@ npm run build
 npm start
 ```
 
-Then open:
+Then open the public board origin configured by your proxy or tunnel, for
+example:
 
 ```text
-https://dashboardking.ngrok.app
+https://board.example.com
 ```
 
 The live API is:
 
 ```text
-https://dashboardking.ngrok.app/api/status
+https://board.example.com/api/status
 ```
 
 ## Current Kata Workflow
@@ -246,12 +258,11 @@ The board mirrors the current **round-based** Kata workflow:
   open/push it is screened and labeled `kata:pending` (intake) — one open PR per contributor
 - scoring runs in **scheduled rounds**, not per PR; a round locks the pending PRs, keeps one
   per contributor, screens them, and labels the qualified ones `kata:executing`
-- each round scores the **cached king** against every candidate on the same secret-sampled
-  Bitsec problems, so the king isn't re-run each round; a bad/empty/unparsable result on one
+- each round scores the **cached king** against every candidate on the same secret evaluator-selected
+  projects, so the king isn't re-run each round; a bad/empty/unparsable result on one
   problem just scores 0 for it (never a rejection)
-- the promotion comparator follows SN60-style metrics: detection score, true positives,
-  precision, F1 score, then fewer invalid/error evaluations; the top candidate that strictly
-  beats the king is merged and becomes the new king
+- each evaluator publishes its own score metrics, replica rule, and promotion evidence; the top
+  candidate that strictly beats the king is merged and becomes the new king
 - outcome labels are color-coded: `kata:pending` (blue), `kata:executing` (yellow),
   `kata:winner:<pack>` (green), `kata:losing` (grey), `kata:invalid` (red), `kata:stale`
   (orange), `kata:hold` (purple)

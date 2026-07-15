@@ -6,13 +6,9 @@ import {
   githubRequest,
   loadGithubCliLeaderboard,
   loadGithubLeaderboard,
-  parseGithubTokenList
+  parseGithubTokenList,
 } from "./github.mjs";
-import {
-  createAuthorRow,
-  finalizeLeaderboardRows,
-  maxDate
-} from "./leaderboardRows.mjs";
+import { createAuthorRow, finalizeLeaderboardRows, maxDate } from "./leaderboardRows.mjs";
 import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 import {
   collectFiles,
@@ -20,12 +16,12 @@ import {
   newestMtimeIso,
   readJsonSafe,
   readTextSafe,
-  statMtimeIso
+  statMtimeIso,
 } from "./status/fsUtil.mjs";
 import {
   applyRoundIdentityAliases,
   buildIdentityAliases,
-  resolveAuthorAlias
+  resolveAuthorAlias,
 } from "./status/identity.mjs";
 
 const DEFAULT_CACHE_TTL_MS = 3_000;
@@ -64,10 +60,7 @@ function loadLaneCompetition(kataRoot, stateDir, laneId) {
   }
   let roundHistory = loadRoundHistory(path.join(laneStateDir, "round-history.json"));
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
-  const publicProof = loadPublicProof(
-    lanePublicResultsCurrentPath(kataRoot, laneId),
-    kataRoot
-  );
+  const publicProof = loadPublicProof(lanePublicResultsCurrentPath(kataRoot, laneId), kataRoot);
   return { round, roundHistory, publicProof };
 }
 
@@ -116,7 +109,7 @@ export function buildByLane(lanes, fields, context = {}) {
       roundHistory: competition.roundHistory,
       publicProof: competition.publicProof,
       leaderboard: fields.leaderboard,
-      activity: fields.activity
+      activity: fields.activity,
     };
   }
   return out;
@@ -132,10 +125,7 @@ export async function loadBoardStatus(env) {
     // rate-limited. Refresh just the progress on a cache hit so the dashboard
     // animates smoothly every stream frame without re-hitting GitHub.
     if (cachedStatus.round) {
-      cachedStatus.round.liveProgress = loadRoundProgress(
-        roots.roundProgressPath,
-        roots.kataRoot
-      );
+      cachedStatus.round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
     }
     refreshByLaneRoundProgress(cachedStatus, roots);
     return cachedStatus;
@@ -151,34 +141,38 @@ export async function loadBoardStatus(env) {
   const activity = loadRecentActivity(roots.kataRoot, runtimeEnv);
   const identityAliases = buildIdentityAliases({ validator, round });
   round = applyRoundIdentityAliases(round, identityAliases);
+  let lanes = loadEvaluatorLanes({
+    kataRoot: roots.kataRoot,
+    latestLaneWinners: {},
+    identityAliases,
+  });
+  const roundLane = resolveRoundLane(round, lanes, publicProof);
   const baseLeaderboard = augmentLeaderboardWithRound(
     await loadLeaderboard(runtimeEnv),
     round,
-    identityAliases
+    identityAliases,
+    roundLane
   );
-  let leaderboard = augmentLeaderboardWithActivity(
-    baseLeaderboard,
-    activity,
-    identityAliases
-  );
+  let leaderboard = augmentLeaderboardWithActivity(baseLeaderboard, activity, identityAliases);
   round = enrichRoundKingIdentity(round, leaderboard);
-  leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round);
+  leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round, roundLane);
   leaderboard = await overlayLiveKataPulls(leaderboard, runtimeEnv);
   const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   publicProof = enrichPublicProofWithLiveWinner(publicProof, {
     round,
     roundHistory,
-    leaderboard
+    leaderboard,
+    activeLane: roundLane,
   });
-  const lanes = loadEvaluatorLanes({
+  lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
     latestLaneWinners: leaderboard.latestLaneWinners,
-    identityAliases
+    identityAliases,
   });
   const notes = buildNotes({
     leaderboard,
     validator,
-    lanes
+    lanes,
   });
   const byLane = buildByLane(
     lanes,
@@ -187,7 +181,7 @@ export async function loadBoardStatus(env) {
       roundHistory,
       publicProof,
       leaderboard,
-      activity
+      activity,
     },
     { kataRoot: roots.kataRoot, stateDir: path.dirname(roots.roundStatusPath) }
   );
@@ -195,7 +189,7 @@ export async function loadBoardStatus(env) {
   cachedStatus = {
     generatedAt: new Date().toISOString(),
     publicLinks: {
-      kataRepo: runtimeEnv.KATA_REPO_SLUG || null
+      kataRepo: runtimeEnv.KATA_REPO_SLUG || null,
     },
     dataSources: {
       filesystem: true,
@@ -203,11 +197,11 @@ export async function loadBoardStatus(env) {
       eventFeed: leaderboardSourceIncludes(leaderboard, "events"),
       validatorQueue: Boolean(validator.queue.available),
       validatorHealth: Boolean(validator.health.configured),
-      publicProof: Boolean(publicProof)
+      publicProof: Boolean(publicProof),
     },
     overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus, {
       round,
-      publicProof
+      publicProof,
     }),
     validator,
     publicProof,
@@ -218,7 +212,7 @@ export async function loadBoardStatus(env) {
     activity,
     leaderboard,
     byLane,
-    notes
+    notes,
   };
   cachedAt = Date.now();
   return cachedStatus;
@@ -244,73 +238,58 @@ function readTtlMs(rawValue, defaultMs) {
 
 function resolveRoots(env) {
   const boardRoot = env.KATA_BOARD_ROOT || path.resolve(process.cwd(), "..");
-  const kataBotRoot = resolveExistingRoot(
-    env.KATA_BOT_ROOT,
-    path.join(boardRoot, "kata-bot")
-  );
+  const kataBotRoot = resolveExistingRoot(env.KATA_BOT_ROOT, path.join(boardRoot, "kata-bot"));
   const kataRoot = resolveExistingRoot(env.KATA_ROOT, path.join(boardRoot, "kata"));
   return {
     boardRoot,
     kataRoot,
     kataBotRoot,
-    sn60BenchmarkFile: env.KATA_SN60_BENCHMARK_FILE
-      ? path.resolve(env.KATA_SN60_BENCHMARK_FILE)
-      : null,
-    workRoot: path.resolve(
-      env.KATA_WORK_ROOT || path.join(kataBotRoot, "work")
-    ),
+    benchmarkFile:
+      env.KATA_BENCHMARK_FILE || env.KATA_SN60_BENCHMARK_FILE
+        ? path.resolve(env.KATA_BENCHMARK_FILE || env.KATA_SN60_BENCHMARK_FILE)
+        : null,
+    workRoot: path.resolve(env.KATA_WORK_ROOT || path.join(kataBotRoot, "work")),
     queueStatePath: path.resolve(
       env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
     ),
     liveStatusPath: path.resolve(
       env.KATA_LIVE_STATUS_PATH ||
         path.join(
-          path.dirname(
-            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
-          ),
+          path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
           "live-status.json"
         )
     ),
     roundStatusPath: path.resolve(
       env.KATA_ROUND_STATUS_PATH ||
         path.join(
-          path.dirname(
-            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
-          ),
+          path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
           "round-status.json"
         )
     ),
     roundHistoryPath: path.resolve(
       env.KATA_ROUND_HISTORY_PATH ||
         path.join(
-          path.dirname(
-            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
-          ),
+          path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
           "round-history.json"
         )
     ),
     roundProgressPath: path.resolve(
       env.KATA_ROUND_PROGRESS_PATH ||
         path.join(
-          path.dirname(
-            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
-          ),
+          path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
           "round-progress.json"
         )
     ),
     reviewApprovalsPath: path.resolve(
       env.KATA_REVIEW_APPROVALS_PATH ||
         path.join(
-          path.dirname(
-            env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")
-          ),
+          path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
           "review-approvals.json"
         )
     ),
     publicResultsCurrentPath: path.resolve(
-      env.KATA_PUBLIC_RESULTS_CURRENT_PATH ||
-        path.join(kataRoot, "public-results", "current.json")
-    )
+      env.KATA_PUBLIC_RESULTS_CURRENT_PATH || path.join(kataRoot, "public-results", "current.json")
+    ),
   };
 }
 
@@ -320,9 +299,7 @@ function resolveRuntimeEnv(env, roots) {
     KATA_ROOT: roots.kataRoot,
     KATA_BOT_ROOT: roots.kataBotRoot,
     KATA_REPO_SLUG:
-      String(env.KATA_REPO_SLUG || "").trim() ||
-      inferGitHubRepoSlug(roots.kataRoot) ||
-      ""
+      String(env.KATA_REPO_SLUG || "").trim() || inferGitHubRepoSlug(roots.kataRoot) || "",
   };
 }
 
@@ -334,7 +311,7 @@ function inferGitHubRepoSlug(repoRoot) {
     const output = execFileSync("git", ["-C", repoRoot, "remote", "get-url", "origin"], {
       encoding: "utf8",
       timeout: 2_000,
-      stdio: ["ignore", "pipe", "ignore"]
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
     const match =
       output.match(/github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i) ||
@@ -363,7 +340,7 @@ function loadRoundHistory(roundHistoryPath) {
       bestDetection: entry.best_detection ?? null,
       bestTruePositives: entry.best_true_positives ?? 0,
       achievements: Array.isArray(entry.achievements) ? entry.achievements : [],
-      headline: entry.headline || null
+      headline: entry.headline || null,
     }))
     .reverse();
 }
@@ -377,8 +354,7 @@ export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
     data.current_king && typeof data.current_king === "object" ? data.current_king : {};
   const latestRound =
     data.latest_round && typeof data.latest_round === "object" ? data.latest_round : {};
-  const benchmark =
-    data.benchmark && typeof data.benchmark === "object" ? data.benchmark : {};
+  const benchmark = data.benchmark && typeof data.benchmark === "object" ? data.benchmark : {};
   const proofDetail = loadPublicProofRoundDetail(kataRoot, latestRound.proof);
   return {
     schemaVersion: data.schema_version ?? null,
@@ -392,7 +368,7 @@ export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
       sourcePullRequest: currentKing.source_pull_request ?? null,
       path: currentKing.path || null,
       artifactHash: currentKing.artifact_hash || null,
-      promotedAt: currentKing.promoted_at || null
+      promotedAt: currentKing.promoted_at || null,
     },
     latestRound: {
       roundId: latestRound.round_id || null,
@@ -408,16 +384,16 @@ export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
       winnerSubmissionId: latestRound.winner_submission_id || null,
       bestTruePositives: latestRound.best_true_positives ?? null,
       bestDetectionScore: latestRound.best_detection_score ?? null,
-      proof: latestRound.proof || null
+      proof: latestRound.proof || null,
     },
     benchmark: {
       name: benchmark.name || null,
       roundSha256: benchmark.round_sha256 || null,
       sandboxCommit: benchmark.sandbox_commit || null,
-      scorerVersion: benchmark.scorer_version || null
+      scorerVersion: benchmark.scorer_version || null,
     },
     selectedProjectCount: proofDetail.selectedProjectCount,
-    selectedProjects: proofDetail.selectedProjects
+    selectedProjects: proofDetail.selectedProjects,
   };
 }
 
@@ -437,7 +413,7 @@ function loadPublicProofRoundDetail(kataRoot, proofPath) {
   const selectedProjects = extractProjectKeysFromRoundProof(proof);
   return {
     selectedProjectCount: selectedProjects.length || null,
-    selectedProjects
+    selectedProjects,
   };
 }
 
@@ -446,7 +422,7 @@ function extractProjectKeysFromRoundProof(proof) {
     proof.project_keys,
     proof.selected_project_keys,
     proof.selectedProjects,
-    proof.selected_projects
+    proof.selected_projects,
   ].find((value) => Array.isArray(value) && value.length);
   if (direct) {
     return uniqueStrings(direct);
@@ -454,7 +430,7 @@ function extractProjectKeysFromRoundProof(proof) {
   const sources = [
     proof.king,
     ...(Array.isArray(proof.entrants) ? proof.entrants : []),
-    ...(Array.isArray(proof.entries) ? proof.entries : [])
+    ...(Array.isArray(proof.entries) ? proof.entries : []),
   ];
   for (const source of sources) {
     const projects = Array.isArray(source?.projects)
@@ -462,7 +438,9 @@ function extractProjectKeysFromRoundProof(proof) {
       : Array.isArray(source?.candidate?.projects)
         ? source.candidate.projects
         : [];
-    const keys = uniqueStrings(projects.map((project) => project?.project_key || project?.projectKey));
+    const keys = uniqueStrings(
+      projects.map((project) => project?.project_key || project?.projectKey)
+    );
     if (keys.length) {
       return keys;
     }
@@ -476,11 +454,11 @@ function uniqueStrings(values) {
       (Array.isArray(values) ? values : [])
         .map((value) => String(value || "").trim())
         .filter(Boolean)
-    )
+    ),
   ];
 }
 
-function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
+function enrichLeaderboardLatestWinnerWithRound(leaderboard, round, roundLane) {
   if (round?.state !== "completed" || !round.winnerSubmissionId) {
     return leaderboard;
   }
@@ -489,7 +467,10 @@ function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
   if (!winnerEntrant?.author) {
     return leaderboard;
   }
-  const laneKey = "sn60__bitsec::miner";
+  const laneKey = laneKeyForLane(roundLane);
+  if (!laneKey) {
+    return leaderboard;
+  }
   const current = leaderboard?.latestLaneWinners?.[laneKey] || {};
   const winnerPull =
     Number(winnerEntrant.pull_number ?? winnerEntrant.pullNumber) ||
@@ -504,11 +485,8 @@ function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
       mergedAt: current.mergedAt || round.finishedAt || round.generatedAt || null,
       pullNumber: winnerPull,
       submissionId:
-        winnerEntrant.submission_id ||
-        winnerEntrant.submissionId ||
-        current.submissionId ||
-        null
-    }
+        winnerEntrant.submission_id || winnerEntrant.submissionId || current.submissionId || null,
+    },
   };
   return {
     ...leaderboard,
@@ -518,7 +496,7 @@ function enrichLeaderboardLatestWinnerWithRound(leaderboard, round) {
       winnerEntrant.author,
       latestLaneWinners
     ),
-    latestLaneWinners
+    latestLaneWinners,
   };
 }
 
@@ -536,10 +514,7 @@ function normalizeLeaderboardWinnerAuthor(rows, winnerPullNumber, author, latest
     const rowAuthor = ownsWinnerPull ? normalizedAuthor : row.author;
     mergeLeaderboardRow(byAuthor, rowAuthor, row);
   }
-  return finalizeLeaderboardRows(
-    byAuthor,
-    new Map(Object.entries(latestLaneWinners || {}))
-  );
+  return finalizeLeaderboardRows(byAuthor, new Map(Object.entries(latestLaneWinners || {})));
 }
 
 function mergeLeaderboardRow(byAuthor, author, row) {
@@ -556,19 +531,20 @@ function mergeLeaderboardRow(byAuthor, author, row) {
     "staleSubmissions",
     "holdSubmissions",
     "losingSubmissions",
-    "winnerSubmissions"
+    "winnerSubmissions",
   ]) {
     target[field] = Number(target[field] || 0) + Number(row?.[field] || 0);
   }
   target.lastActivityAt = maxDate(target.lastActivityAt, row?.lastActivityAt);
   target.winnerPulls = dedupeWinnerPulls([
     ...(target.winnerPulls || []),
-    ...(row?.winnerPulls || [])
+    ...(row?.winnerPulls || []),
   ]);
-  target.wins = target.winnerPulls.length || Math.max(Number(target.wins || 0), Number(row?.wins || 0));
+  target.wins =
+    target.winnerPulls.length || Math.max(Number(target.wins || 0), Number(row?.wins || 0));
   target.recentPulls = dedupeRecentPulls([
     ...(target.recentPulls || []),
-    ...(row?.recentPulls || [])
+    ...(row?.recentPulls || []),
   ]).slice(0, 4);
   byAuthor.set(key, target);
 }
@@ -577,27 +553,25 @@ function dedupeWinnerPulls(pulls) {
   const byKey = new Map();
   const result = [];
   for (const pull of pulls || []) {
-    const key = pull?.pullNumber
-      ? `pr:${Number(pull.pullNumber)}`
-      : `run:${pull?.mergedAt || ""}`;
+    const key = pull?.pullNumber ? `pr:${Number(pull.pullNumber)}` : `run:${pull?.mergedAt || ""}`;
     const existing = byKey.get(key);
     if (existing) {
-      existing.labels = uniqueStrings([
-        ...(existing.labels || []),
-        ...(pull?.labels || [])
-      ]);
-      existing.mergedAt =
-        dateIsAfter(pull?.mergedAt, existing.mergedAt) ? pull.mergedAt : existing.mergedAt;
+      existing.labels = uniqueStrings([...(existing.labels || []), ...(pull?.labels || [])]);
+      existing.mergedAt = dateIsAfter(pull?.mergedAt, existing.mergedAt)
+        ? pull.mergedAt
+        : existing.mergedAt;
       continue;
     }
     const copy = {
       ...pull,
-      labels: uniqueStrings(pull?.labels || [])
+      labels: uniqueStrings(pull?.labels || []),
     };
     byKey.set(key, copy);
     result.push(copy);
   }
-  return result.sort((left, right) => new Date(right?.mergedAt || 0) - new Date(left?.mergedAt || 0));
+  return result.sort(
+    (left, right) => new Date(right?.mergedAt || 0) - new Date(left?.mergedAt || 0)
+  );
 }
 
 function dedupeRecentPulls(pulls) {
@@ -611,7 +585,9 @@ function dedupeRecentPulls(pulls) {
     seen.add(key);
     result.push(pull);
   }
-  return result.sort((left, right) => new Date(right?.updatedAt || 0) - new Date(left?.updatedAt || 0));
+  return result.sort(
+    (left, right) => new Date(right?.updatedAt || 0) - new Date(left?.updatedAt || 0)
+  );
 }
 
 async function overlayLiveKataPulls(leaderboard, env) {
@@ -628,9 +604,7 @@ async function overlayLiveKataPulls(leaderboard, env) {
   if (!livePulls.length) {
     return leaderboard;
   }
-  const latestLaneWinners = new Map(
-    Object.entries(leaderboard.latestLaneWinners || {})
-  );
+  const latestLaneWinners = new Map(Object.entries(leaderboard.latestLaneWinners || {}));
   const byAuthor = new Map();
   for (const row of leaderboard.rows || []) {
     mergeLeaderboardRow(byAuthor, row.author, row);
@@ -656,7 +630,7 @@ async function overlayLiveKataPulls(leaderboard, env) {
         htmlUrl: pull.htmlUrl,
         state: pull.mergedAt ? "merged" : pull.state,
         statusLabel: primaryKataStatusLabel(pull.labels),
-        updatedAt: pull.updatedAt
+        updatedAt: pull.updatedAt,
       }));
     for (const pull of pulls) {
       applyLivePullCounts(entry, pull);
@@ -671,7 +645,7 @@ async function overlayLiveKataPulls(leaderboard, env) {
     ...leaderboard,
     source: `${leaderboard.source}+live-kata-prs`,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
@@ -730,12 +704,12 @@ function loadLiveKataPullsFromGhCli(repoSlug) {
         "--limit",
         "500",
         "--json",
-        "number,title,state,mergedAt,updatedAt,url,author,labels"
+        "number,title,state,mergedAt,updatedAt,url,author,labels",
       ],
       {
         encoding: "utf8",
         timeout: 10_000,
-        stdio: ["ignore", "pipe", "ignore"]
+        stdio: ["ignore", "pipe", "ignore"],
       }
     );
     const pulls = JSON.parse(output);
@@ -755,7 +729,7 @@ function normalizeLiveKataPulls(pulls) {
       state: normalizePullState(pull?.state),
       mergedAt: pull?.merged_at || pull?.mergedAt || null,
       updatedAt: pull?.updated_at || pull?.updatedAt || null,
-      htmlUrl: pull?.html_url || pull?.url || null
+      htmlUrl: pull?.html_url || pull?.url || null,
     }))
     .filter((pull) => pull.number && pull.labels.some((label) => label.startsWith("kata:")));
 }
@@ -821,18 +795,35 @@ function maybeAttachWinnerPull(entry, pull, latestLaneWinners) {
     {
       pullNumber: pull.number,
       mergedAt: pull.mergedAt,
-      labels: pull.labels
-    }
+      labels: pull.labels,
+    },
   ]);
-  const laneKey = `${winnerLabel.slice("kata:winner:".length)}::miner`;
+  const laneKey = laneKeyFromWinnerPull(pull, winnerLabel);
+  if (!laneKey) {
+    return;
+  }
   const current = latestLaneWinners.get(laneKey);
   if (!current || new Date(pull.mergedAt) > new Date(current.mergedAt || 0)) {
     latestLaneWinners.set(laneKey, {
       author: entry.author,
       mergedAt: pull.mergedAt,
-      pullNumber: pull.number
+      pullNumber: pull.number,
     });
   }
+}
+
+function laneKeyFromWinnerPull(pull, winnerLabel) {
+  const subnetPack = winnerLabel.slice("kata:winner:".length);
+  if (!subnetPack) {
+    return null;
+  }
+  const labels = normalizeLabelNames(pull?.labels);
+  const modeLabel = labels.find((label) => label.startsWith("kata:mode:"));
+  const artifact = (pull?.files || [])
+    .map((file) => inferArtifactSubmission(file?.path))
+    .find(Boolean);
+  const mode = modeLabel?.slice("kata:mode:".length) || artifact?.mode || "miner";
+  return `${subnetPack}::${mode}`;
 }
 
 function normalizeLabelNames(labels) {
@@ -850,7 +841,7 @@ function primaryKataStatusLabel(labels) {
     "kata:hold",
     "kata:invalid",
     "kata:stale",
-    "kata:losing"
+    "kata:losing",
   ]) {
     if (status.has(label)) {
       return label;
@@ -859,39 +850,38 @@ function primaryKataStatusLabel(labels) {
   return normalizeLabelNames(labels).find((label) => label.startsWith("kata:winner:")) || null;
 }
 
-function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, leaderboard }) {
+function enrichPublicProofWithLiveWinner(
+  publicProof,
+  { round, roundHistory, leaderboard, activeLane }
+) {
   const proof = publicProof
     ? {
         ...publicProof,
         currentKing: { ...(publicProof.currentKing || {}) },
-        latestRound: { ...(publicProof.latestRound || {}) }
+        latestRound: { ...(publicProof.latestRound || {}) },
       }
     : {
         schemaVersion: 1,
         updatedAt: null,
-        activePack: "sn60__bitsec",
-        activeMode: "miner",
+        activePack: activeLane?.subnetPack || null,
+        activeMode: activeLane?.mode || null,
         dashboardUrl: null,
         currentKing: {},
         latestRound: {},
-        benchmark: {}
+        benchmark: {},
       };
-  const activePack = proof.activePack || "sn60__bitsec";
-  const activeMode = proof.activeMode || "miner";
-  const latestWinner =
-    leaderboard?.latestLaneWinners?.[`${activePack}::${activeMode}`] ||
-    leaderboard?.latestLaneWinners?.["sn60__bitsec::miner"] ||
-    null;
-  const completedRound =
-    round?.state === "completed" && round.winnerSubmissionId ? round : null;
+  const activePack = proof.activePack || activeLane?.subnetPack || null;
+  const activeMode = proof.activeMode || activeLane?.mode || null;
+  const activeLaneKey = activePack && activeMode ? `${activePack}::${activeMode}` : null;
+  const latestWinner = activeLaneKey
+    ? leaderboard?.latestLaneWinners?.[activeLaneKey] || null
+    : null;
+  const completedRound = round?.state === "completed" && round.winnerSubmissionId ? round : null;
   const latestRound =
     completedRound ||
-    (Array.isArray(roundHistory)
-      ? roundHistory.find((item) => item?.winnerSubmissionId)
-      : null);
+    (Array.isArray(roundHistory) ? roundHistory.find((item) => item?.winnerSubmissionId) : null);
   const winnerPullNumber =
-    latestWinner?.pullNumber ||
-    prNumberFromSubmissionId(latestRound?.winnerSubmissionId);
+    latestWinner?.pullNumber || prNumberFromSubmissionId(latestRound?.winnerSubmissionId);
   const winnerEntrant = findWinnerEntrant(latestRound, winnerPullNumber);
   const winnerSubmissionId =
     latestWinner?.submissionId ||
@@ -924,15 +914,16 @@ function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, lea
       author: winnerAuthor,
       submissionId: winnerSubmissionId || null,
       sourcePullRequest: winnerPullNumber ?? null,
-      path: proof.currentKing.path || `kings/${activePack}/${activeMode}`,
-      promotedAt
+      path:
+        proof.currentKing.path ||
+        (activePack && activeMode ? `kings/${activePack}/${activeMode}` : null),
+      promotedAt,
     };
   }
 
   if (latestRound?.runId || latestRound?.winnerSubmissionId) {
     const entrants = Array.isArray(latestRound.entrants) ? latestRound.entrants : [];
-    const sameProofRound =
-      latestRound.runId && latestRound.runId === proof.latestRound.roundId;
+    const sameProofRound = latestRound.runId && latestRound.runId === proof.latestRound.roundId;
     proof.latestRound = {
       ...proof.latestRound,
       roundId: latestRound.runId || proof.latestRound.roundId || null,
@@ -948,7 +939,7 @@ function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, lea
         latestRound.durationSeconds ?? (sameProofRound ? proof.latestRound.durationSeconds : null),
       candidateCount:
         latestRound.candidateCount ??
-        (entrants.length ? entrants.length : proof.latestRound.candidateCount ?? null),
+        (entrants.length ? entrants.length : (proof.latestRound.candidateCount ?? null)),
       outcome: latestRound.winnerSubmissionId ? "king_promoted" : proof.latestRound.outcome,
       winnerPullRequest: winnerPullNumber ?? proof.latestRound.winnerPullRequest ?? null,
       winnerAuthor: winnerAuthor || proof.latestRound.winnerAuthor || null,
@@ -963,7 +954,7 @@ function enrichPublicProofWithLiveWinner(publicProof, { round, roundHistory, lea
         latestRound.bestDetection ??
         proof.latestRound.bestDetectionScore ??
         null,
-      proof: sameProofRound ? proof.latestRound.proof : null
+      proof: sameProofRound ? proof.latestRound.proof : null,
     };
   }
   return proof;
@@ -973,7 +964,9 @@ function findWinnerEntrant(round, winnerPullNumber) {
   const entrants = Array.isArray(round?.entrants) ? round.entrants : [];
   return (
     entrants.find((entrant) => entrant?.selected_winner === true || entrant?.status === "winner") ||
-    entrants.find((entrant) => Number(entrant?.pull_number ?? entrant?.pullNumber) === Number(winnerPullNumber)) ||
+    entrants.find(
+      (entrant) => Number(entrant?.pull_number ?? entrant?.pullNumber) === Number(winnerPullNumber)
+    ) ||
     null
   );
 }
@@ -1006,7 +999,7 @@ function assignRoundSequence(round, roundHistory) {
   const numberedHistory = (Array.isArray(roundHistory) ? roundHistory : []).map(
     (entry, index, entries) => ({
       ...entry,
-      roundNumber: entries.length - index
+      roundNumber: entries.length - index,
     })
   );
   if (!round) {
@@ -1023,9 +1016,9 @@ function assignRoundSequence(round, roundHistory) {
     liveProgress: round.liveProgress
       ? {
           ...round.liveProgress,
-          roundNumber
+          roundNumber,
         }
-      : round.liveProgress
+      : round.liveProgress,
   };
   return { round: numberedRound, roundHistory: numberedHistory };
 }
@@ -1043,6 +1036,7 @@ function loadRoundStatus(roundStatusPath) {
     generatedAt: status.generated_at || null,
     runId: status.run_id || null,
     repo: status.repo || null,
+    laneId: status.lane_id || null,
     competitionMode: status.competition_mode || "king_duel",
     kingSkippedReason: status.king_skipped_reason || null,
     king: status.king || null,
@@ -1051,7 +1045,7 @@ function loadRoundStatus(roundStatusPath) {
     winnerSubmissionId: status.winner_submission_id || null,
     entrants: (Array.isArray(status.entrants) ? status.entrants : []).map((entrant) => ({
       ...entrant,
-      author: entrant.author || inferSubmissionAuthorFromId(entrant.submission_id)
+      author: entrant.author || inferSubmissionAuthorFromId(entrant.submission_id),
     })),
     screenedOut: Array.isArray(status.screened_out) ? status.screened_out : [],
     closedExtras: Array.isArray(status.closed_extras) ? status.closed_extras : [],
@@ -1060,7 +1054,7 @@ function loadRoundStatus(roundStatusPath) {
       status.external_baseline && typeof status.external_baseline === "object"
         ? status.external_baseline
         : null,
-    preflight: status.preflight && typeof status.preflight === "object" ? status.preflight : null
+    preflight: status.preflight && typeof status.preflight === "object" ? status.preflight : null,
   };
 }
 
@@ -1081,7 +1075,7 @@ function loadRoundProgress(roundProgressPath, kataRoot = null) {
       projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
       replicasPerProject: inferRoundReplicasPerProject(data),
       king: data.king && typeof data.king === "object" ? data.king : null,
-      candidates: Array.isArray(data.candidates) ? data.candidates : []
+      candidates: Array.isArray(data.candidates) ? data.candidates : [],
     },
     kataRoot
   );
@@ -1092,9 +1086,7 @@ function inferRoundReplicasPerProject(progress) {
   if (explicit) {
     return explicit;
   }
-  const projectCount = Array.isArray(progress?.project_keys)
-    ? progress.project_keys.length
-    : 0;
+  const projectCount = Array.isArray(progress?.project_keys) ? progress.project_keys.length : 0;
   if (projectCount <= 0) {
     return null;
   }
@@ -1102,7 +1094,7 @@ function inferRoundReplicasPerProject(progress) {
     progress?.king?.total,
     ...(Array.isArray(progress?.candidates)
       ? progress.candidates.map((candidate) => candidate?.total)
-      : [])
+      : []),
   ];
   for (const total of totals) {
     const parsedTotal = positiveIntegerOrNull(total);
@@ -1135,7 +1127,7 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
           variantName: "king",
           projectKeys,
           pullNumber: null,
-          expectedReplicas
+          expectedReplicas,
         })
       : progress.king,
     candidates: (progress.candidates || []).map((candidate) => {
@@ -1146,9 +1138,9 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
         variantName: "candidate",
         projectKeys,
         pullNumber,
-        expectedReplicas
+        expectedReplicas,
       });
-    })
+    }),
   };
 }
 
@@ -1162,7 +1154,7 @@ function summarizeRoundScreeningProgress(progress, runRoot) {
       summarizeRoundScreeningCandidate({
         candidate,
         runRoot,
-        fallbackProjectKey: progress.projectKeys?.[0] || null
+        fallbackProjectKey: progress.projectKeys?.[0] || null,
       })
     )
     .filter(Boolean);
@@ -1190,7 +1182,7 @@ function summarizeRoundScreeningProgress(progress, runRoot) {
       entries.find((entry) => entry.state === "queued") ||
       null,
     updatedAt,
-    entries
+    entries,
   };
 }
 
@@ -1207,12 +1199,12 @@ function summarizeRoundScreeningCandidate({ candidate, runRoot, fallbackProjectK
     runId: null,
     startedAt: null,
     updatedAt: null,
-    screening_result: null
+    screening_result: null,
   };
   if (!fs.existsSync(screeningRoot)) {
     return {
       ...base,
-      state: "queued"
+      state: "queued",
     };
   }
   const latestRunRoot = latestDirectoryPath(screeningRoot);
@@ -1220,7 +1212,7 @@ function summarizeRoundScreeningCandidate({ candidate, runRoot, fallbackProjectK
     return {
       ...base,
       state: "running",
-      updatedAt: newestMtimeIso(screeningRoot) || statMtimeIso(screeningRoot)
+      updatedAt: newestMtimeIso(screeningRoot) || statMtimeIso(screeningRoot),
     };
   }
   const result = readJsonSafe(path.join(latestRunRoot, "screening_result.json"));
@@ -1241,17 +1233,19 @@ function summarizeRoundScreeningCandidate({ candidate, runRoot, fallbackProjectK
     projectKey,
     startedAt: statMtimeIso(latestRunRoot),
     updatedAt,
-    screening_result: publicRoundScreeningResult(result)
+    screening_result: publicRoundScreeningResult(result),
   };
 }
 
 function latestDirectoryPath(rootPath) {
-  return listDirectories(rootPath)
-    .map((name) => path.join(rootPath, name))
-    .sort((left, right) => {
-      const byMtime = new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0);
-      return byMtime || right.localeCompare(left);
-    })[0] || null;
+  return (
+    listDirectories(rootPath)
+      .map((name) => path.join(rootPath, name))
+      .sort((left, right) => {
+        const byMtime = new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0);
+        return byMtime || right.localeCompare(left);
+      })[0] || null
+  );
 }
 
 function inferScreeningProjectKey(screeningRunRoot) {
@@ -1285,7 +1279,7 @@ function publicRoundScreeningResult(result) {
     reasons: Array.isArray(result.reasons)
       ? result.reasons.map((reason) => String(reason)).filter(Boolean)
       : [],
-    created_at: result.created_at || null
+    created_at: result.created_at || null,
   };
 }
 
@@ -1295,7 +1289,7 @@ function enrichRoundProgressSide({
   variantName,
   projectKeys,
   pullNumber,
-  expectedReplicas = null
+  expectedReplicas = null,
 }) {
   if (!side || typeof side !== "object") {
     return side;
@@ -1323,8 +1317,7 @@ function enrichRoundProgressSide({
       side,
       projectKey,
       expectedReplicas,
-      allowGenericDuelRoot:
-        variantName !== "candidate" || side.state === "scoring"
+      allowGenericDuelRoot: variantName !== "candidate" || side.state === "scoring",
     });
     if (!existingProject && !replicaProject?.started) {
       continue;
@@ -1335,7 +1328,7 @@ function enrichRoundProgressSide({
   }
   return {
     ...side,
-    projects: enrichedProjects.length ? enrichedProjects : existingProjects
+    projects: enrichedProjects.length ? enrichedProjects : existingProjects,
   };
 }
 
@@ -1351,7 +1344,7 @@ function findRoundReplicaProject({
   side = null,
   projectKey,
   expectedReplicas = null,
-  allowGenericDuelRoot = true
+  allowGenericDuelRoot = true,
 }) {
   const directRoots = [];
   if (pullNumber) {
@@ -1365,35 +1358,29 @@ function findRoundReplicaProject({
   directRoots.push(path.join(runRoot, variantName, projectKey));
   for (const projectRoot of directRoots) {
     if (fs.existsSync(projectRoot)) {
-      return summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas);
+      return summarizeEvaluatorProjectProgress(projectRoot, projectKey, expectedReplicas);
     }
   }
 
   if (!allowGenericDuelRoot) {
     const matchedDuelRoot =
-      variantName === "candidate"
-        ? findMatchingCompletedCandidateDuelRoot(runRoot, side)
-        : null;
+      variantName === "candidate" ? findMatchingCompletedCandidateDuelRoot(runRoot, side) : null;
     if (matchedDuelRoot) {
       const projectRoot = path.join(matchedDuelRoot, variantName, projectKey);
       if (fs.existsSync(projectRoot)) {
-        return summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas);
+        return summarizeEvaluatorProjectProgress(projectRoot, projectKey, expectedReplicas);
       }
     }
     return null;
   }
 
-  const duelRoots = listDirectories(runRoot)
-    .filter((name) => name.startsWith("sn60-duel-"))
-    .map((name) => path.join(runRoot, name))
-    .sort(
-      (left, right) =>
-        new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
-    );
+  const duelRoots = findDuelRoots(runRoot).sort(
+    (left, right) => new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
+  );
   for (const duelRoot of duelRoots) {
     const projectRoot = path.join(duelRoot, variantName, projectKey);
     if (fs.existsSync(projectRoot)) {
-      return summarizeSn60ProjectProgress(projectRoot, projectKey, expectedReplicas);
+      return summarizeEvaluatorProjectProgress(projectRoot, projectKey, expectedReplicas);
     }
   }
   return null;
@@ -1403,10 +1390,7 @@ function findMatchingCompletedCandidateDuelRoot(runRoot, side) {
   if (!side || typeof side !== "object" || side.state !== "done") {
     return null;
   }
-  const duelRoots = listDirectories(runRoot)
-    .filter((name) => name.startsWith("sn60-duel-"))
-    .map((name) => path.join(runRoot, name))
-    .sort();
+  const duelRoots = findDuelRoots(runRoot).sort();
   for (const duelRoot of duelRoots) {
     const summary = readJsonSafe(path.join(duelRoot, "duel_summary.json"));
     if (completedCandidateSummaryMatchesProgress(summary?.candidate, side)) {
@@ -1414,6 +1398,17 @@ function findMatchingCompletedCandidateDuelRoot(runRoot, side) {
     }
   }
   return null;
+}
+
+function findDuelRoots(runRoot) {
+  return listDirectories(runRoot)
+    .map((name) => path.join(runRoot, name))
+    .filter(
+      (candidateRoot) =>
+        fs.existsSync(path.join(candidateRoot, "duel_summary.json")) ||
+        fs.existsSync(path.join(candidateRoot, "candidate")) ||
+        fs.existsSync(path.join(candidateRoot, "king"))
+    );
 }
 
 function completedCandidateSummaryMatchesProgress(candidate, progress) {
@@ -1425,7 +1420,7 @@ function completedCandidateSummaryMatchesProgress(candidate, progress) {
     ["total_expected", "total_expected"],
     ["total_found", "total_found"],
     ["invalid_runs", "invalid_runs"],
-    ["codebase_pass_count", "codebase_pass_count"]
+    ["codebase_pass_count", "codebase_pass_count"],
   ];
   for (const [summaryKey, progressKey] of exactFields) {
     const progressValue = progress[progressKey];
@@ -1436,9 +1431,11 @@ function completedCandidateSummaryMatchesProgress(candidate, progress) {
       return false;
     }
   }
-  return numbersClose(candidate.aggregated_score, progress.aggregated_score)
-    && numbersClose(candidate.precision, progress.precision)
-    && numbersClose(candidate.f1_score, progress.f1_score);
+  return (
+    numbersClose(candidate.aggregated_score, progress.aggregated_score) &&
+    numbersClose(candidate.precision, progress.precision) &&
+    numbersClose(candidate.f1_score, progress.f1_score)
+  );
 }
 
 function numbersClose(left, right) {
@@ -1460,7 +1457,7 @@ function mergeRoundProjectReplicaProgress(existingProject, replicaProject, proje
           total_expected: Number(replicaProject?.totalExpected || 0),
           total_found: Number(replicaProject?.totalFound || 0),
           precision: numberOrNull(replicaProject?.precision),
-          f1_score: numberOrNull(replicaProject?.f1Score)
+          f1_score: numberOrNull(replicaProject?.f1Score),
         };
   if (!replicaProject) {
     return base;
@@ -1477,7 +1474,7 @@ function mergeRoundProjectReplicaProgress(existingProject, replicaProject, proje
     invalid_runs: Number(replicaProject.invalidRuns || 0),
     replicas: Array.isArray(replicaProject.replicas)
       ? replicaProject.replicas.map(roundReplicaPayload)
-      : []
+      : [],
   };
 }
 
@@ -1495,7 +1492,7 @@ function roundReplicaPayload(replica) {
     true_positives: Number(replica.truePositives || 0),
     total_expected: Number(replica.totalExpected || 0),
     total_found: Number(replica.totalFound || 0),
-    updated_at: replica.updatedAt || null
+    updated_at: replica.updatedAt || null,
   };
 }
 
@@ -1516,8 +1513,6 @@ function resolveExistingRoot(explicitPath, fallbackPath) {
   return path.resolve(explicitPath || fallbackPath);
 }
 
-
-
 function loadEvaluatorLanes({ kataRoot, latestLaneWinners, identityAliases = new Map() }) {
   const lanesRoot = path.join(kataRoot, "lanes");
   const registry = readJsonSafe(path.join(lanesRoot, "registry.json"));
@@ -1528,9 +1523,7 @@ function loadEvaluatorLanes({ kataRoot, latestLaneWinners, identityAliases = new
         .filter(Boolean)
     : listDirectories(lanesRoot);
   return laneIds
-    .map((laneId) =>
-      loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
-    )
+    .map((laneId) => loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases))
     .filter(Boolean);
 }
 
@@ -1555,7 +1548,7 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     artifactHash: state.king?.current_king_artifact_hash || null,
     source: state.king?.promotion_source_pr || "evaluator lane",
     updatedAt: state.king?.promotion_timestamp || state.king?.updated_at || null,
-    seeded: !state.king?.current_king_submission_id
+    seeded: !state.king?.current_king_submission_id,
   };
   const latestWinnerIsNewer =
     latestWinner?.author && dateIsAfter(latestWinner.mergedAt, king.updatedAt);
@@ -1573,9 +1566,9 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
             ? {
                 author: king.author,
                 submissionId: king.submissionId,
-                updatedAt: king.updatedAt
+                updatedAt: king.updatedAt,
               }
-            : null
+            : null,
         }
       : king;
   const currentHolder =
@@ -1584,9 +1577,7 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     Boolean(latestWinner?.author) &&
     (!displayKing.author || latestWinner.author === displayKing.author);
   const selectedProjectsRaw = state.challengeState?.selected_project_keys;
-  const selectedProjects = Array.isArray(selectedProjectsRaw)
-    ? selectedProjectsRaw
-    : [];
+  const selectedProjects = Array.isArray(selectedProjectsRaw) ? selectedProjectsRaw : [];
   return {
     id: `${subnetPack}:${mode}`,
     laneId,
@@ -1604,16 +1595,16 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     projects: selectedProjects.map((projectKey) => ({
       taskId: projectKey,
       title: projectKey,
-      // Derived from the lane's pack ("sn60__bitsec" -> ["sn60", "bitsec"]) so any subnet tags right.
-      tags: subnetPack.split("__").filter(Boolean)
+      // Derived from the lane's pack so every subnet receives its own tags.
+      tags: subnetPack.split("__").filter(Boolean),
     })),
     // Project only the derived state the UI consumes; the raw lane files
     // contain internal fields (server paths, full screening payloads) that
     // should not ship to unauthenticated clients.
     evaluatorState: {
       laneId: state.laneId,
-      current: state.current
-    }
+      current: state.current,
+    },
   };
 }
 
@@ -1640,8 +1631,8 @@ function loadEvaluatorLaneState(kataRoot, laneId, identityAliases = new Map()) {
       benchmarkSnapshot,
       challengeState,
       promotionRecord,
-      identityAliases
-    })
+      identityAliases,
+    }),
   };
 }
 
@@ -1651,15 +1642,14 @@ function buildEvaluatorCurrentState({
   benchmarkSnapshot,
   challengeState,
   promotionRecord,
-  identityAliases = new Map()
+  identityAliases = new Map(),
 }) {
   if (!lane) {
     return null;
   }
   const screening = challengeState?.screening_result || null;
   const finalMetrics = promotionRecord?.final_metrics || {};
-  const projectKeysRaw =
-    challengeState?.selected_project_keys || benchmarkSnapshot?.project_keys;
+  const projectKeysRaw = challengeState?.selected_project_keys || benchmarkSnapshot?.project_keys;
   const projectKeys = Array.isArray(projectKeysRaw) ? projectKeysRaw : [];
   return {
     candidateSubmissionId: challengeState?.candidate_submission_id || null,
@@ -1679,17 +1669,24 @@ function buildEvaluatorCurrentState({
       candidate: numberOrNull(finalMetrics.candidate_total_found),
       king: numberOrNull(finalMetrics.king_total_found),
       delta:
-        finalMetrics.candidate_total_found === undefined || finalMetrics.king_total_found === undefined
+        finalMetrics.candidate_total_found === undefined ||
+        finalMetrics.king_total_found === undefined
           ? null
-          : numberOrNull(Number(finalMetrics.candidate_total_found) - Number(finalMetrics.king_total_found))
+          : numberOrNull(
+              Number(finalMetrics.candidate_total_found) - Number(finalMetrics.king_total_found)
+            ),
     },
     totalExpected: {
       candidate: numberOrNull(finalMetrics.candidate_total_expected),
       king: numberOrNull(finalMetrics.king_total_expected),
       delta:
-        finalMetrics.candidate_total_expected === undefined || finalMetrics.king_total_expected === undefined
+        finalMetrics.candidate_total_expected === undefined ||
+        finalMetrics.king_total_expected === undefined
           ? null
-          : numberOrNull(Number(finalMetrics.candidate_total_expected) - Number(finalMetrics.king_total_expected))
+          : numberOrNull(
+              Number(finalMetrics.candidate_total_expected) -
+                Number(finalMetrics.king_total_expected)
+            ),
     },
     precision: {
       candidate: numberOrNull(finalMetrics.candidate_precision),
@@ -1697,7 +1694,9 @@ function buildEvaluatorCurrentState({
       delta:
         finalMetrics.candidate_precision === undefined || finalMetrics.king_precision === undefined
           ? null
-          : numberOrNull(Number(finalMetrics.candidate_precision) - Number(finalMetrics.king_precision))
+          : numberOrNull(
+              Number(finalMetrics.candidate_precision) - Number(finalMetrics.king_precision)
+            ),
     },
     f1Scores: {
       candidate: numberOrNull(finalMetrics.candidate_f1_score),
@@ -1705,7 +1704,9 @@ function buildEvaluatorCurrentState({
       delta:
         finalMetrics.candidate_f1_score === undefined || finalMetrics.king_f1_score === undefined
           ? null
-          : numberOrNull(Number(finalMetrics.candidate_f1_score) - Number(finalMetrics.king_f1_score))
+          : numberOrNull(
+              Number(finalMetrics.candidate_f1_score) - Number(finalMetrics.king_f1_score)
+            ),
     },
     invalidRuns: promotionRecord?.invalid_runs || {},
     localReplicaScores: promotionRecord?.local_replica_scores || {},
@@ -1716,13 +1717,12 @@ function buildEvaluatorCurrentState({
     scores: {
       candidate: numberOrNull(finalMetrics.candidate_aggregated_score),
       king: numberOrNull(finalMetrics.king_aggregated_score),
-      delta: numberOrNull(finalMetrics.candidate_aggregated_score_delta)
+      delta: numberOrNull(finalMetrics.candidate_aggregated_score_delta),
     },
     stability: summarizeReplicaStability(promotionRecord?.local_replica_scores || {}),
     provenance: {
       freshnessFingerprint: challengeState?.freshness_fingerprint || null,
-      sandboxCommit:
-        finalMetrics.sandbox_commit || benchmarkSnapshot?.sandbox_commit_hash || null,
+      sandboxCommit: finalMetrics.sandbox_commit || benchmarkSnapshot?.sandbox_commit_hash || null,
       benchmarkSha256:
         finalMetrics.benchmark_sha256 || benchmarkSnapshot?.benchmark_dataset_hash || null,
       scorerVersion: finalMetrics.scorer_version || benchmarkSnapshot?.scorer_version || null,
@@ -1733,8 +1733,8 @@ function buildEvaluatorCurrentState({
         promotionRecord?.recorded_at ||
         benchmarkSnapshot?.updated_at ||
         lane.updated_at ||
-        null
-    }
+        null,
+    },
   };
 }
 
@@ -1753,42 +1753,44 @@ function loadRecentActivity(kataRoot, env) {
   const challengePaths = collectFiles(runsRoot, "challenge_summary.json");
   const limit = Number.parseInt(env.KATA_ACTIVITY_LIMIT || "18", 10);
 
-  return challengePaths
-    // readJsonSafe: a single mid-write or corrupt run artifact must not take
-    // down the whole status endpoint.
-    .map((filePath) => readJsonSafe(filePath))
-    .filter(Boolean)
-    .map((summary) => {
-      const primaryCandidateScore = summary.primary?.variant_scores?.candidate ?? 0;
-      const primaryKingScore = summary.primary?.variant_scores?.king ?? 0;
-      const subnetPack = inferRepoPackFromSummary(summary);
-      const sn60Metrics = loadSn60ActivityMetrics(summary);
-      return {
-        runId: summary.run_id,
-        createdAt: summary.created_at,
-        laneId: `${subnetPack}:${summary.mode}`,
-        mode: summary.mode,
-        subnetPack,
-        repoPack: subnetPack,
-        promotionReady: Boolean(summary.promotion_ready),
-        promotionReason: summary.promotion_reason || null,
-        candidateArtifactHash: summary.candidate_artifact_hash || null,
-        candidateSubmissionId: inferSubmissionId(summary.candidate_artifact),
-        candidateAuthor: inferSubmissionAuthor(summary.candidate_artifact),
-        kingArtifactHash: summary.king_artifact_hash || null,
-        primary: {
-          taskIds: summary.primary?.project_keys || [],
-          candidateScore: primaryCandidateScore,
-          kingScore: primaryKingScore,
-          candidateDelta:
-            summary.primary?.candidate_score_delta ??
-            primaryCandidateScore - primaryKingScore
-        },
-        sn60: sn60Metrics
-      };
-    })
-    .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
-    .slice(0, limit);
+  return (
+    challengePaths
+      // readJsonSafe: a single mid-write or corrupt run artifact must not take
+      // down the whole status endpoint.
+      .map((filePath) => readJsonSafe(filePath))
+      .filter(Boolean)
+      .map((summary) => {
+        const primaryCandidateScore = summary.primary?.variant_scores?.candidate ?? 0;
+        const primaryKingScore = summary.primary?.variant_scores?.king ?? 0;
+        const subnetPack = inferRepoPackFromSummary(summary);
+        const mode = String(summary.mode || "").trim() || null;
+        const evaluatorMetrics = loadEvaluatorActivityMetrics(summary);
+        return {
+          runId: summary.run_id,
+          createdAt: summary.created_at,
+          laneId: subnetPack && mode ? `${subnetPack}:${mode}` : null,
+          mode,
+          subnetPack,
+          repoPack: subnetPack,
+          promotionReady: Boolean(summary.promotion_ready),
+          promotionReason: summary.promotion_reason || null,
+          candidateArtifactHash: summary.candidate_artifact_hash || null,
+          candidateSubmissionId: inferSubmissionId(summary.candidate_artifact),
+          candidateAuthor: inferSubmissionAuthor(summary.candidate_artifact),
+          kingArtifactHash: summary.king_artifact_hash || null,
+          primary: {
+            taskIds: summary.primary?.project_keys || [],
+            candidateScore: primaryCandidateScore,
+            kingScore: primaryKingScore,
+            candidateDelta:
+              summary.primary?.candidate_score_delta ?? primaryCandidateScore - primaryKingScore,
+          },
+          evaluator: evaluatorMetrics,
+        };
+      })
+      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
+      .slice(0, limit)
+  );
 }
 
 function inferSubmissionId(artifactPath) {
@@ -1802,63 +1804,59 @@ function inferSubmissionAuthor(artifactPath) {
   return inferSubmissionAuthorFromId(inferSubmissionId(artifactPath));
 }
 
-function loadSn60ActivityMetrics(summary) {
-  if (summary.mode !== "miner" || !String(summary.promotion_reason || "").includes("SN60")) {
-    return null;
-  }
+function loadEvaluatorActivityMetrics(summary) {
   const manifestPath = summary.manifest_path || "";
   const runRoot = manifestPath ? path.dirname(manifestPath) : null;
-  const screening = runRoot
-    ? readJsonSafe(path.join(runRoot, "screening_result.json"))
-    : null;
-  const duel = path.basename(manifestPath) === "duel_summary.json"
-    ? readJsonSafe(manifestPath)
-    : null;
+  const screening = runRoot ? readJsonSafe(path.join(runRoot, "screening_result.json")) : null;
+  const duel =
+    path.basename(manifestPath) === "duel_summary.json" ? readJsonSafe(manifestPath) : null;
   return {
-    screeningStatus: screening?.status || (manifestPath.endsWith("screening_result.json") ? "failed" : null),
+    screeningStatus:
+      screening?.status || (manifestPath.endsWith("screening_result.json") ? "failed" : null),
     screeningStage: screening?.stage || null,
     screeningReasons: Array.isArray(screening?.reasons) ? screening.reasons : [],
     passCounts: summary.primary?.variant_successes || {},
     invalidRuns: summary.primary?.variant_invalid_runs || {},
     truePositives: {
       candidate: numberOrNull(duel?.candidate?.true_positives),
-      king: numberOrNull(duel?.king?.true_positives)
+      king: numberOrNull(duel?.king?.true_positives),
     },
     totalFound: {
       candidate: numberOrNull(duel?.candidate?.total_found),
-      king: numberOrNull(duel?.king?.total_found)
+      king: numberOrNull(duel?.king?.total_found),
     },
     precision: {
       candidate: numberOrNull(duel?.candidate?.precision),
-      king: numberOrNull(duel?.king?.precision)
+      king: numberOrNull(duel?.king?.precision),
     },
     f1Scores: {
       candidate: numberOrNull(duel?.candidate?.f1_score),
-      king: numberOrNull(duel?.king?.f1_score)
+      king: numberOrNull(duel?.king?.f1_score),
     },
     replicaScores: {
       candidate: Array.isArray(duel?.candidate?.replica_results)
-        ? duel.candidate.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
+        ? duel.candidate.replica_results
+            .map((result) => numberOrNull(result.score))
+            .filter((value) => value !== null)
         : [],
       king: Array.isArray(duel?.king?.replica_results)
-        ? duel.king.replica_results.map((result) => numberOrNull(result.score)).filter((value) => value !== null)
-        : []
+        ? duel.king.replica_results
+            .map((result) => numberOrNull(result.score))
+            .filter((value) => value !== null)
+        : [],
     },
     provenance: {
       sandboxCommit: duel?.sandbox_source?.sandbox_commit || null,
       benchmarkSha256: duel?.sandbox_source?.benchmark_sha256 || null,
       scorerVersion: duel?.sandbox_source?.scorer_version || null,
-      projectKeys: duel?.project_keys || summary.primary?.project_keys || []
-    }
+      projectKeys: duel?.project_keys || summary.primary?.project_keys || [],
+    },
   };
 }
 
 async function loadLeaderboard(env) {
   const cacheKey = leaderboardCacheKey(env);
-  const cacheTtlMs = readTtlMs(
-    env.KATA_LEADERBOARD_CACHE_TTL_MS,
-    DEFAULT_LEADERBOARD_CACHE_TTL_MS
-  );
+  const cacheTtlMs = readTtlMs(env.KATA_LEADERBOARD_CACHE_TTL_MS, DEFAULT_LEADERBOARD_CACHE_TTL_MS);
   if (
     cachedLeaderboard &&
     cachedLeaderboardKey === cacheKey &&
@@ -1902,7 +1900,7 @@ function leaderboardCacheKey(env) {
     env.KATA_ROOT || "",
     env.KATA_REPO_SLUG || "",
     githubReadTokens(env).length ? "read-token-pool" : env.KATA_GITHUB_TOKEN ? "token" : "public",
-    env.KATA_BOARD_ALLOW_GH_CLI_FALLBACK === "true" ? "gh-cli" : "no-gh-cli"
+    env.KATA_BOARD_ALLOW_GH_CLI_FALLBACK === "true" ? "gh-cli" : "no-gh-cli",
   ].join("\n");
 }
 
@@ -1915,7 +1913,7 @@ async function computeLeaderboard(env) {
         source: "unavailable",
         error: error instanceof Error ? error.message : "unknown leaderboard error",
         rows: [],
-        latestLaneWinners: {}
+        latestLaneWinners: {},
       };
     }
   }
@@ -1924,7 +1922,7 @@ async function computeLeaderboard(env) {
     const leaderboard = await loadGithubLeaderboard({
       repoSlug: env.KATA_REPO_SLUG,
       githubToken: env.KATA_GITHUB_TOKEN,
-      githubTokens: githubReadTokens(env)
+      githubTokens: githubReadTokens(env),
     });
     const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
     if (
@@ -1939,21 +1937,21 @@ async function computeLeaderboard(env) {
     if (githubCliLeaderboard.rows.length) {
       return {
         ...githubCliLeaderboard,
-        githubError: error instanceof Error ? error.message : "unknown leaderboard error"
+        githubError: error instanceof Error ? error.message : "unknown leaderboard error",
       };
     }
     const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
     if (localLeaderboard.rows.length) {
       return {
         ...localLeaderboard,
-        githubError: error instanceof Error ? error.message : "unknown leaderboard error"
+        githubError: error instanceof Error ? error.message : "unknown leaderboard error",
       };
     }
     return {
       source: "unavailable",
       error: error instanceof Error ? error.message : "unknown leaderboard error",
       rows: [],
-      latestLaneWinners: {}
+      latestLaneWinners: {},
     };
   }
 }
@@ -1963,7 +1961,7 @@ function loadGithubCliLeaderboardSafe(env) {
     return {
       source: "github-cli-disabled",
       rows: [],
-      latestLaneWinners: {}
+      latestLaneWinners: {},
     };
   }
   try {
@@ -1972,7 +1970,7 @@ function loadGithubCliLeaderboardSafe(env) {
     return {
       source: "github-cli-unavailable",
       rows: [],
-      latestLaneWinners: {}
+      latestLaneWinners: {},
     };
   }
 }
@@ -1983,14 +1981,14 @@ function loadLocalLeaderboardFallback(env, error) {
   if (localLeaderboard.rows.length) {
     return {
       ...localLeaderboard,
-      githubError: message
+      githubError: message,
     };
   }
   return {
     source: "unavailable",
     error: message,
     rows: [],
-    latestLaneWinners: {}
+    latestLaneWinners: {},
   };
 }
 
@@ -2013,7 +2011,7 @@ async function loadValidatorStatus(env, roots) {
   const health = await loadValidatorHealth(env.KATA_VALIDATOR_HEALTH_URL);
   const queue = loadQueueStatus(roots.queueStatePath, health.payload?.queue || null);
   const reviewApprovals = loadReviewApprovals(roots.reviewApprovalsPath);
-  const benchmarkExpectedCounts = loadSn60BenchmarkExpectedCounts(roots.sn60BenchmarkFile);
+  const benchmarkExpectedCounts = loadBenchmarkExpectedCounts(roots.benchmarkFile);
   const visibleJob = queue.activeJob || queue.latestJob;
   const activeEvaluation = loadActiveEvaluationProgress(
     roots.liveStatusPath,
@@ -2027,10 +2025,7 @@ async function loadValidatorStatus(env, roots) {
     queue,
     reviewApprovals,
     health,
-    activeEvaluation: enrichActiveEvaluationWithPullAuthor(
-      activeEvaluation,
-      activePullAuthor
-    )
+    activeEvaluation: enrichActiveEvaluationWithPullAuthor(activeEvaluation, activePullAuthor),
   };
 }
 
@@ -2042,19 +2037,16 @@ function loadReviewApprovals(reviewApprovalsPath) {
     .map((approval) => ({
       repo: typeof approval.repo === "string" ? approval.repo : null,
       pullNumber: numberOrNull(approval.pull_number),
-      submissionId:
-        typeof approval.submission_id === "string" ? approval.submission_id : null,
+      submissionId: typeof approval.submission_id === "string" ? approval.submission_id : null,
       reason: typeof approval.reason === "string" ? approval.reason : null,
-      approvedBy:
-        typeof approval.approved_by === "string" ? approval.approved_by : null,
-      approvedAt:
-        typeof approval.approved_at === "string" ? approval.approved_at : null
+      approvedBy: typeof approval.approved_by === "string" ? approval.approved_by : null,
+      approvedAt: typeof approval.approved_at === "string" ? approval.approved_at : null,
     }))
     .sort((left, right) => new Date(right.approvedAt || 0) - new Date(left.approvedAt || 0));
   return {
     available: Boolean(payload),
     count: sanitized.length,
-    recent: sanitized.slice(0, 8)
+    recent: sanitized.slice(0, 8),
   };
 }
 
@@ -2076,7 +2068,7 @@ async function loadActivePullAuthor(env, activeJob) {
       htmlUrl: typeof user.html_url === "string" ? user.html_url : null,
       pullUrl: typeof pull.html_url === "string" ? pull.html_url : null,
       headRepo: typeof headRepo.full_name === "string" ? headRepo.full_name : null,
-      headSha: typeof head.sha === "string" ? head.sha : null
+      headSha: typeof head.sha === "string" ? head.sha : null,
     };
   } catch {
     return null;
@@ -2098,24 +2090,25 @@ function enrichActiveEvaluationWithPullAuthor(activeEvaluation, pullAuthor) {
     candidateGithubUrl: pullAuthor.htmlUrl,
     candidatePullUrl: pullAuthor.pullUrl,
     candidateAgentUrl: buildCandidateAgentUrl(activeEvaluation, pullAuthor),
-    candidateAuthor: pullAuthor.login
+    candidateAuthor: pullAuthor.login,
   };
 }
 
 function buildCandidateAgentUrl(activeEvaluation, pullAuthor) {
-  if (
-    !pullAuthor?.headRepo ||
-    !pullAuthor?.headSha ||
-    !activeEvaluation?.candidateSubmissionId
-  ) {
+  if (!pullAuthor?.headRepo || !pullAuthor?.headSha || !activeEvaluation?.candidateSubmissionId) {
+    return null;
+  }
+  const subnetPack = activeEvaluation.subnetPack || activeEvaluation.repoPack;
+  const mode = activeEvaluation.mode;
+  if (!subnetPack || !mode) {
     return null;
   }
   const agentPath = [
     "submissions",
-    activeEvaluation.subnetPack || activeEvaluation.repoPack || "sn60__bitsec",
-    activeEvaluation.mode || "miner",
+    subnetPack,
+    mode,
     activeEvaluation.candidateSubmissionId,
-    "agent.py"
+    "agent.py",
   ].join("/");
   return `https://github.com/${pullAuthor.headRepo}/blob/${pullAuthor.headSha}/${agentPath}`;
 }
@@ -2134,7 +2127,7 @@ function loadQueueStatus(queueStatePath, healthQueuePayload = null) {
     running: 0,
     completed: 0,
     failed: 0,
-    other: 0
+    other: 0,
   };
 
   for (const job of jobs) {
@@ -2162,7 +2155,7 @@ function loadQueueStatus(queueStatePath, healthQueuePayload = null) {
     counts,
     activeJob: activeJob ? summarizeQueueJob(activeJob) : null,
     latestJob: latestJob ? summarizeQueueJob(latestJob) : null,
-    recentJobs: jobsByRecency.slice(0, 8).map(summarizeQueueJob)
+    recentJobs: jobsByRecency.slice(0, 8).map(summarizeQueueJob),
   };
 }
 
@@ -2173,14 +2166,14 @@ function queueStatusFromHealth(payload) {
     running: Number(payload?.running_jobs || 0),
     completed: Number(payload?.completed_jobs || 0),
     failed: Number(payload?.failed_jobs || 0),
-    other: 0
+    other: 0,
   };
   return {
     available: Boolean(payload),
     counts,
     activeJob: null,
     latestJob: null,
-    recentJobs: []
+    recentJobs: [],
   };
 }
 
@@ -2210,7 +2203,7 @@ function loadActiveEvaluationProgress(
     attempts: activeJob?.attempts || 0,
     finalAction: activeJob?.finalAction || null,
     finalReason: activeJob?.finalReason || null,
-    primary: null
+    primary: null,
   };
   if (!activeJob) {
     return base;
@@ -2226,8 +2219,8 @@ function loadActiveEvaluationProgress(
   const workspaceRoot = workspace?.workspaceRoot || null;
   const lane = workspace?.lane || null;
   const phaseProgress = workspace?.phaseProgress || null;
-  const sn60Final = phaseProgress?.sn60 || null;
-  const phaseScreeningFailed = sn60Final?.screeningStatus === "failed";
+  const evaluatorFinal = phaseProgress?.evaluator || null;
+  const phaseScreeningFailed = evaluatorFinal?.screeningStatus === "failed";
   if (liveStatus || phaseProgress || lane) {
     return {
       ...base,
@@ -2239,28 +2232,25 @@ function loadActiveEvaluationProgress(
         (workspaceRoot ? statMtimeIso(workspaceRoot) : null) ||
         activeJob.startedAt ||
         activeJob.enqueuedAt,
-      subnetPack:
-        liveStatus?.subnetPack || lane?.subnetPack || lane?.repoPack || null,
-      repoPack:
-        liveStatus?.repoPack || lane?.subnetPack || lane?.repoPack || null,
+      subnetPack: liveStatus?.subnetPack || lane?.subnetPack || lane?.repoPack || null,
+      repoPack: liveStatus?.repoPack || lane?.subnetPack || lane?.repoPack || null,
       mode: liveStatus?.mode || lane?.mode || null,
-      candidateSubmissionId:
-        liveStatus?.candidateSubmissionId || lane?.submissionId || null,
+      candidateSubmissionId: liveStatus?.candidateSubmissionId || lane?.submissionId || null,
       candidateAuthor:
         liveStatus?.candidateAuthor ||
         (lane?.submissionId ? inferSubmissionAuthorFromId(lane.submissionId) : null),
-      screeningStatus: liveStatus?.screeningStatus || sn60Final?.screeningStatus || null,
-      screeningStage: liveStatus?.screeningStage || sn60Final?.screeningStage || null,
+      screeningStatus: liveStatus?.screeningStatus || evaluatorFinal?.screeningStatus || null,
+      screeningStage: liveStatus?.screeningStage || evaluatorFinal?.screeningStage || null,
       screeningReasons: liveStatus?.screeningReasons?.length
         ? liveStatus.screeningReasons
-        : sn60Final?.screeningReasons || [],
+        : evaluatorFinal?.screeningReasons || [],
       finalReason:
         (phaseScreeningFailed ? phaseProgress?.promotionReason : null) ||
         liveStatus?.finalReason ||
         phaseProgress?.promotionReason ||
         activeJob.finalReason ||
         null,
-      primary: liveStatus?.primary || phaseProgress?.primary || null
+      primary: liveStatus?.primary || phaseProgress?.primary || null,
     };
   }
   return base;
@@ -2304,7 +2294,7 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     laneId,
     subnetPack: payload.subnet_pack || payload.repo_pack || laneId,
     repoPack: payload.subnet_pack || payload.repo_pack || laneId,
-    mode: payload.mode || (laneId === "sn60__bitsec" ? "miner" : null),
+    mode: payload.mode || null,
     candidateSubmissionId: payload.candidate_submission_id || null,
     candidateGithubLogin: payload.candidate_github_login || null,
     candidateAvatarUrl: payload.candidate_avatar_url || null,
@@ -2313,7 +2303,7 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
       projectKey: payload.screening_project_key || null,
       startedAt: payload.screening_started_at || null,
       timeoutSeconds: numberOrNull(payload.screening_timeout_seconds),
-      timeoutAt: payload.screening_timeout_at || null
+      timeoutAt: payload.screening_timeout_at || null,
     },
     screeningStatus: payload.screening_status || null,
     screeningStage: payload.screening_stage || null,
@@ -2332,7 +2322,7 @@ function loadLiveEvaluationProgress(liveStatusPath, activeJob) {
     finishedAt: payload.job.finished_at || activeJob.finishedAt || null,
     enqueuedAt: payload.job.enqueued_at || activeJob.enqueuedAt || null,
     attempts: payload.job.attempts ?? activeJob.attempts ?? 0,
-    primary
+    primary,
   };
 }
 
@@ -2348,14 +2338,13 @@ function normalizeLivePool(pool, revealTaskIds) {
       status: task.status || "queued",
       completed: Boolean(task.completed),
       candidate: normalizeLiveVariant(task.candidate),
-      king: normalizeLiveVariant(task.king)
+      king: normalizeLiveVariant(task.king),
     }));
   return {
     live: pool.state !== "completed",
     totalTasks: Number(pool.total_tasks ?? taskStatuses.length ?? 0),
     completedTasks: Number(
-      pool.completed_tasks ??
-        taskStatuses.filter((task) => task.completed).length
+      pool.completed_tasks ?? taskStatuses.filter((task) => task.completed).length
     ),
     taskStatuses: revealTaskIds ? taskStatuses : [],
     counts: summarizeTaskStatusCounts(taskStatuses),
@@ -2366,7 +2355,7 @@ function normalizeLivePool(pool, revealTaskIds) {
     invalidRuns: normalizeVariantNumberMap(pool.invalid_runs),
     replicaProgress: normalizeReplicaProgress(pool.replica_progress),
     projectKeys: Array.isArray(pool.project_keys) ? pool.project_keys : [],
-    updatedAt: pool.updated_at || null
+    updatedAt: pool.updated_at || null,
   };
 }
 
@@ -2375,7 +2364,7 @@ function normalizeVariantNumberMap(value) {
   return {
     king: numberOrNull(payload.king),
     candidate: numberOrNull(payload.candidate),
-    delta: numberOrNull(payload.delta)
+    delta: numberOrNull(payload.delta),
   };
 }
 
@@ -2383,7 +2372,7 @@ function normalizeReplicaProgress(value) {
   const payload = value && typeof value === "object" ? value : {};
   return {
     king: normalizeReplicaProgressSide(payload.king),
-    candidate: normalizeReplicaProgressSide(payload.candidate)
+    candidate: normalizeReplicaProgressSide(payload.candidate),
   };
 }
 
@@ -2391,7 +2380,7 @@ function normalizeReplicaProgressSide(value) {
   const payload = value && typeof value === "object" ? value : {};
   return {
     completed: Number(payload.completed || 0),
-    total: Number(payload.total || 0)
+    total: Number(payload.total || 0),
   };
 }
 
@@ -2405,7 +2394,7 @@ function normalizeLiveVariant(variant) {
     verifierScore: numberOrNull(variant?.verifier_score),
     weightedTaskScore: numberOrNull(variant?.weighted_task_score),
     completedReplicas: Number(variant?.completed_replicas ?? variant?.completedReplicas ?? 0),
-    totalReplicas: Number(variant?.total_replicas ?? variant?.totalReplicas ?? 0)
+    totalReplicas: Number(variant?.total_replicas ?? variant?.totalReplicas ?? 0),
   };
 }
 
@@ -2443,9 +2432,7 @@ function findActiveWorkspaceProgress(
       phaseProgress,
       score: activeWorkspaceScore({ workspaceRoot, lane, phaseProgress, activeJob, liveStatus }),
       updatedAt:
-        phaseProgress?.updatedAt ||
-        newestMtimeIso(workspaceRoot) ||
-        statMtimeIso(workspaceRoot)
+        phaseProgress?.updatedAt || newestMtimeIso(workspaceRoot) || statMtimeIso(workspaceRoot),
     };
   });
 
@@ -2465,9 +2452,7 @@ function listActiveWorkspaces(workRoot) {
   try {
     return fs
       .readdirSync(workRoot, { withFileTypes: true })
-      .filter(
-        (entry) => entry.isDirectory() && entry.name.startsWith("kata-bot-job-")
-      )
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("kata-bot-job-"))
       .map((entry) => path.join(workRoot, entry.name));
   } catch {
     return [];
@@ -2512,9 +2497,7 @@ function inferLaneFromWorkspace(workspaceRoot) {
     .map((line) => line.trim())
     .filter(Boolean);
   for (const changedPath of changedPaths) {
-    const match = changedPath.match(
-      /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//
-    );
+    const match = changedPath.match(/^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//);
     if (!match) {
       continue;
     }
@@ -2522,7 +2505,7 @@ function inferLaneFromWorkspace(workspaceRoot) {
       subnetPack: match[1],
       repoPack: match[1],
       mode: match[2],
-      submissionId: match[3]
+      submissionId: match[3],
     };
   }
   return null;
@@ -2540,42 +2523,40 @@ function inspectChallengePhase(
   }
   const challengeRoots = listDirectories(phaseRoot)
     .map((name) => path.join(phaseRoot, name))
-    .sort(
-      (left, right) =>
-        new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
-    );
+    .sort((left, right) => new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0));
   if (!challengeRoots.length) {
     return {
       state: "running",
       phase,
       updatedAt: statMtimeIso(phaseRoot),
-      primary: null
+      primary: null,
     };
   }
   const challengeRoot = challengeRoots[0];
   const summaryPath = path.join(challengeRoot, "challenge_summary.json");
   const summary = readJsonSafe(summaryPath);
-  const sn60Progress = inspectSn60Progress(
+  const evaluatorProgress = inspectEvaluatorProgress(
     challengeRoot,
     summary,
+    phase,
     selectedProjectKeys,
     replicasPerProject,
     benchmarkExpectedCounts
   );
-  const sn60Metrics = summary ? loadSn60ActivityMetrics(summary) : null;
-  if (sn60Progress) {
+  const evaluatorMetrics = summary ? loadEvaluatorActivityMetrics(summary) : null;
+  if (evaluatorProgress) {
     return {
       state: summary ? "verifying" : "running",
       phase,
       runId: path.basename(challengeRoot),
       promotionReason: summary?.promotion_reason || null,
-      sn60: sn60Metrics,
+      evaluator: evaluatorMetrics,
       updatedAt:
         summary?.created_at ||
-        sn60Progress.updatedAt ||
+        evaluatorProgress.updatedAt ||
         statMtimeIso(summaryPath) ||
         statMtimeIso(challengeRoot),
-      primary: sn60Progress
+      primary: evaluatorProgress,
     };
   }
   return {
@@ -2583,24 +2564,28 @@ function inspectChallengePhase(
     phase,
     runId: path.basename(challengeRoot),
     promotionReason: summary?.promotion_reason || null,
-    sn60: sn60Metrics,
-    updatedAt:
-      summary?.created_at ||
-      statMtimeIso(summaryPath) ||
-      statMtimeIso(challengeRoot),
-    primary: inspectPoolProgress(path.join(challengeRoot, "primary"), true)
+    evaluator: evaluatorMetrics,
+    updatedAt: summary?.created_at || statMtimeIso(summaryPath) || statMtimeIso(challengeRoot),
+    primary: inspectPoolProgress(path.join(challengeRoot, "primary"), true),
   };
 }
 
-function inspectSn60Progress(
+function inspectEvaluatorProgress(
   runRoot,
   summary,
+  phase,
   selectedProjectKeys = [],
   replicasPerProject = null,
   benchmarkExpectedCounts = new Map()
 ) {
-  const runId = path.basename(runRoot);
-  if (runId.startsWith("sn60-screening-")) {
+  const runId = path.basename(runRoot).toLowerCase();
+  const isScreening =
+    String(phase || "")
+      .toLowerCase()
+      .includes("screening") ||
+    runId.includes("screening") ||
+    fs.existsSync(path.join(runRoot, "screening_result.json"));
+  if (isScreening) {
     const screening = readJsonSafe(path.join(runRoot, "screening_result.json"));
     const screeningProjectKey = screening?.project_key || selectedProjectKeys[0] || "screening";
     const screeningStatus = screening
@@ -2624,7 +2609,7 @@ function inspectSn60Progress(
             valid: screening?.status === "passed",
             success: screening?.status === "passed",
             verifierScore: null,
-            weightedTaskScore: null
+            weightedTaskScore: null,
           },
           king: {
             started: false,
@@ -2633,9 +2618,9 @@ function inspectSn60Progress(
             valid: false,
             success: false,
             verifierScore: null,
-            weightedTaskScore: null
-          }
-        }
+            weightedTaskScore: null,
+          },
+        },
       ],
       counts: screening
         ? { [screening.status === "passed" ? "screening passed" : "screening failed"]: 1 }
@@ -2647,19 +2632,24 @@ function inspectSn60Progress(
       invalidRuns: { king: 0, candidate: screening?.status === "failed" ? 1 : 0, delta: null },
       replicaProgress: {
         king: { completed: 0, total: 0 },
-        candidate: { completed: screening ? 1 : 0, total: 1 }
+        candidate: { completed: screening ? 1 : 0, total: 1 },
       },
       projectKeys: screeningProjectKey === "screening" ? [] : [screeningProjectKey],
-      updatedAt: statMtimeIso(path.join(runRoot, "screening_result.json")) || statMtimeIso(runRoot)
+      updatedAt: statMtimeIso(path.join(runRoot, "screening_result.json")) || statMtimeIso(runRoot),
     };
   }
-  if (!runId.startsWith("sn60-duel-")) {
+  const isDuel =
+    Boolean(summary?.primary) ||
+    fs.existsSync(path.join(runRoot, "duel_summary.json")) ||
+    fs.existsSync(path.join(runRoot, "candidate")) ||
+    fs.existsSync(path.join(runRoot, "king"));
+  if (!isDuel) {
     return null;
   }
   if (summary?.primary) {
-    return summarizeSn60SummaryPrimary(summary, runRoot);
+    return summarizeEvaluatorSummaryPrimary(summary, runRoot);
   }
-  return summarizeRunningSn60Duel(
+  return summarizeRunningEvaluatorDuel(
     runRoot,
     selectedProjectKeys,
     replicasPerProject,
@@ -2667,7 +2657,7 @@ function inspectSn60Progress(
   );
 }
 
-function summarizeSn60SummaryPrimary(summary, runRoot) {
+function summarizeEvaluatorSummaryPrimary(summary, runRoot) {
   const primary = summary.primary || {};
   const duel = readJsonSafe(resolveRunManifestPath(summary, runRoot));
   const candidate = duel?.candidate || {};
@@ -2687,81 +2677,80 @@ function summarizeSn60SummaryPrimary(summary, runRoot) {
       king: kingScore === null ? null : kingScore / 100,
       candidate: candidateScore === null ? null : candidateScore / 100,
       delta:
-        candidateScore === null || kingScore === null
-          ? null
-          : (candidateScore - kingScore) / 100
+        candidateScore === null || kingScore === null ? null : (candidateScore - kingScore) / 100,
     },
     passCounts: {
       king: numberOrNull(passCounts.king),
       candidate: numberOrNull(passCounts.candidate),
-      delta: null
+      delta: null,
     },
     truePositives: {
       king: numberOrNull(king.true_positives),
       candidate: numberOrNull(candidate.true_positives),
-      delta: numberDelta(candidate.true_positives, king.true_positives)
+      delta: numberDelta(candidate.true_positives, king.true_positives),
     },
     totalFound: {
       king: numberOrNull(king.total_found),
       candidate: numberOrNull(candidate.total_found),
-      delta: numberDelta(candidate.total_found, king.total_found)
+      delta: numberDelta(candidate.total_found, king.total_found),
     },
     totalExpected: {
       king: numberOrNull(king.total_expected),
       candidate: numberOrNull(candidate.total_expected),
-      delta: numberDelta(candidate.total_expected, king.total_expected)
+      delta: numberDelta(candidate.total_expected, king.total_expected),
     },
     precision: {
       king: numberOrNull(king.precision),
       candidate: numberOrNull(candidate.precision),
-      delta: numberDelta(candidate.precision, king.precision)
+      delta: numberDelta(candidate.precision, king.precision),
     },
     f1Scores: {
       king: numberOrNull(king.f1_score),
       candidate: numberOrNull(candidate.f1_score),
-      delta: numberDelta(candidate.f1_score, king.f1_score)
+      delta: numberDelta(candidate.f1_score, king.f1_score),
     },
     invalidRuns: {
       king: numberOrNull(invalidRuns.king),
       candidate: numberOrNull(invalidRuns.candidate),
-      delta: null
+      delta: null,
     },
     replicaProgress: {
       king: { completed: 0, total: 0 },
-      candidate: { completed: 0, total: 0 }
+      candidate: { completed: 0, total: 0 },
     },
     projectKeys,
-    updatedAt: summary.created_at || statMtimeIso(runRoot)
+    updatedAt: summary.created_at || statMtimeIso(runRoot),
   };
 }
 
-function summarizeRunningSn60Duel(
+function summarizeRunningEvaluatorDuel(
   runRoot,
   selectedProjectKeys = [],
   replicasPerProject = null,
   benchmarkExpectedCounts = new Map()
 ) {
   const expectedReplicas = positiveIntegerOrNull(replicasPerProject);
-  const king = summarizeSn60VariantProgress(
+  const king = summarizeEvaluatorVariantProgress(
     path.join(runRoot, "king"),
     selectedProjectKeys,
     expectedReplicas,
     benchmarkExpectedCounts
   );
-  const candidate = summarizeSn60VariantProgress(
+  const candidate = summarizeEvaluatorVariantProgress(
     path.join(runRoot, "candidate"),
     selectedProjectKeys,
     expectedReplicas,
     benchmarkExpectedCounts
   );
   const projectKeys = [
-    ...new Set([...selectedProjectKeys, ...king.projectKeys, ...candidate.projectKeys])
+    ...new Set([...selectedProjectKeys, ...king.projectKeys, ...candidate.projectKeys]),
   ].sort();
-  const totalProjects = projectKeys.length || Math.max(king.projectCount, candidate.projectCount, 1);
+  const totalProjects =
+    projectKeys.length || Math.max(king.projectCount, candidate.projectCount, 1);
   const taskStatuses = projectKeys.map((projectKey) => {
-    const kingProject = king.projects.get(projectKey) || emptySn60ProjectProgress(projectKey);
+    const kingProject = king.projects.get(projectKey) || emptyEvaluatorProjectProgress(projectKey);
     const candidateProject =
-      candidate.projects.get(projectKey) || emptySn60ProjectProgress(projectKey);
+      candidate.projects.get(projectKey) || emptyEvaluatorProjectProgress(projectKey);
     return {
       taskId: projectKey,
       status:
@@ -2769,8 +2758,8 @@ function summarizeRunningSn60Duel(
           ? exactTaskStatusLabel(candidateProject, kingProject)
           : runningTaskStatusLabel(candidateProject, kingProject),
       completed: candidateProject.finished && kingProject.finished,
-      candidate: sn60ProjectToLiveVariant(candidateProject),
-      king: sn60ProjectToLiveVariant(kingProject)
+      candidate: evaluatorProjectToLiveVariant(candidateProject),
+      king: evaluatorProjectToLiveVariant(kingProject),
     };
   });
   const completedTasks = taskStatuses.filter((task) => task.completed);
@@ -2803,15 +2792,11 @@ function summarizeRunningSn60Duel(
   const candidateScore = completedCandidateExpected
     ? completedCandidateTruePositives / completedCandidateExpected
     : 0;
-  const kingScore = completedKingExpected
-    ? completedKingTruePositives / completedKingExpected
-    : 0;
+  const kingScore = completedKingExpected ? completedKingTruePositives / completedKingExpected : 0;
   const candidatePrecision = completedCandidateFound
     ? completedCandidateTruePositives / completedCandidateFound
     : 0;
-  const kingPrecision = completedKingFound
-    ? completedKingTruePositives / completedKingFound
-    : 0;
+  const kingPrecision = completedKingFound ? completedKingTruePositives / completedKingFound : 0;
   const candidateF1 = f1Score(candidateScore, candidatePrecision);
   const kingF1 = f1Score(kingScore, kingPrecision);
   return {
@@ -2823,56 +2808,56 @@ function summarizeRunningSn60Duel(
     scores: {
       king: kingScore,
       candidate: candidateScore,
-      delta: candidateScore - kingScore
+      delta: candidateScore - kingScore,
     },
     passCounts: {
       king: completedKingPasses,
       candidate: completedCandidatePasses,
-      delta: completedCandidatePasses - completedKingPasses
+      delta: completedCandidatePasses - completedKingPasses,
     },
     truePositives: {
       king: completedKingTruePositives,
       candidate: completedCandidateTruePositives,
-      delta: completedCandidateTruePositives - completedKingTruePositives
+      delta: completedCandidateTruePositives - completedKingTruePositives,
     },
     totalFound: {
       king: completedKingFound,
       candidate: completedCandidateFound,
-      delta: completedCandidateFound - completedKingFound
+      delta: completedCandidateFound - completedKingFound,
     },
     totalExpected: {
       king: completedKingExpected,
       candidate: completedCandidateExpected,
-      delta: completedCandidateExpected - completedKingExpected
+      delta: completedCandidateExpected - completedKingExpected,
     },
     precision: {
       king: kingPrecision,
       candidate: candidatePrecision,
-      delta: candidatePrecision - kingPrecision
+      delta: candidatePrecision - kingPrecision,
     },
     f1Scores: {
       king: kingF1,
       candidate: candidateF1,
-      delta: candidateF1 - kingF1
+      delta: candidateF1 - kingF1,
     },
     invalidRuns: {
       king: king.invalidRuns,
       candidate: candidate.invalidRuns,
-      delta: candidate.invalidRuns - king.invalidRuns
+      delta: candidate.invalidRuns - king.invalidRuns,
     },
     replicaProgress: {
       king: { completed: king.completedReplicas, total: king.totalReplicas },
       candidate: {
         completed: candidate.completedReplicas,
-        total: candidate.totalReplicas
-      }
+        total: candidate.totalReplicas,
+      },
     },
     projectKeys,
-    updatedAt: newestMtimeIso(runRoot) || statMtimeIso(runRoot)
+    updatedAt: newestMtimeIso(runRoot) || statMtimeIso(runRoot),
   };
 }
 
-function summarizeSn60VariantProgress(
+function summarizeEvaluatorVariantProgress(
   variantRoot,
   selectedProjectKeys = [],
   expectedReplicas = null,
@@ -2882,7 +2867,7 @@ function summarizeSn60VariantProgress(
   for (const projectKey of selectedProjectKeys) {
     projects.set(
       projectKey,
-      summarizeSn60ProjectProgress(
+      summarizeEvaluatorProjectProgress(
         path.join(variantRoot, projectKey),
         projectKey,
         expectedReplicas,
@@ -2900,14 +2885,11 @@ function summarizeSn60VariantProgress(
       truePositives: 0,
       invalidRuns: 0,
       completedReplicas: 0,
-      totalReplicas: projectList.reduce(
-        (total, project) => total + project.totalReplicas,
-        0
-      )
+      totalReplicas: projectList.reduce((total, project) => total + project.totalReplicas, 0),
     };
   }
   for (const projectKey of listDirectories(variantRoot).sort()) {
-    const project = summarizeSn60ProjectProgress(
+    const project = summarizeEvaluatorProjectProgress(
       path.join(variantRoot, projectKey),
       projectKey,
       expectedReplicas,
@@ -2921,26 +2903,14 @@ function summarizeSn60VariantProgress(
     projectCount: projectList.length,
     projects,
     codebasesPassed: projectList.filter((project) => project.solved).length,
-    truePositives: projectList.reduce(
-      (total, project) => total + project.truePositives,
-      0
-    ),
-    invalidRuns: projectList.reduce(
-      (total, project) => total + project.invalidRuns,
-      0
-    ),
-    completedReplicas: projectList.reduce(
-      (total, project) => total + project.completedReplicas,
-      0
-    ),
-    totalReplicas: projectList.reduce(
-      (total, project) => total + project.totalReplicas,
-      0
-    )
+    truePositives: projectList.reduce((total, project) => total + project.truePositives, 0),
+    invalidRuns: projectList.reduce((total, project) => total + project.invalidRuns, 0),
+    completedReplicas: projectList.reduce((total, project) => total + project.completedReplicas, 0),
+    totalReplicas: projectList.reduce((total, project) => total + project.totalReplicas, 0),
   };
 }
 
-function summarizeSn60ProjectProgress(
+function summarizeEvaluatorProjectProgress(
   projectRoot,
   projectKey,
   expectedReplicas = null,
@@ -2951,23 +2921,14 @@ function summarizeSn60ProjectProgress(
     .map((name) => path.join(projectRoot, name))
     .sort();
   const replicas = replicaRoots.map((replicaRoot) =>
-    summarizeSn60ReplicaProgress(replicaRoot, projectKey, benchmarkExpectedCounts)
+    summarizeEvaluatorReplicaProgress(replicaRoot, projectKey, benchmarkExpectedCounts)
   );
   const completedReplicas = replicas.filter((replica) => replica.finished).length;
   const passCount = replicas.filter((replica) => replica.result === "PASS").length;
   const totalReplicas = expectedReplicas || replicas.length;
-  const truePositives = replicas.reduce(
-    (total, replica) => total + replica.truePositives,
-    0
-  );
-  const totalExpected = replicas.reduce(
-    (total, replica) => total + replica.totalExpected,
-    0
-  );
-  const totalFound = replicas.reduce(
-    (total, replica) => total + replica.totalFound,
-    0
-  );
+  const truePositives = replicas.reduce((total, replica) => total + replica.truePositives, 0);
+  const totalExpected = replicas.reduce((total, replica) => total + replica.totalExpected, 0);
+  const totalFound = replicas.reduce((total, replica) => total + replica.totalFound, 0);
   const detectionRate = totalExpected ? truePositives / totalExpected : 0;
   const precision = totalFound ? truePositives / totalFound : 0;
   return {
@@ -2988,28 +2949,27 @@ function summarizeSn60ProjectProgress(
     passCount,
     completedReplicas,
     totalReplicas,
-    replicas
+    replicas,
   };
 }
 
-function summarizeSn60ReplicaProgress(
+function summarizeEvaluatorReplicaProgress(
   replicaRoot,
   projectKey,
   benchmarkExpectedCounts = new Map()
 ) {
   const reportPath = findFirstExistingFile([
     path.join(replicaRoot, "reports", projectKey, "report.json"),
-    path.join(replicaRoot, "report.json")
+    path.join(replicaRoot, "report.json"),
   ]);
   const evaluationPath = findFirstExistingFile([
     path.join(replicaRoot, "reports", projectKey, "evaluation.json"),
-    path.join(replicaRoot, "evaluation.json")
+    path.join(replicaRoot, "evaluation.json"),
   ]);
   const evaluation = evaluationPath ? readJsonSafe(evaluationPath) : null;
   const status = normalizeEvaluationStatus(evaluation?.status);
-  const result = evaluation?.result && typeof evaluation.result === "object"
-    ? evaluation.result
-    : {};
+  const result =
+    evaluation?.result && typeof evaluation.result === "object" ? evaluation.result : {};
   const valid = !evaluation || status === "success";
   const fallbackExpected = Number(benchmarkExpectedCounts.get(projectKey) || 0);
   const updatedAt =
@@ -3023,15 +2983,11 @@ function summarizeSn60ReplicaProgress(
     valid,
     success: status === "success",
     result: status === "success" ? String(result.result || "") : null,
-    truePositives:
-      status === "success" ? Number(result.true_positives || 0) || 0 : 0,
+    truePositives: status === "success" ? Number(result.true_positives || 0) || 0 : 0,
     totalExpected:
-      status === "success"
-        ? Number(result.total_expected || 0) || 0
-        : fallbackExpected,
-    totalFound:
-      status === "success" ? Number(result.total_found || 0) || 0 : 0,
-    updatedAt
+      status === "success" ? Number(result.total_expected || 0) || 0 : fallbackExpected,
+    totalFound: status === "success" ? Number(result.total_found || 0) || 0 : 0,
+    updatedAt,
   };
 }
 
@@ -3040,7 +2996,7 @@ function replicaIndexFromRoot(replicaRoot) {
   return match ? Number(match[1]) : 0;
 }
 
-function emptySn60ProjectProgress(projectKey) {
+function emptyEvaluatorProjectProgress(projectKey) {
   return {
     projectKey,
     started: false,
@@ -3059,11 +3015,11 @@ function emptySn60ProjectProgress(projectKey) {
     passCount: 0,
     completedReplicas: 0,
     totalReplicas: 0,
-    replicas: []
+    replicas: [],
   };
 }
 
-function sn60ProjectToLiveVariant(project) {
+function evaluatorProjectToLiveVariant(project) {
   return {
     started: Boolean(project.started),
     finished: Boolean(project.finished),
@@ -3080,9 +3036,7 @@ function sn60ProjectToLiveVariant(project) {
     completedReplicas: Number(project.completedReplicas || 0),
     totalReplicas: Number(project.totalReplicas || 0),
     passCount: Number(project.passCount || 0),
-    replicas: Array.isArray(project.replicas)
-      ? project.replicas.map(roundReplicaPayload)
-      : []
+    replicas: Array.isArray(project.replicas) ? project.replicas.map(roundReplicaPayload) : [],
   };
 }
 
@@ -3105,7 +3059,10 @@ function f1Score(detectionRate, precision) {
 }
 
 function normalizeEvaluationStatus(value) {
-  return String(value || "pending").toLowerCase().split(".").pop();
+  return String(value || "pending")
+    .toLowerCase()
+    .split(".")
+    .pop();
 }
 
 function findFirstExistingFile(paths) {
@@ -3118,10 +3075,7 @@ function inspectPoolProgress(poolRoot, revealTaskIds) {
   }
   const runRoots = listDirectories(poolRoot)
     .map((name) => path.join(poolRoot, name))
-    .sort(
-      (left, right) =>
-        new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0)
-    );
+    .sort((left, right) => new Date(statMtimeIso(right) || 0) - new Date(statMtimeIso(left) || 0));
   if (!runRoots.length) {
     return null;
   }
@@ -3144,7 +3098,7 @@ function summarizeCompletedPool(runSummary, revealTaskIds) {
       status: exactTaskStatusLabel(candidate, king),
       completed: true,
       candidate,
-      king
+      king,
     };
   });
   return {
@@ -3153,7 +3107,7 @@ function summarizeCompletedPool(runSummary, revealTaskIds) {
     completedTasks: tasks.length,
     taskStatuses: revealTaskIds ? taskStatuses : [],
     counts: summarizeTaskStatusCounts(taskStatuses),
-    updatedAt: runSummary.created_at || null
+    updatedAt: runSummary.created_at || null,
   };
 }
 
@@ -3162,16 +3116,14 @@ function summarizeRunningPool(runRoot, revealTaskIds) {
   const taskRoots = listDirectories(tasksRoot)
     .map((name) => path.join(tasksRoot, name))
     .sort();
-  const taskStatuses = taskRoots.map((taskRoot) =>
-    summarizeRunningTask(taskRoot, revealTaskIds)
-  );
+  const taskStatuses = taskRoots.map((taskRoot) => summarizeRunningTask(taskRoot, revealTaskIds));
   return {
     live: true,
     totalTasks: taskStatuses.length,
     completedTasks: taskStatuses.filter((task) => task.completed).length,
     taskStatuses: revealTaskIds ? taskStatuses : [],
     counts: summarizeTaskStatusCounts(taskStatuses),
-    updatedAt: statMtimeIso(runRoot)
+    updatedAt: statMtimeIso(runRoot),
   };
 }
 
@@ -3184,7 +3136,7 @@ function summarizeRunningTask(taskRoot, revealTaskIds) {
     status: runningTaskStatusLabel(candidate, king),
     completed: candidate.finished && king.finished,
     candidate,
-    king
+    king,
   };
 }
 
@@ -3194,16 +3146,15 @@ function summarizeRunningVariant(variantRoot) {
     agentStderr: fs.existsSync(path.join(variantRoot, "agent.stderr.txt")),
     checksStdout: fs.existsSync(path.join(variantRoot, "checks.stdout.txt")),
     checksStderr: fs.existsSync(path.join(variantRoot, "checks.stderr.txt")),
-    score: fs.existsSync(path.join(variantRoot, "score.txt"))
+    score: fs.existsSync(path.join(variantRoot, "score.txt")),
   };
   const started = Object.values(files).some(Boolean) || fs.existsSync(variantRoot);
   const finished =
     files.score ||
-    ((files.agentStdout || files.agentStderr) &&
-      (files.checksStdout || files.checksStderr));
+    ((files.agentStdout || files.agentStderr) && (files.checksStdout || files.checksStderr));
   return {
     started,
-    finished
+    finished,
   };
 }
 
@@ -3215,7 +3166,7 @@ function summarizeTaskVariant(task, variantName) {
     valid: Boolean(variant.validity_passed),
     success: Boolean(variant.success),
     verifierScore: numberOrNull(variant.verifier_score),
-    weightedTaskScore: numberOrNull(variant.weighted_task_score)
+    weightedTaskScore: numberOrNull(variant.weighted_task_score),
   };
 }
 
@@ -3275,9 +3226,7 @@ function resolveRunManifestPath(summary, runRoot) {
   if (!manifestPath) {
     return path.join(runRoot, "duel_summary.json");
   }
-  return path.isAbsolute(manifestPath)
-    ? manifestPath
-    : path.join(runRoot, manifestPath);
+  return path.isAbsolute(manifestPath) ? manifestPath : path.join(runRoot, manifestPath);
 }
 
 async function loadValidatorHealth(healthUrl) {
@@ -3287,7 +3236,7 @@ async function loadValidatorHealth(healthUrl) {
       ok: null,
       checkedAt: null,
       payload: null,
-      error: null
+      error: null,
     };
   }
 
@@ -3301,7 +3250,7 @@ async function loadValidatorHealth(healthUrl) {
       ok: Boolean(response.ok && payload?.status === "ok"),
       checkedAt: new Date().toISOString(),
       payload: sanitizeValidatorHealthPayload(payload),
-      error: null
+      error: null,
     };
   } catch (error) {
     return {
@@ -3309,7 +3258,7 @@ async function loadValidatorHealth(healthUrl) {
       ok: false,
       checkedAt: new Date().toISOString(),
       payload: null,
-      error: error instanceof Error ? error.message : "unknown validator health error"
+      error: error instanceof Error ? error.message : "unknown validator health error",
     };
   } finally {
     clearTimeout(timeoutId);
@@ -3330,9 +3279,9 @@ function sanitizeValidatorHealthPayload(payload) {
           pending_jobs: numberOrNull(queue.pending_jobs) ?? 0,
           running_jobs: numberOrNull(queue.running_jobs) ?? 0,
           completed_jobs: numberOrNull(queue.completed_jobs) ?? 0,
-          failed_jobs: numberOrNull(queue.failed_jobs) ?? 0
+          failed_jobs: numberOrNull(queue.failed_jobs) ?? 0,
         }
-      : null
+      : null,
   };
 }
 
@@ -3354,7 +3303,7 @@ function summarizeQueueJob(job) {
     enqueuedAt: job.enqueued_at || null,
     startedAt: job.started_at || null,
     finishedAt: job.finished_at || null,
-    error: job.last_error || null
+    error: job.last_error || null,
   };
 }
 
@@ -3365,7 +3314,7 @@ function loadEventLeaderboard(eventLogPath) {
       source: "events",
       rows: [],
       latestLaneWinners: {},
-      error: `event log not found: ${resolved}`
+      error: `event log not found: ${resolved}`,
     };
   }
 
@@ -3400,12 +3349,12 @@ function loadEventLeaderboard(eventLogPath) {
       entry.winnerPulls.push({
         pullNumber: item.pull_number || null,
         mergedAt: item.created_at,
-        labels: item.labels || [`kata:winner:${item.subnet_pack || item.repo_pack || "sn60__bitsec"}`]
+        labels: item.labels || [],
       });
       latestLaneWinners.set(laneKey, {
         author,
         mergedAt: item.created_at,
-        pullNumber: item.pull_number || null
+        pullNumber: item.pull_number || null,
       });
     } else if (item.final_action === "open") {
       entry.openSubmissions += 1;
@@ -3419,15 +3368,12 @@ function loadEventLeaderboard(eventLogPath) {
   return {
     source: "events",
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
 function loadLocalArtifactLeaderboard(kataRoot) {
-  return augmentLeaderboardWithRoundSummaries(
-    loadLocalGitWinnerLeaderboard(kataRoot),
-    kataRoot
-  );
+  return augmentLeaderboardWithRoundSummaries(loadLocalGitWinnerLeaderboard(kataRoot), kataRoot);
 }
 
 function loadLocalGitWinnerLeaderboard(kataRoot) {
@@ -3436,16 +3382,21 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
     return {
       source: "local-git",
       rows: [],
-      latestLaneWinners: {}
+      latestLaneWinners: {},
     };
   }
 
   const commits = loadLocalGitCommits(resolvedRoot);
+  const knownLanes = loadEvaluatorLanes({
+    kataRoot: resolvedRoot,
+    latestLaneWinners: {},
+    identityAliases: new Map(),
+  });
   if (!commits.length) {
     return {
       source: "local-git",
       rows: [],
-      latestLaneWinners: {}
+      latestLaneWinners: {},
     };
   }
 
@@ -3473,16 +3424,22 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
       continue;
     }
     const author = inferGitHubAuthorFromCommit(mergeCommit);
-    if (!author) {
+    const lane = inferLaneFromPromotionCommit(promotion, knownLanes);
+    if (!author || !lane) {
       continue;
     }
 
-    const mergedAt = normalizeIsoDate(mergeCommit.authorDate) || normalizeIsoDate(promotion.authorDate);
-    const laneKey = "sn60__bitsec::miner";
+    const mergedAt =
+      normalizeIsoDate(mergeCommit.authorDate) || normalizeIsoDate(promotion.authorDate);
+    const laneKey = laneKeyForLane(lane);
     const entry = byAuthor.get(author) || createAuthorRow(author);
     entry.totalSubmissions = Math.max(entry.totalSubmissions || 0, 1);
     entry.wins += 1;
-    entry.winnerPulls.push({ pullNumber, mergedAt, labels: ["kata:winner:sn60__bitsec"] });
+    entry.winnerPulls.push({
+      pullNumber,
+      mergedAt,
+      labels: [`kata:winner:${lane.subnetPack}`, `kata:mode:${lane.mode}`],
+    });
     entry.lastActivityAt = maxDate(entry.lastActivityAt, mergedAt);
     if (entry.recentPulls.length < 4) {
       entry.recentPulls.push({
@@ -3490,7 +3447,7 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
         title: mergeCommit.subject,
         htmlUrl: null,
         state: "merged",
-        updatedAt: mergedAt
+        updatedAt: mergedAt,
       });
     }
     byAuthor.set(author, entry);
@@ -3500,7 +3457,7 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
       latestLaneWinners.set(laneKey, {
         author,
         mergedAt,
-        pullNumber
+        pullNumber,
       });
     }
   }
@@ -3508,8 +3465,25 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
   return {
     source: "local-git",
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
+}
+
+function inferLaneFromPromotionCommit(promotion, lanes) {
+  const knownLanes = Array.isArray(lanes) ? lanes : [];
+  if (knownLanes.length === 1) {
+    return knownLanes[0];
+  }
+  const subject = String(promotion?.subject || "").toLowerCase();
+  const matchingPack = knownLanes.filter((lane) => subject.includes(lane.subnetPack.toLowerCase()));
+  if (matchingPack.length === 1) {
+    return matchingPack[0];
+  }
+  const subnet = subject.match(/\b(sn\d+)\b/i)?.[1]?.toLowerCase();
+  const matchingSubnet = subnet
+    ? knownLanes.filter((lane) => lane.subnetPack.toLowerCase().startsWith(`${subnet}__`))
+    : [];
+  return matchingSubnet.length === 1 ? matchingSubnet[0] : null;
 }
 
 function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
@@ -3522,12 +3496,8 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
     return leaderboard;
   }
 
-  const byAuthor = new Map(
-    (leaderboard.rows || []).map((row) => [row.author, { ...row }])
-  );
-  const latestLaneWinners = new Map(
-    Object.entries(leaderboard.latestLaneWinners || {})
-  );
+  const byAuthor = new Map((leaderboard.rows || []).map((row) => [row.author, { ...row }]));
+  const latestLaneWinners = new Map(Object.entries(leaderboard.latestLaneWinners || {}));
   const winnerByPull = new Map();
   for (const row of leaderboard.rows || []) {
     for (const pull of row.winnerPulls || []) {
@@ -3588,7 +3558,7 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
             : roundEntry?.beats_king
               ? "open"
               : "closed",
-          updatedAt: createdAt
+          updatedAt: createdAt,
         });
         seenPulls.add(-pullNumber);
       }
@@ -3602,7 +3572,7 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
     ...leaderboard,
     source: added ? `${leaderboard.source}+round-artifacts` : leaderboard.source,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
@@ -3621,7 +3591,7 @@ function inferArtifactSubmission(artifactPath) {
   return {
     subnetPack: match[1],
     mode: match[2],
-    submissionId: match[3]
+    submissionId: match[3],
   };
 }
 
@@ -3635,12 +3605,12 @@ function loadLocalGitCommits(kataRoot) {
         "log",
         "--all",
         "--date=iso-strict",
-        "--pretty=format:%H%x1f%aI%x1f%cI%x1f%an%x1f%ae%x1f%s%x1e"
+        "--pretty=format:%H%x1f%aI%x1f%cI%x1f%an%x1f%ae%x1f%s%x1e",
       ],
       {
         encoding: "utf8",
         timeout: 5_000,
-        stdio: ["ignore", "pipe", "ignore"]
+        stdio: ["ignore", "pipe", "ignore"],
       }
     );
     return output
@@ -3665,7 +3635,7 @@ function parseLocalGitCommit(record) {
     committerDate: parts[2],
     authorName: parts[3],
     authorEmail: parts[4],
-    subject: parts.slice(5).join("\x1f")
+    subject: parts.slice(5).join("\x1f"),
   };
 }
 
@@ -3692,9 +3662,7 @@ function inferGitHubAuthorFromCommit(commit) {
   if (plainNoreplyLogin?.[1] && plainNoreplyLogin[1] !== "kata-bot") {
     return plainNoreplyLogin[1];
   }
-  const submissionId = String(commit.subject || "").match(
-    /([A-Za-z0-9][A-Za-z0-9_-]*-\d{8}-\d+)/
-  );
+  const submissionId = String(commit.subject || "").match(/([A-Za-z0-9][A-Za-z0-9_-]*-\d{8}-\d+)/);
   if (submissionId?.[1]) {
     return inferSubmissionAuthorFromId(submissionId[1]);
   }
@@ -3724,7 +3692,7 @@ function enrichRoundKingIdentity(round, leaderboard) {
   return {
     ...round,
     kingAuthor: winner.author,
-    kingSubmissionId: winner.submissionId || null
+    kingSubmissionId: winner.submissionId || null,
   };
 }
 
@@ -3744,7 +3712,7 @@ function latestWinnerBefore(rows, cutoffIso) {
         latest = {
           author: row.author,
           mergedAtMs: mergedAt,
-          submissionId: submissionIdFromWinnerPull(row, pull)
+          submissionId: submissionIdFromWinnerPull(row, pull),
         };
       }
     }
@@ -3754,9 +3722,7 @@ function latestWinnerBefore(rows, cutoffIso) {
 
 function submissionIdFromWinnerPull(row, pull) {
   const pullNumber = Number(pull?.pullNumber || 0);
-  const detail = (row?.recentPulls || []).find(
-    (item) => Number(item?.number || 0) === pullNumber
-  );
+  const detail = (row?.recentPulls || []).find((item) => Number(item?.number || 0) === pullNumber);
   return extractSubmissionIdFromText(detail?.title) || null;
 }
 
@@ -3765,7 +3731,12 @@ function extractSubmissionIdFromText(value) {
   return match?.[1] || null;
 }
 
-function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new Map()) {
+function augmentLeaderboardWithRound(
+  leaderboard,
+  round,
+  identityAliases = new Map(),
+  roundLane = null
+) {
   const source = String(leaderboard.source || "");
   if (
     !round?.entrants?.length ||
@@ -3778,14 +3749,12 @@ function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new M
   const byAuthor = new Map(
     (leaderboard.rows || []).map((row) => [
       resolveAuthorAlias(row.author, identityAliases),
-      { ...row, author: resolveAuthorAlias(row.author, identityAliases) }
+      { ...row, author: resolveAuthorAlias(row.author, identityAliases) },
     ])
   );
-  const latestLaneWinners = new Map(
-    Object.entries(leaderboard.latestLaneWinners || {})
-  );
+  const latestLaneWinners = new Map(Object.entries(leaderboard.latestLaneWinners || {}));
   const activityAt = round.generatedAt || new Date().toISOString();
-  const laneKey = "sn60__bitsec::miner";
+  const laneKey = laneKeyForLane(roundLane);
 
   for (const entrant of round.entrants) {
     const author =
@@ -3801,16 +3770,16 @@ function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new M
           {
             pullNumber: entrant.pull_number || null,
             mergedAt: activityAt,
-            labels: entrant.labels || ["kata:winner:sn60__bitsec"]
-          }
+            labels: entrant.labels || [],
+          },
         ];
       }
-      const current = latestLaneWinners.get(laneKey);
-      if (!current || new Date(activityAt) > new Date(current.mergedAt || 0)) {
+      const current = laneKey ? latestLaneWinners.get(laneKey) : null;
+      if (laneKey && (!current || new Date(activityAt) > new Date(current.mergedAt || 0))) {
         latestLaneWinners.set(laneKey, {
           author,
           mergedAt: activityAt,
-          pullNumber: entrant.pull_number || null
+          pullNumber: entrant.pull_number || null,
         });
       }
     } else if (entrant.status === "pending" || entrant.status === "executing") {
@@ -3826,7 +3795,7 @@ function augmentLeaderboardWithRound(leaderboard, round, identityAliases = new M
     ...leaderboard,
     source: `${leaderboard.source}+round`,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
@@ -3834,18 +3803,15 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
   const byAuthor = new Map(
     (leaderboard.rows || []).map((row) => [
       resolveAuthorAlias(row.author, identityAliases),
-      { ...row, author: resolveAuthorAlias(row.author, identityAliases) }
+      { ...row, author: resolveAuthorAlias(row.author, identityAliases) },
     ])
   );
-  const latestLaneWinners = new Map(
-    Object.entries(leaderboard.latestLaneWinners || {})
-  );
+  const latestLaneWinners = new Map(Object.entries(leaderboard.latestLaneWinners || {}));
   const activityByAuthor = new Map();
 
   for (const item of activity || []) {
     const laneKey = item.laneId ? item.laneId.replace(":", "::") : null;
-    const knownLaneWinner =
-      item.promotionReady && laneKey ? latestLaneWinners.get(laneKey) : null;
+    const knownLaneWinner = item.promotionReady && laneKey ? latestLaneWinners.get(laneKey) : null;
     const author =
       knownLaneWinner?.author ||
       resolveAuthorAlias(item.candidateAuthor, identityAliases) ||
@@ -3864,7 +3830,7 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
         entry.winnerPulls.push({
           pullNumber: null,
           mergedAt: item.createdAt,
-          labels: item.labels || [`kata:winner:${String(item.laneId || "sn60__bitsec").split(":")[0]}`]
+          labels: item.labels || [],
         });
       }
     } else {
@@ -3880,7 +3846,7 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
           author,
           mergedAt: item.createdAt,
           pullNumber: null,
-          submissionId: item.candidateSubmissionId || null
+          submissionId: item.candidateSubmissionId || null,
         });
       }
     }
@@ -3888,10 +3854,7 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
 
   for (const [author, activityEntry] of activityByAuthor.entries()) {
     const entry = byAuthor.get(author) || createAuthorRow(author);
-    entry.totalSubmissions = Math.max(
-      entry.totalSubmissions || 0,
-      activityEntry.totalSubmissions
-    );
+    entry.totalSubmissions = Math.max(entry.totalSubmissions || 0, activityEntry.totalSubmissions);
     entry.wins = Math.max(entry.wins || 0, activityEntry.wins);
     const mergedWinnerKeys = new Set(
       (entry.winnerPulls || []).map((pull) => `${pull.pullNumber || "run"}:${pull.mergedAt}`)
@@ -3916,7 +3879,7 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
     ...leaderboard,
     source: activity?.length ? `${leaderboard.source}+runs` : leaderboard.source,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
@@ -3934,7 +3897,7 @@ function buildSubmissionStatus(leaderboard, validator) {
     hold: 0,
     losing: 0,
     winner: 0,
-    closed: 0
+    closed: 0,
   };
   const pendingPulls = [];
   const reviewPulls = [];
@@ -3960,7 +3923,7 @@ function buildSubmissionStatus(leaderboard, validator) {
         title: pull.title || null,
         htmlUrl: pull.htmlUrl || null,
         updatedAt: pull.updatedAt || null,
-        statusLabel: pull.statusLabel || null
+        statusLabel: pull.statusLabel || null,
       };
       if (pull.state === "open" && pull.statusLabel === "kata:pending") {
         pendingPulls.push(summary);
@@ -3981,8 +3944,8 @@ function buildSubmissionStatus(leaderboard, validator) {
     reviewApprovals: validator?.reviewApprovals || {
       available: false,
       count: 0,
-      recent: []
-    }
+      recent: [],
+    },
   };
 }
 
@@ -4032,7 +3995,7 @@ function buildOverview(lanes, activity, leaderboard, validator, submissionStatus
     validatorPendingJobs: validator.queue.counts.pending,
     validatorRunningJobs: validator.queue.counts.running,
     validatorCompletedJobs: validator.queue.counts.completed,
-    validatorFailedJobs: validator.queue.counts.failed
+    validatorFailedJobs: validator.queue.counts.failed,
   };
 }
 
@@ -4052,9 +4015,7 @@ function selectedProjectCountFromRound(round) {
 }
 
 function calculateCurrentWinnerGittensorScore(lanes, rows) {
-  const rowByAuthor = new Map(
-    rows.map((row) => [String(row.author || "").toLowerCase(), row])
-  );
+  const rowByAuthor = new Map(rows.map((row) => [String(row.author || "").toLowerCase(), row]));
   const rowByWinnerPull = new Map();
   for (const row of rows) {
     for (const pull of row.winnerPulls || []) {
@@ -4089,7 +4050,7 @@ function summarizeReplicaStability(localReplicaScores) {
   return {
     candidate: summarizeScoreSeries(candidate),
     king: summarizeScoreSeries(king),
-    delta: summarizeScoreSeriesDelta(candidate, king)
+    delta: summarizeScoreSeriesDelta(candidate, king),
   };
 }
 
@@ -4101,7 +4062,7 @@ function summarizeScoreSeries(values) {
       min: null,
       max: null,
       average: null,
-      spread: null
+      spread: null,
     };
   }
   const min = Math.min(...numbers);
@@ -4112,7 +4073,7 @@ function summarizeScoreSeries(values) {
     min,
     max,
     average,
-    spread: max - min
+    spread: max - min,
   };
 }
 
@@ -4145,7 +4106,7 @@ function buildNotes({ leaderboard, validator }) {
   return notes;
 }
 
-function loadSn60BenchmarkExpectedCounts(filePath) {
+function loadBenchmarkExpectedCounts(filePath) {
   const payload = readJsonSafe(filePath);
   const counts = new Map();
   if (!Array.isArray(payload)) {
@@ -4159,29 +4120,51 @@ function loadSn60BenchmarkExpectedCounts(filePath) {
     if (!projectKey) {
       continue;
     }
-    counts.set(
-      projectKey,
-      Array.isArray(entry.vulnerabilities) ? entry.vulnerabilities.length : 0
-    );
+    counts.set(projectKey, Array.isArray(entry.vulnerabilities) ? entry.vulnerabilities.length : 0);
   }
   return counts;
 }
 
 function inferRepoPackFromManifest(manifestPath) {
-  return path.basename(path.dirname(manifestPath));
+  const value = String(manifestPath || "").trim();
+  if (!value) {
+    return null;
+  }
+  const repoPack = path.basename(path.dirname(value));
+  return repoPack === "." ? null : repoPack;
 }
 
 function inferRepoPackFromSummary(summary) {
-  const promotionReason = String(summary?.promotion_reason || "");
-  if (promotionReason.startsWith("sn60__bitsec:") || promotionReason.includes("SN60")) {
-    return "sn60__bitsec";
-  }
   const candidateArtifact = String(summary?.candidate_artifact || "");
   const submissionMatch = candidateArtifact.match(/\/submissions\/([^/]+)\//);
   if (submissionMatch) {
     return submissionMatch[1];
   }
-  return inferRepoPackFromManifest(summary?.manifest_path || "");
+  return inferRepoPackFromManifest(summary?.manifest_path || "") || null;
+}
+
+function laneKeyForLane(lane) {
+  if (!lane?.subnetPack || !lane?.mode) {
+    return null;
+  }
+  return `${lane.subnetPack}::${lane.mode}`;
+}
+
+function resolveRoundLane(round, lanes, publicProof) {
+  const knownLanes = Array.isArray(lanes) ? lanes : [];
+  const roundLaneId = String(round?.laneId || "").trim();
+  if (roundLaneId) {
+    const byId = knownLanes.find((lane) => lane.laneId === roundLaneId || lane.id === roundLaneId);
+    if (byId) {
+      return byId;
+    }
+  }
+  const activePack = String(publicProof?.activePack || "").trim();
+  const activeMode = String(publicProof?.activeMode || "").trim();
+  const byProof = knownLanes.find(
+    (lane) => lane.subnetPack === activePack && lane.mode === activeMode
+  );
+  return byProof || (knownLanes.length === 1 ? knownLanes[0] : null);
 }
 
 function displaySubnetPack(subnetPack) {

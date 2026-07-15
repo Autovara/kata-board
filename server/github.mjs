@@ -1,13 +1,8 @@
 import { execFileSync } from "node:child_process";
 
-import {
-  createAuthorRow,
-  finalizeLeaderboardRows,
-  maxDate
-} from "./leaderboardRows.mjs";
+import { createAuthorRow, finalizeLeaderboardRows, maxDate } from "./leaderboardRows.mjs";
 
-const SUBMISSION_PATH_PATTERN =
-  /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
+const SUBMISSION_PATH_PATTERN = /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
 
 // Per-PR file listings keyed by updated_at. Without this, every leaderboard
 // refresh costs one files-request per PR (an N+1 that burns the GitHub rate
@@ -17,11 +12,7 @@ const PULL_FILES_CACHE_MAX_ENTRIES = 2000;
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
 let githubReadTokenIndex = 0;
 
-export async function loadGithubLeaderboard({
-  repoSlug,
-  githubToken,
-  githubTokens
-}) {
+export async function loadGithubLeaderboard({ repoSlug, githubToken, githubTokens }) {
   if (!repoSlug) {
     return emptyLeaderboard("github-not-configured");
   }
@@ -31,11 +22,7 @@ export async function loadGithubLeaderboard({
   const relevantPulls = [];
 
   for (const pull of pulls) {
-    const touchedSubmissions = await fetchSubmissionFilesCached(
-      repoSlug,
-      pull,
-      auth
-    );
+    const touchedSubmissions = await fetchSubmissionFilesCached(repoSlug, pull, auth);
     if (!touchedSubmissions.length) {
       continue;
     }
@@ -49,7 +36,7 @@ export async function loadGithubLeaderboard({
           }
           return `${match[1]}::${match[2]}`;
         })
-      )
+      ),
     ].filter(Boolean);
 
     relevantPulls.push({
@@ -64,7 +51,7 @@ export async function loadGithubLeaderboard({
       labels: normalizeLabelNames(pull.labels),
       winnerEligible: isKataWinnerPull(pull),
       laneKeys,
-      submissionPaths: touchedSubmissions
+      submissionPaths: touchedSubmissions,
     });
   }
 
@@ -87,12 +74,12 @@ export function loadGithubCliLeaderboard({ repoSlug, run = execFileSync }) {
       "--limit",
       "500",
       "--json",
-      "number,title,state,mergedAt,updatedAt,url,author,labels,files"
+      "number,title,state,mergedAt,updatedAt,url,author,labels,files",
     ],
     {
       encoding: "utf8",
       timeout: 20_000,
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
     }
   );
   const pulls = JSON.parse(output);
@@ -110,7 +97,7 @@ export function loadGithubCliLeaderboard({ repoSlug, run = execFileSync }) {
             const match = String(path || "").match(SUBMISSION_PATH_PATTERN);
             return match ? `${match[1]}::${match[2]}` : null;
           })
-        )
+        ),
       ].filter(Boolean);
       return {
         number: pull.number,
@@ -124,7 +111,7 @@ export function loadGithubCliLeaderboard({ repoSlug, run = execFileSync }) {
         labels: normalizeLabelNames(pull.labels),
         winnerEligible: isKataWinnerPull(pull),
         laneKeys,
-        submissionPaths: touchedSubmissions
+        submissionPaths: touchedSubmissions,
       };
     })
     .filter(Boolean);
@@ -148,7 +135,7 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
       entry.winnerPulls.push({
         pullNumber: pull.number,
         mergedAt: pull.mergedAt,
-        labels: pull.labels
+        labels: pull.labels,
       });
     } else {
       entry.closedSubmissions += 1;
@@ -163,7 +150,7 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
         htmlUrl: pull.htmlUrl,
         state: pull.mergedAt ? "merged" : pull.state,
         statusLabel: primaryKataStatusLabel(pull.labels),
-        updatedAt: pull.updatedAt
+        updatedAt: pull.updatedAt,
       });
     }
     byAuthor.set(pull.author, entry);
@@ -175,7 +162,7 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
           latestLaneWinners.set(laneKey, {
             author: pull.author,
             mergedAt: pull.mergedAt,
-            pullNumber: pull.number
+            pullNumber: pull.number,
           });
         }
       }
@@ -185,7 +172,7 @@ function buildLeaderboardFromRelevantPulls(source, relevantPulls) {
   return {
     source,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
-    latestLaneWinners: Object.fromEntries(latestLaneWinners)
+    latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
@@ -257,7 +244,7 @@ function primaryKataStatusLabel(labels) {
     "kata:hold",
     "kata:invalid",
     "kata:stale",
-    "kata:losing"
+    "kata:losing",
   ]) {
     if (status.has(label)) {
       return label;
@@ -270,7 +257,7 @@ function emptyLeaderboard(source) {
   return {
     source,
     rows: [],
-    latestLaneWinners: {}
+    latestLaneWinners: {},
   };
 }
 
@@ -334,26 +321,19 @@ export async function githubRequest(path, githubToken) {
   const selectedToken = selectGithubToken(githubToken);
   try {
     response = await fetchGithubResponse(path, selectedToken);
-    if (
-      selectedToken &&
-      (response.status === 401 || response.status === 403)
-    ) {
+    if (selectedToken && (response.status === 401 || response.status === 403)) {
       const publicResponse = await fetchGithubResponse(path, "");
       if (publicResponse.ok) {
         return publicResponse.json();
       }
     }
     if (!response.ok) {
-      throw new Error(
-        `GitHub API request failed: ${response.status} ${response.statusText}`
-      );
+      throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`);
     }
     return response.json();
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(
-        `GitHub API request timed out after ${GITHUB_REQUEST_TIMEOUT_MS}ms`
-      );
+      throw new Error(`GitHub API request timed out after ${GITHUB_REQUEST_TIMEOUT_MS}ms`);
     }
     throw error;
   }
@@ -362,7 +342,7 @@ export async function githubRequest(path, githubToken) {
 async function fetchGithubResponse(path, githubToken) {
   const headers = {
     "User-Agent": "kata-board",
-    Accept: "application/vnd.github+json"
+    Accept: "application/vnd.github+json",
   };
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
@@ -373,7 +353,7 @@ async function fetchGithubResponse(path, githubToken) {
   try {
     return await fetch(`https://api.github.com${path}`, {
       headers,
-      signal: controller.signal
+      signal: controller.signal,
     });
   } finally {
     clearTimeout(timeoutId);

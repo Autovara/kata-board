@@ -10,7 +10,7 @@ import {
   buildByLane,
   loadBoardStatus,
   loadPublicProof,
-  refreshByLaneRoundProgress
+  refreshByLaneRoundProgress,
 } from "./status.mjs";
 
 function writeJson(dir, name, payload) {
@@ -32,7 +32,7 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
     evaluator_policy_version: "v1",
     active,
     created_at: "2026-07-01T00:00:00+00:00",
-    updated_at: "2026-07-02T00:00:00+00:00"
+    updated_at: "2026-07-02T00:00:00+00:00",
   });
   if (withRegistry) {
     writeJson(lanesRoot, "registry.json", {
@@ -43,10 +43,10 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
           repo_pack: "sn60__bitsec",
           mode: "miner",
           evaluator_id: "sn60_bitsec",
-          active
-        }
+          active,
+        },
       ],
-      updated_at: "2026-07-02T00:00:00+00:00"
+      updated_at: "2026-07-02T00:00:00+00:00",
     });
   }
   writeJson(laneRoot, "king.json", {
@@ -55,7 +55,7 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
     current_king_artifact_hash: "king-hash",
     promotion_source_pr: null,
     promotion_timestamp: "2026-07-01T12:00:00+00:00",
-    updated_at: "2026-07-01T12:00:00+00:00"
+    updated_at: "2026-07-01T12:00:00+00:00",
   });
   writeJson(laneRoot, "benchmark_snapshot.json", {
     schema_version: 1,
@@ -67,10 +67,10 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
     project_keys: ["project-alpha", "project-beta"],
     container_images: [
       "ghcr.io/bitsec-ai/project-alpha:latest",
-      "ghcr.io/bitsec-ai/project-beta:latest"
+      "ghcr.io/bitsec-ai/project-beta:latest",
     ],
     scorer_version: "ScaBenchScorerV2",
-    updated_at: "2026-07-02T00:00:00+00:00"
+    updated_at: "2026-07-02T00:00:00+00:00",
   });
   writeJson(laneRoot, "challenge_state.json", {
     schema_version: 1,
@@ -82,7 +82,7 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
     validator_replica_count: 3,
     run_ids: ["sn60-duel-1"],
     freshness_fingerprint: "fingerprint-1",
-    updated_at: "2026-07-02T01:00:00+00:00"
+    updated_at: "2026-07-02T01:00:00+00:00",
   });
   writeJson(laneRoot, "promotion_record.json", {
     schema_version: 1,
@@ -101,18 +101,18 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
       king_f1_score: 0.5454545455,
       sandbox_commit: "b462a1e8e10b0000000000000000000000000000",
       benchmark_sha256: "benchmark-sha",
-      scorer_version: "ScaBenchScorerV2"
+      scorer_version: "ScaBenchScorerV2",
     },
     local_replica_scores: {
       king: [0.5, 0.5, 0.5],
-      candidate: [0.7, 0.75, 0.8]
+      candidate: [0.7, 0.75, 0.8],
     },
     pass_counts: { king: 1, candidate: 2 },
     true_positives: { king: 6, candidate: 12 },
     invalid_runs: { king: 0, candidate: 0 },
     final_winner: "candidate",
     reward_label_applied: null,
-    recorded_at: "2026-07-02T01:00:00+00:00"
+    recorded_at: "2026-07-02T01:00:00+00:00",
   });
 
   const runRoot = path.join(root, "runs", "sn60-duel-1");
@@ -137,10 +137,10 @@ function makeKataRoot({ active = true, withRegistry = true } = {}) {
       variant_invalid_runs: { king: 0, candidate: 0 },
       variant_scores: { king: 50, candidate: 100 },
       candidate_beats_king: true,
-      candidate_score_delta: 50
+      candidate_score_delta: 50,
     },
     promotion_ready: true,
-    promotion_reason: "sn60__bitsec: candidate beat the current SN60 king"
+    promotion_reason: "sn60__bitsec: candidate beat the current SN60 king",
   });
 
   return root;
@@ -151,7 +151,7 @@ function boardEnv(root) {
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   };
 }
 
@@ -161,25 +161,21 @@ function git(root, args, env = {}) {
     env: {
       ...process.env,
       GIT_CONFIG_GLOBAL: "/dev/null",
-      ...env
+      ...env,
     },
-    stdio: ["ignore", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"],
   });
 }
 
 function commitEmpty(root, message, isoDate, authorName, authorEmail) {
-  git(
-    root,
-    ["commit", "--allow-empty", "-m", message],
-    {
-      GIT_AUTHOR_NAME: authorName,
-      GIT_AUTHOR_EMAIL: authorEmail,
-      GIT_AUTHOR_DATE: isoDate,
-      GIT_COMMITTER_NAME: authorName,
-      GIT_COMMITTER_EMAIL: authorEmail,
-      GIT_COMMITTER_DATE: isoDate
-    }
-  );
+  git(root, ["commit", "--allow-empty", "-m", message], {
+    GIT_AUTHOR_NAME: authorName,
+    GIT_AUTHOR_EMAIL: authorEmail,
+    GIT_AUTHOR_DATE: isoDate,
+    GIT_COMMITTER_NAME: authorName,
+    GIT_COMMITTER_EMAIL: authorEmail,
+    GIT_COMMITTER_DATE: isoDate,
+  });
 }
 
 test("discovers the active SN60 lane from the central pack registry", async () => {
@@ -204,7 +200,7 @@ test("public proof resolves the round proof relative to kataRoot, incl. a per-la
   writeJson(laneDir, "current.json", {
     current_king: {},
     benchmark: {},
-    latest_round: { proof: "public-results/sn22__desearch/rounds/r1.json" }
+    latest_round: { proof: "public-results/sn22__desearch/rounds/r1.json" },
   });
   writeJson(path.join(laneDir, "rounds"), "r1.json", { project_keys: ["p1", "p2"] });
 
@@ -218,16 +214,16 @@ test("refreshByLaneRoundProgress reloads each lane's progress from its lane-scop
   const stateDir = path.join(kataRoot, "state");
   writeJson(path.join(stateDir, "b__y"), "round-progress.json", {
     state: "executing",
-    run_id: "b-round-1"
+    run_id: "b-round-1",
   });
   const status = {
     round: null, // multi-lane: no top-level round
     lanes: [{ id: "b__y:miner", laneId: "b__y" }],
-    byLane: { "b__y:miner": { round: { liveProgress: { runId: "STALE" } } } }
+    byLane: { "b__y:miner": { round: { liveProgress: { runId: "STALE" } } } },
   };
   refreshByLaneRoundProgress(status, {
     roundStatusPath: path.join(stateDir, "round-status.json"),
-    kataRoot
+    kataRoot,
   });
   assert.equal(status.byLane["b__y:miner"].round.liveProgress.runId, "b-round-1");
 });
@@ -237,12 +233,12 @@ test("refreshByLaneRoundProgress skips the sole lane that shares the top-level r
   const status = {
     round: sharedRound,
     lanes: [{ id: "a:miner", laneId: "a" }],
-    byLane: { "a:miner": { round: sharedRound } }
+    byLane: { "a:miner": { round: sharedRound } },
   };
   // Nonexistent paths: it must skip (entry.round === status.round) and not read anything.
   refreshByLaneRoundProgress(status, {
     roundStatusPath: "/nonexistent/round-status.json",
-    kataRoot: "/nonexistent"
+    kataRoot: "/nonexistent",
   });
   assert.equal(status.byLane["a:miner"].round.liveProgress.runId, "top");
 });
@@ -255,28 +251,34 @@ test("byLane reads each lane's own round and proof when there are multiple lanes
     state: "executing",
     run_id: "a-round-1",
     competition_mode: "king_duel",
-    entrants: []
+    entrants: [],
   });
   writeJson(path.join(kataRoot, "public-results", "a__x"), "current.json", {
     current_king: { submission_id: "alice-1" },
     benchmark: {},
-    latest_round: {}
+    latest_round: {},
   });
   // Lane b__y: a published king but no active round.
   writeJson(path.join(kataRoot, "public-results", "b__y"), "current.json", {
     current_king: { submission_id: "bob-1" },
     benchmark: {},
-    latest_round: {}
+    latest_round: {},
   });
 
   const lanes = [
     { id: "a__x:miner", laneId: "a__x" },
-    { id: "b__y:miner", laneId: "b__y" }
+    { id: "b__y:miner", laneId: "b__y" },
   ];
   const sharedLeaderboard = { rows: [] };
   const byLane = buildByLane(
     lanes,
-    { round: null, roundHistory: [], publicProof: null, leaderboard: sharedLeaderboard, activity: { hits: 1 } },
+    {
+      round: null,
+      roundHistory: [],
+      publicProof: null,
+      leaderboard: sharedLeaderboard,
+      activity: { hits: 1 },
+    },
     { kataRoot, stateDir }
   );
 
@@ -329,10 +331,7 @@ test("renders the SN60 duel state from lane state files", async () => {
   assert.equal(current.stability.king.spread, 0);
 
   // provenance mirrors the pinned benchmark snapshot
-  assert.equal(
-    current.provenance.sandboxCommit,
-    "b462a1e8e10b0000000000000000000000000000"
-  );
+  assert.equal(current.provenance.sandboxCommit, "b462a1e8e10b0000000000000000000000000000");
   assert.equal(current.provenance.scorerVersion, "ScaBenchScorerV2");
   assert.equal(current.provenance.containerImages.length, 2);
   assert.equal(current.provenance.freshnessFingerprint, "fingerprint-1");
@@ -365,6 +364,51 @@ test("falls back to directory discovery when no registry exists", async () => {
   );
 });
 
+test("uses the completed round's configured lane instead of an SN60 fallback", async () => {
+  const root = makeKataRoot();
+  const oldLaneRoot = path.join(root, "lanes", "sn60__bitsec");
+  const laneId = "sn22__desearch";
+  const laneRoot = path.join(root, "lanes", laneId);
+  fs.renameSync(oldLaneRoot, laneRoot);
+  fs.rmSync(path.join(root, "runs"), { recursive: true, force: true });
+  writeJson(laneRoot, "lane.json", {
+    schema_version: 1,
+    lane_id: laneId,
+    repo_pack: laneId,
+    mode: "miner",
+    evaluator_id: "sn22_desearch",
+    active: true,
+  });
+  writeJson(path.join(root, "lanes"), "registry.json", {
+    schema_version: 1,
+    packs: [{ lane_id: laneId, repo_pack: laneId, mode: "miner", active: true }],
+  });
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "completed",
+    lane_id: laneId,
+    generated_at: "2026-07-03T00:00:00Z",
+    winner_submission_id: "pr-22",
+    entrants: [
+      {
+        pull_number: 22,
+        submission_id: "dora-20260703-01",
+        author: "dora",
+        status: "winner",
+      },
+    ],
+  });
+
+  const status = await loadBoardStatus({
+    ...boardEnv(root),
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+  });
+
+  assert.equal(status.publicProof.activePack, laneId);
+  assert.equal(status.leaderboard.latestLaneWinners[`${laneId}::miner`].author, "dora");
+  assert.equal(status.leaderboard.latestLaneWinners["sn60__bitsec::miner"], undefined);
+});
+
 test("loads recent activity from challenge summaries", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));
@@ -374,8 +418,7 @@ test("loads recent activity from challenge summaries", async () => {
   assert.equal(status.overview.uniqueChallengers, 1);
   assert.equal(status.overview.totalSubmissions, 1);
   assert.equal(status.overview.recentDuels, 1);
-  assert.ok(status.overview.totalGittensorScore > 0);
-  assert.ok(status.overview.totalGittensorScore <= 1);
+  assert.equal(status.overview.totalGittensorScore, 0);
   const entry = status.activity[0];
   assert.equal(entry.runId, "sn60-duel-1");
   assert.equal(entry.laneId, "sn60__bitsec:miner");
@@ -402,9 +445,9 @@ test("merges live status with active SN60 worktree progress", async () => {
         status: "running",
         attempts: 1,
         enqueued_at: "2026-07-02T02:00:00+00:00",
-        started_at: "2026-07-02T02:01:00+00:00"
-      }
-    ]
+        started_at: "2026-07-02T02:01:00+00:00",
+      },
+    ],
   });
   writeJson(path.dirname(liveStatusPath), "live-status.json", {
     schema_version: 1,
@@ -420,8 +463,8 @@ test("merges live status with active SN60 worktree progress", async () => {
       pull_number: 42,
       attempts: 1,
       enqueued_at: "2026-07-02T02:00:00+00:00",
-      started_at: "2026-07-02T02:01:00+00:00"
-    }
+      started_at: "2026-07-02T02:01:00+00:00",
+    },
   });
 
   const staleWorkspace = path.join(workRoot, "kata-bot-job-stale");
@@ -433,7 +476,7 @@ test("merges live status with active SN60 worktree progress", async () => {
   const staleRunRoot = path.join(staleWorkspace, "runs-initial", "sn60-duel-stale");
   writeSn60Evaluation(staleRunRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0 }
+    result: { result: "FAIL", true_positives: 0 },
   });
 
   const workspace = path.join(workRoot, "kata-bot-job-active");
@@ -450,8 +493,8 @@ test("merges live status with active SN60 worktree progress", async () => {
       [
         {
           project_id: "project-alpha",
-          vulnerabilities: [{}, {}, {}, {}, {}]
-        }
+          vulnerabilities: [{}, {}, {}, {}, {}],
+        },
       ],
       null,
       2
@@ -459,31 +502,31 @@ test("merges live status with active SN60 worktree progress", async () => {
   );
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 }
+    result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "PASS", true_positives: 2, total_expected: 2, total_found: 2 }
+    result: { result: "PASS", true_positives: 2, total_expected: 2, total_found: 2 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-03", {
     status: "error",
-    result: {}
+    result: {},
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 },
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 },
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-03", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 0 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-beta", "replica-01", {
     status: "success",
-    result: { result: "PASS", true_positives: 9 }
+    result: { result: "PASS", true_positives: 9 },
   });
 
   const status = await loadBoardStatus({
@@ -492,7 +535,7 @@ test("merges live status with active SN60 worktree progress", async () => {
     KATA_QUEUE_STATE_PATH: queuePath,
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_WORK_ROOT: workRoot,
-    KATA_SN60_BENCHMARK_FILE: benchmarkPath
+    KATA_SN60_BENCHMARK_FILE: benchmarkPath,
   });
 
   const active = status.validator.activeEvaluation;
@@ -510,11 +553,11 @@ test("merges live status with active SN60 worktree progress", async () => {
   assert.equal(active.primary.invalidRuns.candidate, 1);
   assert.deepEqual(active.primary.replicaProgress.candidate, {
     completed: 4,
-    total: 6
+    total: 6,
   });
   assert.deepEqual(active.primary.replicaProgress.king, {
     completed: 3,
-    total: 6
+    total: 6,
   });
   assert.equal(active.primary.taskStatuses[0].candidate.completedReplicas, 3);
   assert.equal(active.primary.taskStatuses[0].candidate.totalReplicas, 3);
@@ -541,9 +584,9 @@ test("ignores malformed queue and live-status elements", async () => {
         status: "running",
         attempts: 1,
         enqueued_at: "2026-07-02T02:00:00+00:00",
-        started_at: "2026-07-02T02:01:00+00:00"
-      }
-    ]
+        started_at: "2026-07-02T02:01:00+00:00",
+      },
+    ],
   });
   writeJson(path.dirname(liveStatusPath), "live-status.json", {
     schema_version: 1,
@@ -562,26 +605,23 @@ test("ignores malformed queue and live-status elements", async () => {
             task_id: "project-alpha",
             status: "running",
             candidate: { started: true },
-            king: {}
-          }
-        ]
-      }
-    }
+            king: {},
+          },
+        ],
+      },
+    },
   });
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
-    KATA_LIVE_STATUS_PATH: liveStatusPath
+    KATA_LIVE_STATUS_PATH: liveStatusPath,
   });
 
   assert.equal(status.validator.queue.counts.total, 1);
   assert.equal(status.validator.activeEvaluation.primary.taskStatuses.length, 1);
-  assert.equal(
-    status.validator.activeEvaluation.primary.taskStatuses[0].taskId,
-    "project-alpha"
-  );
+  assert.equal(status.validator.activeEvaluation.primary.taskStatuses[0].taskId, "project-alpha");
 });
 
 test("keeps latest completed SN60 duel visible after queue finishes", async () => {
@@ -605,9 +645,9 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
         enqueued_at: "2026-07-02T04:00:00+00:00",
         started_at: "2026-07-02T04:01:00+00:00",
         finished_at: "2026-07-02T04:20:00+00:00",
-        final_action: "close-losing"
-      }
-    ]
+        final_action: "close-losing",
+      },
+    ],
   });
   writeJson(path.dirname(liveStatusPath), "live-status.json", {
     schema_version: 1,
@@ -625,8 +665,8 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
       pull_number: 77,
       attempts: 1,
       enqueued_at: "2026-07-02T04:00:00+00:00",
-      started_at: "2026-07-02T04:01:00+00:00"
-    }
+      started_at: "2026-07-02T04:01:00+00:00",
+    },
   });
 
   const workspace = path.join(workRoot, "kata-bot-job-completed");
@@ -642,15 +682,15 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
       total_expected: 4,
       total_found: 2,
       precision: 0.5,
-      f1_score: 1 / 3
+      f1_score: 1 / 3,
     },
     king: {
       true_positives: 2,
       total_expected: 4,
       total_found: 2,
       precision: 1,
-      f1_score: 2 / 3
-    }
+      f1_score: 2 / 3,
+    },
   });
   writeJson(runRoot, "challenge_summary.json", {
     schema_version: 5,
@@ -665,10 +705,10 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
       variant_invalid_runs: { king: 0, candidate: 0 },
       variant_scores: { king: 50, candidate: 25 },
       candidate_beats_king: false,
-      candidate_score_delta: -25
+      candidate_score_delta: -25,
     },
     promotion_ready: false,
-    promotion_reason: "sn60__bitsec: candidate did not beat the current SN60 king"
+    promotion_reason: "sn60__bitsec: candidate did not beat the current SN60 king",
   });
 
   const status = await loadBoardStatus({
@@ -676,7 +716,7 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
     KATA_LIVE_STATUS_PATH: liveStatusPath,
-    KATA_WORK_ROOT: workRoot
+    KATA_WORK_ROOT: workRoot,
   });
 
   const active = status.validator.activeEvaluation;
@@ -713,9 +753,9 @@ test("shows live SN60 screening project and timeout before result exists", async
         status: "running",
         attempts: 1,
         enqueued_at: "2026-07-02T02:00:00+00:00",
-        started_at: "2026-07-02T02:01:00+00:00"
-      }
-    ]
+        started_at: "2026-07-02T02:01:00+00:00",
+      },
+    ],
   });
   writeJson(path.dirname(liveStatusPath), "live-status.json", {
     schema_version: 1,
@@ -734,8 +774,8 @@ test("shows live SN60 screening project and timeout before result exists", async
       pull_number: 42,
       attempts: 1,
       enqueued_at: "2026-07-02T02:00:00+00:00",
-      started_at: "2026-07-02T02:01:00+00:00"
-    }
+      started_at: "2026-07-02T02:01:00+00:00",
+    },
   });
   const workspace = path.join(workRoot, "kata-bot-job-screening");
   fs.mkdirSync(
@@ -752,7 +792,7 @@ test("shows live SN60 screening project and timeout before result exists", async
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
     KATA_LIVE_STATUS_PATH: liveStatusPath,
-    KATA_WORK_ROOT: workRoot
+    KATA_WORK_ROOT: workRoot,
   });
 
   const active = status.validator.activeEvaluation;
@@ -772,7 +812,8 @@ test("completed SN60 screening failure overrides stale lane winner state", async
   const liveStatusPath = path.join(botRoot, "state", "live-status.json");
   const workRoot = path.join(botRoot, "work");
   const jobId = "job-screen-failed";
-  const reason = "SN60 screening report must include at least one candidate vulnerability. Empty reports are treated as no-op submissions.";
+  const reason =
+    "SN60 screening report must include at least one candidate vulnerability. Empty reports are treated as no-op submissions.";
   writeJson(path.dirname(queuePath), "queue.json", {
     schema_version: 1,
     jobs: [
@@ -787,9 +828,9 @@ test("completed SN60 screening failure overrides stale lane winner state", async
         enqueued_at: "2026-07-02T05:00:00+00:00",
         started_at: "2026-07-02T05:01:00+00:00",
         finished_at: "2026-07-02T05:08:00+00:00",
-        final_action: "close-losing"
-      }
-    ]
+        final_action: "close-losing",
+      },
+    ],
   });
   writeJson(path.dirname(liveStatusPath), "live-status.json", {
     schema_version: 1,
@@ -807,8 +848,8 @@ test("completed SN60 screening failure overrides stale lane winner state", async
       attempts: 1,
       enqueued_at: "2026-07-02T05:00:00+00:00",
       started_at: "2026-07-02T05:01:00+00:00",
-      finished_at: "2026-07-02T05:08:00+00:00"
-    }
+      finished_at: "2026-07-02T05:08:00+00:00",
+    },
   });
 
   const workspace = path.join(workRoot, "kata-bot-job-screen-failed");
@@ -822,7 +863,7 @@ test("completed SN60 screening failure overrides stale lane winner state", async
     status: "failed",
     stage: "execution",
     project_key: "project-alpha",
-    reasons: [reason]
+    reasons: [reason],
   });
   writeJson(runRoot, "challenge_summary.json", {
     schema_version: 5,
@@ -837,10 +878,10 @@ test("completed SN60 screening failure overrides stale lane winner state", async
       variant_invalid_runs: { king: 0, candidate: 1 },
       variant_scores: { king: 0, candidate: 0 },
       candidate_beats_king: false,
-      candidate_score_delta: 0
+      candidate_score_delta: 0,
     },
     promotion_ready: false,
-    promotion_reason: `sn60__bitsec: candidate failed SN60 screening: ${reason}`
+    promotion_reason: `sn60__bitsec: candidate failed SN60 screening: ${reason}`,
   });
 
   const status = await loadBoardStatus({
@@ -848,7 +889,7 @@ test("completed SN60 screening failure overrides stale lane winner state", async
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
     KATA_LIVE_STATUS_PATH: liveStatusPath,
-    KATA_WORK_ROOT: workRoot
+    KATA_WORK_ROOT: workRoot,
   });
 
   const active = status.validator.activeEvaluation;
@@ -886,10 +927,10 @@ test("leaderboard includes losing candidates from run artifacts without score", 
       variant_invalid_runs: { king: 0, candidate: 0 },
       variant_scores: { king: 100, candidate: 50 },
       candidate_beats_king: false,
-      candidate_score_delta: -50
+      candidate_score_delta: -50,
     },
     promotion_ready: false,
-    promotion_reason: "sn60__bitsec: candidate did not beat the current SN60 king"
+    promotion_reason: "sn60__bitsec: candidate did not beat the current SN60 king",
   });
 
   const status = await loadBoardStatus(boardEnv(root));
@@ -917,7 +958,7 @@ test("leaderboard timeout falls back to local artifacts for live status", async 
       KATA_REPO_SLUG: "owner/repo",
       KATA_GITHUB_TOKEN: "token",
       KATA_LEADERBOARD_CACHE_TTL_MS: "0",
-      KATA_LEADERBOARD_BUILD_TIMEOUT_MS: "10"
+      KATA_LEADERBOARD_BUILD_TIMEOUT_MS: "10",
     });
 
     assert.ok(Date.now() - startedAt < 80);
@@ -949,7 +990,7 @@ test("leaderboard fallback includes non-winner round-summary contributors withou
           "statxc-20260706-01"
         ),
         beats_king: false,
-        candidate: { aggregated_score: 0, true_positives: 0 }
+        candidate: { aggregated_score: 0, true_positives: 0 },
       },
       {
         submission_id: "pr-69",
@@ -962,28 +1003,22 @@ test("leaderboard fallback includes non-winner round-summary contributors withou
           "Helios531-20260706-01"
         ),
         beats_king: false,
-        candidate: { aggregated_score: 0, true_positives: 0 }
-      }
-    ]
+        candidate: { aggregated_score: 0, true_positives: 0 },
+      },
+    ],
   });
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_REPO_SLUG: "",
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   const authors = status.leaderboard.rows.map((row) => row.author);
   assert.ok(authors.includes("statxc"));
   assert.ok(authors.includes("Helios531"));
-  assert.equal(
-    status.leaderboard.rows.find((row) => row.author === "statxc").gittensorScore,
-    0
-  );
-  assert.equal(
-    status.leaderboard.rows.find((row) => row.author === "Helios531").gittensorScore,
-    0
-  );
+  assert.equal(status.leaderboard.rows.find((row) => row.author === "statxc").gittensorScore, 0);
+  assert.equal(status.leaderboard.rows.find((row) => row.author === "Helios531").gittensorScore, 0);
 });
 
 test("degrades gracefully when the kata root is empty", async () => {
@@ -996,23 +1031,13 @@ test("degrades gracefully when the kata root is empty", async () => {
 });
 
 function writeSn60Evaluation(runRoot, variant, projectKey, replicaName, payload) {
-  const reportsRoot = path.join(
-    runRoot,
-    variant,
-    projectKey,
-    replicaName,
-    "reports",
-    projectKey
-  );
+  const reportsRoot = path.join(runRoot, variant, projectKey, replicaName, "reports", projectKey);
   fs.mkdirSync(reportsRoot, { recursive: true });
   fs.writeFileSync(
     path.join(reportsRoot, "report.json"),
     JSON.stringify({ success: true, report: { vulnerabilities: [] } }) + "\n"
   );
-  fs.writeFileSync(
-    path.join(reportsRoot, "evaluation.json"),
-    JSON.stringify(payload) + "\n"
-  );
+  fs.writeFileSync(path.join(reportsRoot, "evaluation.json"), JSON.stringify(payload) + "\n");
 }
 
 test("survives a malformed run artifact without failing the whole status", async () => {
@@ -1043,16 +1068,17 @@ test("skips malformed event-log lines instead of failing the leaderboard", async
         repo_pack: "sn60__bitsec",
         mode: "miner",
         final_action: "merge",
-        pull_number: 7
+        pull_number: 7,
+        labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
       }),
-      '{"created_at":"2026-07-02T00:00:00Z","author":"bob","repo_'
+      '{"created_at":"2026-07-02T00:00:00Z","author":"bob","repo_',
     ].join("\n") + "\n"
   );
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOARD_EVENT_LOG: eventLogPath,
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.leaderboard.source, "events+runs");
@@ -1072,7 +1098,7 @@ test("survives a wrong-typed selected_project_keys without a 500", async () => {
   writeJson(laneRoot, "challenge_state.json", {
     schema_version: 1,
     selected_project_keys: "project-alpha",
-    screening_result: { status: "passed", stage: "execution", reasons: [] }
+    screening_result: { status: "passed", stage: "execution", reasons: [] },
   });
 
   const status = await loadBoardStatus(boardEnv(root));
@@ -1093,17 +1119,17 @@ test("skips a parseable-but-null event-log line", async () => {
         repo_pack: "sn60__bitsec",
         mode: "miner",
         final_action: "merge",
-        pull_number: 7
+        pull_number: 7,
       }),
       "null",
-      "123"
+      "123",
     ].join("\n") + "\n"
   );
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOARD_EVENT_LOG: eventLogPath,
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.leaderboard.source, "events+runs");
@@ -1138,8 +1164,8 @@ test("sanitizes validator health payload before exposing status", async () => {
           running_jobs: 1,
           completed_jobs: 1,
           failed_jobs: 0,
-          internal_path: "/srv/private"
-        }
+          internal_path: "/srv/private",
+        },
       })
     );
   });
@@ -1149,7 +1175,7 @@ test("sanitizes validator health payload before exposing status", async () => {
   try {
     const status = await loadBoardStatus({
       ...boardEnv(root),
-      KATA_VALIDATOR_HEALTH_URL: `http://127.0.0.1:${port}/healthz`
+      KATA_VALIDATOR_HEALTH_URL: `http://127.0.0.1:${port}/healthz`,
     });
 
     assert.equal(status.validator.health.ok, true);
@@ -1176,14 +1202,15 @@ test("newer merged winner updates the displayed current holder", async () => {
       repo_pack: "sn60__bitsec",
       mode: "miner",
       final_action: "merge",
-      pull_number: 9
+      pull_number: 9,
+      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
     }) + "\n"
   );
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOARD_EVENT_LOG: eventLogPath,
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   const lane = status.lanes[0];
@@ -1204,14 +1231,15 @@ test("accepts subnet_pack in event log leaderboard entries", async () => {
       subnet_pack: "sn60__bitsec",
       mode: "miner",
       final_action: "merge",
-      pull_number: 7
+      pull_number: 7,
+      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
     }) + "\n"
   );
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOARD_EVENT_LOG: eventLogPath,
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   const alice = status.leaderboard.rows.find((row) => row.author === "alice");
@@ -1232,14 +1260,15 @@ test("leaderboard does not split a known PR winner by submission id prefix", asy
       repo_pack: "sn60__bitsec",
       mode: "miner",
       final_action: "merge",
-      pull_number: 12
+      pull_number: 12,
+      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
     }) + "\n"
   );
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOARD_EVENT_LOG: eventLogPath,
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(
@@ -1255,8 +1284,8 @@ test("leaderboard does not split a known PR winner by submission id prefix", asy
     {
       pullNumber: 12,
       mergedAt: "2026-07-02T01:02:00Z",
-      labels: ["kata:winner:sn60__bitsec"]
-    }
+      labels: ["kata:winner:sn60__bitsec", "kata:mode:miner"],
+    },
   ]);
 });
 
@@ -1280,9 +1309,9 @@ test("leaderboard uses completed validator identity when github history is unava
         enqueued_at: "2026-07-02T01:00:00Z",
         started_at: "2026-07-02T01:01:00Z",
         finished_at: "2026-07-02T01:03:00Z",
-        final_action: "merge"
-      }
-    ]
+        final_action: "merge",
+      },
+    ],
   });
   writeJson(botStateRoot, "live-status.json", {
     schema_version: 1,
@@ -1301,8 +1330,8 @@ test("leaderboard uses completed validator identity when github history is unava
       attempts: 1,
       enqueued_at: "2026-07-02T01:00:00Z",
       started_at: "2026-07-02T01:01:00Z",
-      finished_at: "2026-07-02T01:03:00Z"
-    }
+      finished_at: "2026-07-02T01:03:00Z",
+    },
   });
   writeJson(botStateRoot, "round-status.json", {
     schema_version: 1,
@@ -1312,9 +1341,9 @@ test("leaderboard uses completed validator identity when github history is unava
       {
         pull_number: 12,
         submission_id: "bob-20260702-01",
-        status: "winner"
-      }
-    ]
+        status: "winner",
+      },
+    ],
   });
   writeJson(path.join(root, "lanes", "sn60__bitsec"), "king.json", {
     schema_version: 1,
@@ -1322,7 +1351,7 @@ test("leaderboard uses completed validator identity when github history is unava
     current_king_artifact_hash: "candidate-hash",
     promotion_source_pr: null,
     promotion_timestamp: "2026-07-02T01:03:00Z",
-    updated_at: "2026-07-02T01:03:00Z"
+    updated_at: "2026-07-02T01:03:00Z",
   });
 
   const status = await loadBoardStatus({
@@ -1331,7 +1360,7 @@ test("leaderboard uses completed validator identity when github history is unava
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_ROUND_STATUS_PATH: roundStatusPath,
     KATA_REPO_SLUG: "",
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(
@@ -1358,22 +1387,22 @@ test("leaderboard falls back to round entrants when github history is unavailabl
         pull_number: 10,
         submission_id: "alice-20260702-01",
         author: "Alice-GitHub",
-        status: "winner"
+        status: "winner",
       },
       {
         pull_number: 11,
         submission_id: "charlie-20260702-01",
         author: "Charlie-GitHub",
-        status: "losing"
-      }
-    ]
+        status: "losing",
+      },
+    ],
   });
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_ROUND_STATUS_PATH: roundStatusPath,
     KATA_REPO_SLUG: "",
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   const authors = status.leaderboard.rows.map((row) => row.author);
@@ -1391,7 +1420,7 @@ test("leaderboard reconstructs promoted winners from local git history", async (
     current_king_artifact_hash: "candidate-hash",
     promotion_source_pr: null,
     promotion_timestamp: "2026-07-07T16:46:38Z",
-    updated_at: "2026-07-07T16:46:38Z"
+    updated_at: "2026-07-07T16:46:38Z",
   });
   git(root, ["init", "-q"]);
   git(root, ["config", "user.name", "kata-bot"]);
@@ -1429,13 +1458,11 @@ test("leaderboard reconstructs promoted winners from local git history", async (
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_REPO_SLUG: "",
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.leaderboard.source, "local-git+runs");
-  const jonathan = status.leaderboard.rows.find(
-    (row) => row.author === "jonathanchang31"
-  );
+  const jonathan = status.leaderboard.rows.find((row) => row.author === "jonathanchang31");
   const nick = status.leaderboard.rows.find((row) => row.author === "nickmopen");
   assert.ok(jonathan);
   assert.ok(nick);
@@ -1493,7 +1520,7 @@ test("completed round keeps the king identity from before promotion", async () =
     current_king_artifact_hash: "candidate-hash",
     promotion_source_pr: null,
     promotion_timestamp: "2026-07-07T16:46:38Z",
-    updated_at: "2026-07-07T16:46:38Z"
+    updated_at: "2026-07-07T16:46:38Z",
   });
   writeJson(root, "round-status.json", {
     schema_version: 1,
@@ -1511,16 +1538,16 @@ test("completed round keeps the king identity from before promotion", async () =
         status: "winner",
         aggregated_score: 0.1,
         true_positives: 4,
-        beats_king: true
-      }
-    ]
+        beats_king: true,
+      },
+    ],
   });
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_REPO_SLUG: "",
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.lanes[0].currentHolder, "jonathanchang31");
@@ -1546,7 +1573,7 @@ test("exposes the current competition round from round-status.json", async () =>
         status: "winner",
         aggregated_score: 0.5,
         true_positives: 2,
-        beats_king: true
+        beats_king: true,
       },
       {
         pull_number: 2,
@@ -1554,8 +1581,8 @@ test("exposes the current competition round from round-status.json", async () =>
         status: "losing",
         aggregated_score: 0.0,
         true_positives: 0,
-        beats_king: false
-      }
+        beats_king: false,
+      },
     ],
     screened_out: [{ pull_number: 6, reason: "screening failed" }],
     closed_extras: [{ pull_number: 3, kept_pull_number: 1 }],
@@ -1569,9 +1596,9 @@ test("exposes the current competition round from round-status.json", async () =>
         submission_id: "sn60-baseline",
         beats_king: true,
         codebase_pass_count: 2,
-        true_positives: 8
-      }
-    }
+        true_positives: 8,
+      },
+    },
   });
   writeJson(root, "round-history.json", {
     schema_version: 1,
@@ -1580,15 +1607,15 @@ test("exposes the current competition round from round-status.json", async () =>
         run_id: "sn60-round-old",
         generated_at: "2026-07-05T12:00:00Z",
         candidate_count: 1,
-        winner_submission_id: null
+        winner_submission_id: null,
       },
       {
         run_id: "sn60-round-x",
         generated_at: "2026-07-06T12:00:00Z",
         candidate_count: 2,
-        winner_submission_id: "m-1"
-      }
-    ]
+        winner_submission_id: "m-1",
+      },
+    ],
   });
 
   const status = await loadBoardStatus({
@@ -1597,7 +1624,7 @@ test("exposes the current competition round from round-status.json", async () =>
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
     KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.round.state, "completed");
@@ -1629,7 +1656,7 @@ test("exposes public proof from kata public-results/current.json", async () => {
       source_pull_request: 98,
       path: "kings/sn60__bitsec/miner",
       artifact_hash: "king-hash",
-      promoted_at: "2026-07-01T16:14:37Z"
+      promoted_at: "2026-07-01T16:14:37Z",
     },
     latest_round: {
       round_id: "sn60-round-x",
@@ -1645,14 +1672,14 @@ test("exposes public proof from kata public-results/current.json", async () => {
       winner_submission_id: "kiannidev-20260708-01",
       best_true_positives: 4,
       best_detection_score: 0.14814814814814814,
-      proof: "public-results/rounds/sn60-round-x.json"
+      proof: "public-results/rounds/sn60-round-x.json",
     },
     benchmark: {
       name: "curated-highs-only-2025-08-08.json",
       round_sha256: "benchmark-sha",
       sandbox_commit: "sandbox-commit",
-      scorer_version: "ScaBenchScorerV2"
-    }
+      scorer_version: "ScaBenchScorerV2",
+    },
   });
 
   const status = await loadBoardStatus(boardEnv(root));
@@ -1676,7 +1703,7 @@ test("exposes a failed preflight round and its note for the dashboard", async ()
     note: "Round failed preflight: chutes_scoring unavailable.",
     preflight: {
       ok: false,
-      checks: [{ name: "chutes_scoring", ok: false, status: 503 }]
+      checks: [{ name: "chutes_scoring", ok: false, status: 503 }],
     },
     entrants: [],
   });
@@ -1706,9 +1733,9 @@ test("exposes submission label counts and review approvals without internal fiel
         reason_fingerprint: "secret-fingerprint",
         reason: "Manual screening review required: benchmark replay signal.",
         approved_by: "maintainer",
-        approved_at: "2026-07-07T18:10:00Z"
-      }
-    ]
+        approved_at: "2026-07-07T18:10:00Z",
+      },
+    ],
   });
 
   const eventLogPath = path.join(root, "events.jsonl");
@@ -1721,8 +1748,8 @@ test("exposes submission label counts and review approvals without internal fiel
         repo_pack: "sn60__bitsec",
         mode: "miner",
         final_action: "hold-review",
-        pull_number: 85
-      })
+        pull_number: 85,
+      }),
     ].join("\n") + "\n"
   );
 
@@ -1732,7 +1759,7 @@ test("exposes submission label counts and review approvals without internal fiel
     KATA_QUEUE_STATE_PATH: path.join(botRoot, "queue.json"),
     KATA_REVIEW_APPROVALS_PATH: path.join(botRoot, "review-approvals.json"),
     KATA_BOARD_EVENT_LOG: eventLogPath,
-    KATA_LEADERBOARD_CACHE_TTL_MS: "0"
+    KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.validator.reviewApprovals.count, 1);
@@ -1740,10 +1767,7 @@ test("exposes submission label counts and review approvals without internal fiel
   assert.equal(status.submissionStatus.reviewApprovals.recent[0].pullNumber, 85);
   assert.equal(status.submissionStatus.reviewApprovals.recent[0].approvedBy, "maintainer");
   assert.equal(status.submissionStatus.reviewApprovals.recent[0].head_sha, undefined);
-  assert.equal(
-    status.submissionStatus.reviewApprovals.recent[0].reason_fingerprint,
-    undefined
-  );
+  assert.equal(status.submissionStatus.reviewApprovals.recent[0].reason_fingerprint, undefined);
 });
 
 test("round is null when no round-status file exists", async () => {
@@ -1759,8 +1783,8 @@ test("attaches live per-candidate progress while a round is executing", async ()
     state: "executing",
     entrants: [
       { pull_number: 5, submission_id: "m-5", status: "executing" },
-      { pull_number: 6, submission_id: "m-6", status: "executing" }
-    ]
+      { pull_number: 6, submission_id: "m-6", status: "executing" },
+    ],
   });
   writeJson(root, "round-progress.json", {
     schema_version: 1,
@@ -1778,9 +1802,9 @@ test("attaches live per-candidate progress while a round is executing", async ()
           passed: false,
           true_positives: 1,
           total_expected: 3,
-          total_found: 2
-        }
-      ]
+          total_found: 2,
+        },
+      ],
     },
     candidates: [
       {
@@ -1794,45 +1818,38 @@ test("attaches live per-candidate progress while a round is executing", async ()
             passed: true,
             true_positives: 3,
             total_expected: 3,
-            total_found: 3
-          }
-        ]
+            total_found: 3,
+          },
+        ],
       },
       {
         submission_id: "pr-6",
         done: 0,
         total: 6,
         state: "queued",
-        projects: []
-      }
-    ]
+        projects: [],
+      },
+    ],
   });
   const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "FAIL", true_positives: 1, total_expected: 3, total_found: 2 }
+    result: { result: "FAIL", true_positives: 1, total_expected: 3, total_found: 2 },
   });
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 3, total_found: 1 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 3, total_found: 1 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 }
+    result: { result: "PASS", true_positives: 3, total_expected: 3, total_found: 3 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "PASS", true_positives: 2, total_expected: 3, total_found: 3 }
+    result: { result: "PASS", true_positives: 2, total_expected: 3, total_found: 3 },
   });
   writeJson(
-    path.join(
-      root,
-      "runs",
-      "sn60-round-live",
-      "pr-5",
-      "screening",
-      "sn60-screening-pr-5"
-    ),
+    path.join(root, "runs", "sn60-round-live", "pr-5", "screening", "sn60-screening-pr-5"),
     "screening_result.json",
     {
       schema_version: 1,
@@ -1841,7 +1858,7 @@ test("attaches live per-candidate progress while a round is executing", async ()
       stage: "execution",
       project_key: "project-alpha",
       reasons: [],
-      created_at: "2026-07-06T12:00:02Z"
+      created_at: "2026-07-06T12:00:02Z",
     }
   );
   fs.mkdirSync(
@@ -1864,9 +1881,9 @@ test("attaches live per-candidate progress while a round is executing", async ()
         run_id: "sn60-round-finished",
         generated_at: "2026-07-06T12:00:00Z",
         candidate_count: 2,
-        winner_submission_id: "pr-1"
-      }
-    ]
+        winner_submission_id: "pr-1",
+      },
+    ],
   });
 
   const status = await loadBoardStatus({
@@ -1876,7 +1893,7 @@ test("attaches live per-candidate progress while a round is executing", async ()
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
     KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
     KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.round.state, "executing");
@@ -1907,7 +1924,7 @@ test("live project pass uses replica threshold instead of last replica row", asy
   writeJson(root, "round-status.json", {
     schema_version: 1,
     state: "executing",
-    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }]
+    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
   writeJson(root, "round-progress.json", {
     schema_version: 1,
@@ -1927,38 +1944,38 @@ test("live project pass uses replica threshold instead of last replica row", asy
             passed: false,
             true_positives: 0,
             total_expected: 1,
-            total_found: 8
+            total_found: 8,
           },
           {
             project_key: "project-alpha",
             passed: false,
             true_positives: 0,
             total_expected: 1,
-            total_found: 5
+            total_found: 5,
           },
           {
             project_key: "project-alpha",
             passed: true,
             true_positives: 1,
             total_expected: 1,
-            total_found: 7
-          }
-        ]
-      }
-    ]
+            total_found: 7,
+          },
+        ],
+      },
+    ],
   });
   const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 8 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 8 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-02", {
     status: "success",
-    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 5 }
+    result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 5 },
   });
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-03", {
     status: "success",
-    result: { result: "PASS", true_positives: 1, total_expected: 1, total_found: 7 }
+    result: { result: "PASS", true_positives: 1, total_expected: 1, total_found: 7 },
   });
 
   const status = await loadBoardStatus({
@@ -1967,7 +1984,7 @@ test("live project pass uses replica threshold instead of last replica row", asy
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
     KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
   const project = status.round.liveProgress.candidates[0].projects[0];
@@ -1981,7 +1998,7 @@ test("live project replica denominator uses configured round replicas before all
   writeJson(root, "round-status.json", {
     schema_version: 1,
     state: "executing",
-    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }]
+    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
   writeJson(root, "round-progress.json", {
     schema_version: 1,
@@ -2001,21 +2018,20 @@ test("live project replica denominator uses configured round replicas before all
             passed: false,
             true_positives: 0,
             total_expected: 1,
-            total_found: 0
-          }
-        ]
-      }
-    ]
+            total_found: 0,
+          },
+        ],
+      },
+    ],
   });
   const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "running",
-    result: {}
+    result: {},
   });
-  fs.mkdirSync(
-    path.join(runRoot, "candidate", "project-alpha", "replica-02", "bundle"),
-    { recursive: true }
-  );
+  fs.mkdirSync(path.join(runRoot, "candidate", "project-alpha", "replica-02", "bundle"), {
+    recursive: true,
+  });
 
   const status = await loadBoardStatus({
     KATA_ROOT: root,
@@ -2023,7 +2039,7 @@ test("live project replica denominator uses configured round replicas before all
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
     KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.round.liveProgress.replicasPerProject, 3);
@@ -2038,7 +2054,7 @@ test("candidate progress does not invent projects from generic duel artifacts", 
   writeJson(root, "round-status.json", {
     schema_version: 1,
     state: "executing",
-    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }]
+    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
   writeJson(root, "round-progress.json", {
     schema_version: 1,
@@ -2052,14 +2068,14 @@ test("candidate progress does not invent projects from generic duel artifacts", 
         done: 0,
         total: 3,
         state: "scoring",
-        projects: []
-      }
-    ]
+        projects: [],
+      },
+    ],
   });
   const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
-    result: { result: "PASS", true_positives: 1, total_expected: 1, total_found: 1 }
+    result: { result: "PASS", true_positives: 1, total_expected: 1, total_found: 1 },
   });
 
   const status = await loadBoardStatus({
@@ -2068,7 +2084,7 @@ test("candidate progress does not invent projects from generic duel artifacts", 
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
     KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
   assert.deepEqual(status.round.liveProgress.candidates[0].projects, []);
@@ -2087,7 +2103,7 @@ test("exposes the round-history feed from round-history.json", async () => {
         best_detection: 0.0,
         best_true_positives: 0,
         achievements: [],
-        headline: "Round — no promotion"
+        headline: "Round — no promotion",
       },
       {
         run_id: "r1",
@@ -2097,9 +2113,9 @@ test("exposes the round-history feed from round-history.json", async () => {
         best_detection: 0.5,
         best_true_positives: 2,
         achievements: ["👑 New king", "🥇 First true positive"],
-        headline: "🏆 Round — new king, best detection 50%, 2 candidates"
-      }
-    ]
+        headline: "🏆 Round — new king, best detection 50%, 2 candidates",
+      },
+    ],
   });
 
   const status = await loadBoardStatus({
@@ -2107,7 +2123,7 @@ test("exposes the round-history feed from round-history.json", async () => {
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
     KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
-    KATA_STATUS_CACHE_TTL_MS: "0"
+    KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.roundHistory.length, 2);

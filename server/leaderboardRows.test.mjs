@@ -10,9 +10,9 @@ test("calculates Kata score from the highest reward label and Gittensor decay", 
       winnerPulls: [
         {
           mergedAt: "2026-07-08T17:30:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:m"]
-        }
-      ]
+          labels: ["kata:winner:sn60__bitsec", "kata:reward:m"],
+        },
+      ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
@@ -27,9 +27,9 @@ test("uses the highest matching Kata reward label", () => {
       winnerPulls: [
         {
           mergedAt: "2026-07-08T17:30:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:s", "kata:reward:xl"]
-        }
-      ]
+          labels: ["kata:winner:sn60__bitsec", "kata:reward:s", "kata:reward:xl"],
+        },
+      ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
@@ -44,9 +44,9 @@ test("applies Gittensor-style time decay to old winner score", () => {
       winnerPulls: [
         {
           mergedAt: "2026-06-01T00:00:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:xl"]
-        }
-      ]
+          labels: ["kata:winner:sn60__bitsec", "kata:reward:xl"],
+        },
+      ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
@@ -62,12 +62,23 @@ test("does not count open PRs as leaderboard miner score", () => {
       winnerPulls: [
         {
           mergedAt: "2026-07-08T17:30:00Z",
-          labels: ["kata:winner:sn60__bitsec", "kata:reward:xl"]
-        }
-      ]
+          labels: ["kata:winner:sn60__bitsec", "kata:reward:xl"],
+        },
+      ],
     },
     new Date("2026-07-08T17:30:00Z")
   );
 
   assert.equal(score, 8.808);
+});
+
+test("does not award a score when a reconstructed winner has no trusted Kata label", () => {
+  const score = calculateKataGittensorScore(
+    {
+      winnerPulls: [{ mergedAt: "2026-07-08T17:30:00Z", labels: [] }],
+    },
+    new Date("2026-07-08T17:30:00Z")
+  );
+
+  assert.equal(score, 0);
 });

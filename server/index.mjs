@@ -21,7 +21,7 @@ app.get("/api/health", (_request, response) => {
   response.json({
     status: "ok",
     service: "kata-board",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -32,7 +32,7 @@ app.get("/api/status", async (_request, response) => {
   } catch (error) {
     response.status(500).json({
       status: "error",
-      message: error instanceof Error ? error.message : "unknown error"
+      message: error instanceof Error ? error.message : "unknown error",
     });
   }
 });
@@ -45,8 +45,8 @@ app.get("/api/stream", async (_request, response) => {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
-    // Disable proxy/ngrok response buffering so events flush immediately.
-    "X-Accel-Buffering": "no"
+    // Disable reverse-proxy response buffering so events flush immediately.
+    "X-Accel-Buffering": "no",
   });
   response.flushHeaders?.();
 
@@ -105,7 +105,7 @@ if (fs.existsSync(kataAssetsRoot)) {
     express.static(kataAssetsRoot, {
       fallthrough: true,
       immutable: false,
-      maxAge: "10m"
+      maxAge: "10m",
     })
   );
 }
@@ -119,8 +119,7 @@ if (fs.existsSync(distRoot)) {
 
 // Only bind the port when run directly (node server/index.mjs); importing this
 // module in tests must not start a server.
-const isMainModule =
-  process.argv[1] && path.resolve(process.argv[1]) === __filename;
+const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 if (isMainModule) {
   const server = app.listen(port, () => {
     console.log(`kata-board listening on http://localhost:${port}`);
@@ -191,7 +190,7 @@ function loadDotEnv(envPath) {
 
 function stripEnvQuotes(value) {
   if (
-    (value.startsWith("\"") && value.endsWith("\"")) ||
+    (value.startsWith('"') && value.endsWith('"')) ||
     (value.startsWith("'") && value.endsWith("'"))
   ) {
     return value.slice(1, -1);

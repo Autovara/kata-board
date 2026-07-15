@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import GridBackground from "./GridBackground.jsx";
 import {
-  DOC_ROUND_PROJECT_COUNT,
   KATA_IMAGES,
   PAGES,
   POLL_INTERVAL_MS,
   ROUND_STATE_BANNER,
-  ROUND_STATUS_LABEL
+  ROUND_STATUS_LABEL,
 } from "./constants.js";
 import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js";
 
@@ -16,7 +15,7 @@ export default function App() {
   const [state, setState] = useState({
     loading: true,
     error: null,
-    payload: null
+    payload: null,
   });
 
   useEffect(() => {
@@ -40,7 +39,11 @@ export default function App() {
         return;
       }
       if (payload && payload.__error) {
-        setState((current) => ({ loading: false, error: payload.__error, payload: current.payload }));
+        setState((current) => ({
+          loading: false,
+          error: payload.__error,
+          payload: current.payload,
+        }));
         return;
       }
       setState({ loading: false, error: null, payload });
@@ -233,7 +236,10 @@ function Header({ pathname, loading, error, generatedAt, onNavigate }) {
           </a>
         </div>
         <div className="header-status">
-          <Status label={error ? "error" : loading ? "syncing" : "live"} tone={error ? "bad" : "ok"} />
+          <Status
+            label={error ? "error" : loading ? "syncing" : "live"}
+            tone={error ? "bad" : "ok"}
+          />
           <span>{formatDateTime(generatedAt)}</span>
         </div>
       </div>
@@ -280,10 +286,7 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
         onNavigate={onNavigate}
       />
 
-      <DashboardProof
-        publicProof={publicProof}
-        kataRepoSlug={payload.publicLinks?.kataRepo}
-      />
+      <DashboardProof publicProof={publicProof} kataRepoSlug={payload.publicLinks?.kataRepo} />
 
       <DashboardFlow onNavigate={onNavigate} />
 
@@ -317,15 +320,14 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
           <span>for miner agents</span>
         </h1>
         <p>
-          Kata runs open competition to build stronger miner agents for Bittensor
-          subnets, promotes the best proven agent as king, and moves mining toward a
-          simple one-click experience.
+          Kata runs open competition to build stronger miner agents for Bittensor subnets, promotes
+          the best proven agent as king, and moves mining toward a simple one-click experience.
         </p>
         <div className="dashboard-hero-badges" aria-label="Kata network context">
           <span>Gittensor / SN74 supported</span>
           <span>
             Live target:{" "}
-            {selectedLane?.subnetPack ? formatPackLabel(selectedLane.subnetPack) : "SN60 Bitsec"}
+            {selectedLane?.subnetPack ? formatPackLabel(selectedLane.subnetPack) : "no active lane"}
           </span>
           <span>One-click mining roadmap</span>
         </div>
@@ -340,11 +342,18 @@ function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
       </div>
 
       <div className="dashboard-hero-visual">
-        <AssetImage src={KATA_IMAGES.heroDashboard} alt="Kata dashboard competition arena" tone="hero" />
+        <AssetImage
+          src={KATA_IMAGES.heroDashboard}
+          alt="Kata dashboard competition arena"
+          tone="hero"
+        />
         <div className="dashboard-live-panel">
           <Status label="live" tone="ok" />
           <DashboardMiniMetric label="King" value={kingName} />
-          <DashboardMiniMetric label="Round" value={round.roundNumber ? `Round ${round.roundNumber}` : "waiting"} />
+          <DashboardMiniMetric
+            label="Round"
+            value={round.roundNumber ? `Round ${round.roundNumber}` : "waiting"}
+          />
           <DashboardMiniMetric label="Projects" value={projectCount || "-"} />
           <DashboardMiniMetric label="Candidates" value={candidateCount} />
           <DashboardMiniMetric label="Best TP" value={bestTp} />
@@ -362,7 +371,8 @@ function DashboardProof({ publicProof, kataRepoSlug }) {
   const king = publicProof.currentKing || {};
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const kingHref = proofFileLink(king.path, kataRepoSlug);
-  const packName = formatPackLabel(publicProof.activePack || publicProof.active_pack || "SN60 Bitsec");
+  const activePack = publicProof.activePack || publicProof.active_pack;
+  const packName = activePack ? formatPackLabel(activePack) : "Active lane";
   const winner = round.winnerAuthor || king.author || "Current king";
   return (
     <section className="dashboard-proof">
@@ -371,10 +381,12 @@ function DashboardProof({ publicProof, kataRepoSlug }) {
       </div>
       <div className="dashboard-proof-copy">
         <span className="showcase-kicker">Public proof</span>
-        <h2>{winner} is the current {packName} king</h2>
+        <h2>
+          {winner} is the current {packName} king
+        </h2>
         <p>
-          The proof file records the round, benchmark selection, true-positive score,
-          candidate count, and timing without exposing private validator secrets.
+          The proof file records the round, benchmark selection, true-positive score, candidate
+          count, and timing without exposing private validator secrets.
         </p>
         <div className="dashboard-proof-metrics">
           <ProofFact label="Projects" value={publicProof.selectedProjectCount ?? "-"} />
@@ -383,7 +395,11 @@ function DashboardProof({ publicProof, kataRepoSlug }) {
           <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
         </div>
         <div className="proof-actions">
-          {proofHref ? <a href={proofHref} target="_blank" rel="noreferrer">View public proof</a> : null}
+          {proofHref ? (
+            <a href={proofHref} target="_blank" rel="noreferrer">
+              View public proof
+            </a>
+          ) : null}
           {kingHref ? (
             <a href={kingHref} target="_blank" rel="noreferrer" className="proof-secondary-action">
               Open winning agent
@@ -603,7 +619,7 @@ function screeningFailureDetails(source) {
     projectKey: screening.project_key || screening.projectKey || "",
     reasons: Array.isArray(screening.reasons)
       ? screening.reasons.map((reason) => String(reason).trim()).filter(Boolean)
-      : []
+      : [],
   };
 }
 
@@ -611,12 +627,14 @@ function ScreeningFailureBadge({ failure }) {
   if (!failure) {
     return null;
   }
-  const title = [
-    failure.projectKey ? `Project: ${failure.projectKey}` : "",
-    ...failure.reasons
-  ].filter(Boolean).join("\n");
+  const title = [failure.projectKey ? `Project: ${failure.projectKey}` : "", ...failure.reasons]
+    .filter(Boolean)
+    .join("\n");
   return (
-    <span className="rstat rstat-screening-failed" title={title || "Round-start execution screening failed"}>
+    <span
+      className="rstat rstat-screening-failed"
+      title={title || "Round-start execution screening failed"}
+    >
       screening failed
     </span>
   );
@@ -642,7 +660,7 @@ function compareEntrantsByRank(a, b, selectedProjectCount = 0) {
     entrant.true_positives ?? -1,
     -(entrant.invalid_runs ?? 0),
     entrant.precision ?? -1,
-    entrant.f1_score ?? -1
+    entrant.f1_score ?? -1,
   ];
   const av = key(a);
   const bv = key(b);
@@ -663,7 +681,7 @@ function selectedProjectKeysFromRound(round) {
     round?.liveProgress?.projectKeys,
     round?.projectKeys,
     round?.primary?.projectKeys,
-    round?.evaluatorState?.current?.projectKeys
+    round?.evaluatorState?.current?.projectKeys,
   ];
   const keys = candidates.find((value) => Array.isArray(value) && value.length);
   return keys || [];
@@ -711,13 +729,17 @@ function formatProjectsPassed(entrant) {
 }
 
 function inferReplicasPerProject(round) {
-  const configured = Number(round?.liveProgress?.replicasPerProject || round?.replicasPerProject || 0);
+  const configured = Number(
+    round?.liveProgress?.replicasPerProject || round?.replicasPerProject || 0
+  );
   if (configured > 0) {
     return configured;
   }
   const projectCount = Number(round?.liveProgress?.projectKeys?.length || 0);
   const candidates = round?.liveProgress?.candidates || [];
-  const firstTotal = Number(candidates.find((candidate) => Number(candidate?.total) > 0)?.total || 0);
+  const firstTotal = Number(
+    candidates.find((candidate) => Number(candidate?.total) > 0)?.total || 0
+  );
   if (projectCount > 0 && firstTotal > 0) {
     return Math.max(1, Math.round(firstTotal / projectCount));
   }
@@ -781,10 +803,15 @@ function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
     <div className="round-rule-card">
       <div>
         <span>promotion rule</span>
-        <strong>{candidateOnly ? "Top candidate with at least one true positive" : "Strictly beat the king"}</strong>
+        <strong>
+          {candidateOnly
+            ? "Top candidate with at least one true positive"
+            : "Strictly beat the king"}
+        </strong>
         <p>
           A project passes when enough replicas pass. This round uses {replicasPerProject} run
-          {replicasPerProject === 1 ? "" : "s"} per project, so the pass threshold is {passThreshold}.
+          {replicasPerProject === 1 ? "" : "s"} per project, so the pass threshold is{" "}
+          {passThreshold}.
         </p>
       </div>
       <ol>
@@ -799,11 +826,20 @@ function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
   );
 }
 
-function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selectedPull, setSelectedPull }) {
+function RoundPanel({
+  round,
+  kataRepoSlug,
+  kingAuthor,
+  kingSubmissionId,
+  selectedPull,
+  setSelectedPull,
+}) {
   const entrants = round?.entrants || [];
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
-  const roundTitle = round?.roundNumber ? `Current round · Round ${round.roundNumber}` : "Current round";
+  const roundTitle = round?.roundNumber
+    ? `Current round · Round ${round.roundNumber}`
+    : "Current round";
   const candidateOnly =
     round?.competitionMode === "candidate_only" ||
     round?.liveProgress?.competitionMode === "candidate_only";
@@ -817,9 +853,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
   // Live progress only while the round is actively scoring; ignore a stale
   // snapshot left over from a previous round.
   const live =
-    state === "executing" && round?.liveProgress?.state === "executing"
-      ? round.liveProgress
-      : null;
+    state === "executing" && round?.liveProgress?.state === "executing" ? round.liveProgress : null;
   const progressByPull = {};
   if (live) {
     live.candidates.forEach((candidate) => {
@@ -835,9 +869,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
       screeningByPull[entry.pullNumber] = entry;
     }
   });
-  const showScreeningGate =
-    Boolean(live?.screening) &&
-    live.screening.state !== "complete";
+  const showScreeningGate = Boolean(live?.screening) && live.screening.state !== "complete";
 
   // Per-PR result feed (published as each PR finishes, and after the round ends) —
   // used by the detail page so a finished PR keeps its full result. Not gated on
@@ -874,7 +906,7 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         codebase_pass_count: result.codebase_pass_count ?? entrant.codebase_pass_count,
         projects: result.projects ?? entrant.projects,
         screening_result: result.screening_result ?? entrant.screening_result,
-        status: result.state === "failed" ? "invalid" : entrant.status
+        status: result.state === "failed" ? "invalid" : entrant.status,
       };
     })
     .sort((left, right) => compareEntrantsByRank(left, right, selectedProjectCount));
@@ -915,9 +947,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             beats_king: result.beats_king ?? selectedEntrant.beats_king,
             projects: result.projects ?? selectedEntrant.projects,
             screening_result: result.screening_result ?? selectedEntrant.screening_result,
-            status: result.state === "failed" ? "invalid" : selectedEntrant.status
+            status: result.state === "failed" ? "invalid" : selectedEntrant.status,
           }
-        : {})
+        : {}),
     };
     return (
       <DuelDetail
@@ -940,8 +972,8 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
         <SectionTitle title={roundTitle} />
         <p className="section-lead round-lead">
           {candidateOnly
-            ? "Recovery round: the current king is skipped, and candidates are scored against each other on the same secret Bitsec problems."
-            : "Live round status: candidates are scored against the current king on the same secret Bitsec problems."}
+            ? "Recovery round: the current king is skipped, and candidates are scored against each other on the same secret evaluator-selected projects."
+            : "Live round status: candidates are scored against the current king on the same secret evaluator-selected projects."}
         </p>
       </div>
 
@@ -963,9 +995,14 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
               <p>{(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).text}</p>
             </div>
             <div className="round-banner-meta">
-              {round.roundNumber ? <RoundMeta label="round" value={`#${round.roundNumber}`} /> : null}
+              {round.roundNumber ? (
+                <RoundMeta label="round" value={`#${round.roundNumber}`} />
+              ) : null}
               {kingResult && kingResult.aggregated_score != null ? (
-                <RoundMeta label="king detection" value={formatDetection(kingResult.aggregated_score)} />
+                <RoundMeta
+                  label="king detection"
+                  value={formatDetection(kingResult.aggregated_score)}
+                />
               ) : null}
               {candidateOnly ? <RoundMeta label="mode" value="candidate-only recovery" /> : null}
               <RoundMeta label="project pass" value={`${passThreshold} replicas`} />
@@ -980,20 +1017,22 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
           </div>
 
           {round.note ? (
-            <div className={`round-note round-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}>
+            <div
+              className={`round-note round-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}
+            >
               {round.note}
             </div>
           ) : null}
 
           {candidateOnly ? (
-            <div className="round-note round-note-warn">
-              King skipped: {kingSkippedReason}
-            </div>
+            <div className="round-note round-note-warn">King skipped: {kingSkippedReason}</div>
           ) : null}
 
           {round.winnerSubmissionId ? (
             <div className="round-verdict round-verdict-win">
-              <span className="round-verdict-crown" aria-hidden="true">♔</span>
+              <span className="round-verdict-crown" aria-hidden="true">
+                ♔
+              </span>
               <div>
                 <strong>New king: {round.winnerSubmissionId}</strong>
                 <p>
@@ -1005,7 +1044,9 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             </div>
           ) : state === "completed" ? (
             <div className="round-verdict round-verdict-hold">
-              <span className="round-verdict-crown" aria-hidden="true">♔</span>
+              <span className="round-verdict-crown" aria-hidden="true">
+                ♔
+              </span>
               <div>
                 <strong>King held the crown</strong>
                 <p>
@@ -1051,7 +1092,10 @@ function RoundPanel({ round, kataRepoSlug, kingAuthor, kingSubmissionId, selecte
             >
               <span aria-hidden="true">♔</span>
               <span className="entrant-cell">
-                <EntrantIdentity author={roundKingAuthor} submissionId={roundKingSubmissionId || "current king"} />
+                <EntrantIdentity
+                  author={roundKingAuthor}
+                  submissionId={roundKingSubmissionId || "current king"}
+                />
               </span>
               <span>{formatPassScore(kingResult, selectedProjectCount)}</span>
               <span>{formatProjectsPassed(kingResult)}</span>
@@ -1142,12 +1186,14 @@ function replicaAwareProblemTotals(project, replicasPerProject = 0) {
     return null;
   }
   const actualReplicas = Array.isArray(project.replicas) ? project.replicas : [];
-  const expectedPerReplica = Number(project.total_expected ?? actualReplicas[0]?.total_expected ?? 0);
+  const expectedPerReplica = Number(
+    project.total_expected ?? actualReplicas[0]?.total_expected ?? 0
+  );
   if (!actualReplicas.length) {
     return {
       truePositives: Number(project.true_positives ?? 0),
       totalExpected: expectedPerReplica,
-      totalFound: Number(project.total_found ?? 0)
+      totalFound: Number(project.total_found ?? 0),
     };
   }
   const projectTruePositives = Number(project.true_positives ?? 0);
@@ -1158,14 +1204,14 @@ function replicaAwareProblemTotals(project, replicasPerProject = 0) {
     (totals, replica) => ({
       truePositives: totals.truePositives + Number(replica.true_positives ?? 0),
       totalExpected: totals.totalExpected + Number(replica.total_expected ?? expectedPerReplica),
-      totalFound: totals.totalFound + Number(replica.total_found ?? 0)
+      totalFound: totals.totalFound + Number(replica.total_found ?? 0),
     }),
     { truePositives: 0, totalExpected: 0, totalFound: 0 }
   );
   return {
     truePositives: Math.max(replicaTotals.truePositives, projectTruePositives),
     totalExpected: Math.max(replicaTotals.totalExpected, projectTotalExpected),
-    totalFound: Math.max(replicaTotals.totalFound, projectTotalFound)
+    totalFound: Math.max(replicaTotals.totalFound, projectTotalFound),
   };
 }
 
@@ -1193,7 +1239,7 @@ function ProblemBreakdown({
   secondaryLabel = null,
   replicasPerProject,
   passThreshold,
-  mode = "duel"
+  mode = "duel",
 }) {
   const [openProjectKey, setOpenProjectKey] = useState(null);
   if (!projectKeys.length) {
@@ -1232,14 +1278,26 @@ function ProblemBreakdown({
           return (
             <div
               className={`problem-accordion problem-accordion-${
-                pending ? "neutral" : project.passed ? "ok" : result.tone === "warn" ? "active" : "bad"
+                pending
+                  ? "neutral"
+                  : project.passed
+                    ? "ok"
+                    : result.tone === "warn"
+                      ? "active"
+                      : "bad"
               } ${open ? "problem-accordion-open" : ""}`}
               key={key}
             >
               <button
                 type="button"
                 className={`live-task-row problem-row-button live-task-row-${
-                  pending ? "neutral" : project.passed ? "ok" : result.tone === "warn" ? "active" : "bad"
+                  pending
+                    ? "neutral"
+                    : project.passed
+                      ? "ok"
+                      : result.tone === "warn"
+                        ? "active"
+                        : "bad"
                 } ${single ? "live-task-row-single" : ""}`}
                 onClick={() => setOpenProjectKey(open ? null : key)}
                 aria-expanded={open}
@@ -1263,7 +1321,9 @@ function ProblemBreakdown({
                   }`}
                 >
                   <span>{primaryLabel}</span>
-                  <strong>{pending ? "—" : formatTpExpectedFound(project, replicasPerProject)}</strong>
+                  <strong>
+                    {pending ? "—" : formatTpExpectedFound(project, replicasPerProject)}
+                  </strong>
                   <small>tp / expected / found</small>
                 </div>
                 {single ? null : (
@@ -1303,7 +1363,9 @@ function ReplicaTable({ title, project, replicasPerProject, compact = false }) {
   const replicas = normalizeReplicaRows(project, replicasPerProject);
   const tone = project?.passed ? "ok" : project ? "bad" : "neutral";
   return (
-    <div className={`replica-table replica-table-${tone} ${compact ? "replica-table-compact" : ""}`}>
+    <div
+      className={`replica-table replica-table-${tone} ${compact ? "replica-table-compact" : ""}`}
+    >
       <div className="replica-table-title">
         <strong>{title}</strong>
         <span>{projectReplicaPassLabel(project, replicasPerProject)}</span>
@@ -1333,7 +1395,7 @@ function normalizeReplicaRows(project, replicasPerProject) {
   const byIndex = new Map(
     (Array.isArray(project?.replicas) ? project.replicas : []).map((replica) => [
       Number(replica.replica_index || 0),
-      replica
+      replica,
     ])
   );
   return Array.from({ length: Math.max(1, total || replicasPerProject || 1) }, (_, index) => {
@@ -1347,7 +1409,7 @@ function normalizeReplicaRows(project, replicasPerProject) {
       true_positives: 0,
       total_expected: project?.total_expected ?? 0,
       total_found: 0,
-      ...(byIndex.get(replicaIndex) || {})
+      ...(byIndex.get(replicaIndex) || {}),
     };
   });
 }
@@ -1396,7 +1458,7 @@ function KingDetail({
   projectKeys,
   replicasPerProject,
   passThreshold,
-  onBack
+  onBack,
 }) {
   const projects = king?.projects || [];
   const done = progress?.done ?? projects.length;
@@ -1409,7 +1471,9 @@ function KingDetail({
     kingByKey[project.project_key] = project;
   });
   const problemKeys =
-    projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
+    projectKeys && projectKeys.length
+      ? projectKeys
+      : projects.map((project) => project.project_key);
   const name = kingAuthor || kingSubmissionId || "Current king";
   return (
     <div className="round-block duel-page">
@@ -1436,7 +1500,9 @@ function KingDetail({
               name={name}
               sub={kingAuthor ? "reigning king" : "current king"}
               avatarUrl={
-                kingAuthor ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96` : null
+                kingAuthor
+                  ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96`
+                  : null
               }
               score={formatPassScore(king, problemKeys.length)}
               scoreLabel="project pass score"
@@ -1450,7 +1516,9 @@ function KingDetail({
         <div className="duel-task-bar">
           <div className="duel-task-bar-head">
             <span>problem progress</span>
-            <strong>{done}/{total} problems scored</strong>
+            <strong>
+              {done}/{total} problems scored
+            </strong>
             <small>
               {scoring
                 ? "Scoring the king on all problems — then cached for the whole round."
@@ -1514,7 +1582,12 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
         />
         <MetricChip
           label="f1 score"
-          value={f1FindingFigure(king?.f1_score, king?.true_positives, king?.total_expected, king?.total_found)}
+          value={f1FindingFigure(
+            king?.f1_score,
+            king?.true_positives,
+            king?.total_expected,
+            king?.total_found
+          )}
         />
         <MetricChip label="project pass rule" value={passThreshold} />
       </div>
@@ -1541,7 +1614,7 @@ function DuelDetail({
   projectKeys,
   replicasPerProject,
   passThreshold,
-  onBack
+  onBack,
 }) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
@@ -1561,7 +1634,9 @@ function DuelDetail({
     candidateByKey[project.project_key] = project;
   });
   const problemKeys =
-    projectKeys && projectKeys.length ? projectKeys : projects.map((project) => project.project_key);
+    projectKeys && projectKeys.length
+      ? projectKeys
+      : projects.map((project) => project.project_key);
   const candidatePassScore = formatPassScore(entrant, problemKeys.length);
   const kingPassScore = formatPassScore(king, problemKeys.length);
   const candidatePassRatio = entrantPassScore(entrant, problemKeys.length);
@@ -1590,8 +1665,8 @@ function DuelDetail({
             <Status label="screening failed" tone="bad" />
             <strong>Round-start execution screener failed</strong>
             <p>
-              This PR passed intake earlier, but it did not run cleanly in the
-              one-project execution smoke test, so it did not enter main scoring.
+              This PR passed intake earlier, but it did not run cleanly in the one-project execution
+              smoke test, so it did not enter main scoring.
             </p>
           </div>
           {screeningFailure.projectKey ? (
@@ -1613,61 +1688,80 @@ function DuelDetail({
       {scoring ? (
         <div className="duel-live-banner">
           <Status label="scoring now" tone="warn" />
-          <span>{progress.done}/{progress.total} problems scored — live metrics fill in as the round completes.</span>
+          <span>
+            {progress.done}/{progress.total} problems scored — live metrics fill in as the round
+            completes.
+          </span>
         </div>
       ) : null}
 
-      {onlyScreeningFailure ? null : <section className="arena-hero">
-        <div className="battle-wrap">
-          <div className="battle">
-            <BattleSide
-              role="king"
-              crown
-              name={kingAuthor || "Current king"}
-              sub={kingAuthor ? "reigning king" : "current king"}
-              avatarUrl={
-                kingAuthor ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96` : null
-              }
-              score={kingPassScore}
-              scoreLabel="project pass score"
-              won={decided && !won}
-            />
-            <div className="battle-mid">
-              <div className="vs">VS</div>
-              <div className="battle-decision">
-                <span>
-                  {candidatePassRatio > kingPassRatio
-                    ? "challenger leads"
-                    : candidatePassRatio < kingPassRatio
-                      ? "king leads"
-                      : "level"}
-                </span>
-                <strong className={candidatePassRatio > kingPassRatio ? "positive" : candidatePassRatio < kingPassRatio ? "negative" : ""}>
-                  {candidatePassScore} vs {kingPassScore}
-                </strong>
-                <small>project pass score</small>
+      {onlyScreeningFailure ? null : (
+        <section className="arena-hero">
+          <div className="battle-wrap">
+            <div className="battle">
+              <BattleSide
+                role="king"
+                crown
+                name={kingAuthor || "Current king"}
+                sub={kingAuthor ? "reigning king" : "current king"}
+                avatarUrl={
+                  kingAuthor
+                    ? `https://github.com/${encodeURIComponent(kingAuthor)}.png?size=96`
+                    : null
+                }
+                score={kingPassScore}
+                scoreLabel="project pass score"
+                won={decided && !won}
+              />
+              <div className="battle-mid">
+                <div className="vs">VS</div>
+                <div className="battle-decision">
+                  <span>
+                    {candidatePassRatio > kingPassRatio
+                      ? "challenger leads"
+                      : candidatePassRatio < kingPassRatio
+                        ? "king leads"
+                        : "level"}
+                  </span>
+                  <strong
+                    className={
+                      candidatePassRatio > kingPassRatio
+                        ? "positive"
+                        : candidatePassRatio < kingPassRatio
+                          ? "negative"
+                          : ""
+                    }
+                  >
+                    {candidatePassScore} vs {kingPassScore}
+                  </strong>
+                  <small>project pass score</small>
+                </div>
               </div>
+              <BattleSide
+                role="candidate"
+                name={entrant.author || entrant.submission_id}
+                sub={`PR #${entrant.pull_number}`}
+                avatarUrl={
+                  entrant.author
+                    ? `https://github.com/${encodeURIComponent(entrant.author)}.png?size=96`
+                    : null
+                }
+                score={candidatePassScore}
+                scoreLabel="project pass score"
+                won={won}
+              />
             </div>
-            <BattleSide
-              role="candidate"
-              name={entrant.author || entrant.submission_id}
-              sub={`PR #${entrant.pull_number}`}
-              avatarUrl={
-                entrant.author ? `https://github.com/${encodeURIComponent(entrant.author)}.png?size=96` : null
-              }
-              score={candidatePassScore}
-              scoreLabel="project pass score"
-              won={won}
-            />
           </div>
-        </div>
-      </section>}
+        </section>
+      )}
 
       {!onlyScreeningFailure && taskTotal > 0 ? (
         <div className="duel-task-bar">
           <div className="duel-task-bar-head">
             <span>problem progress</span>
-            <strong>{taskDone}/{taskTotal} problems scored</strong>
+            <strong>
+              {taskDone}/{taskTotal} problems scored
+            </strong>
             <small>
               {scoring
                 ? "Scoring in progress — the bar fills as each problem finishes."
@@ -1691,7 +1785,7 @@ function DuelDetail({
             totalFound: entrant.total_found,
             invalidRuns: candidateInvalid,
             precision: entrant.precision,
-            f1: entrant.f1_score
+            f1: entrant.f1_score,
           }}
           king={{
             passRatio: kingPassRatio,
@@ -1702,12 +1796,13 @@ function DuelDetail({
             totalFound: king?.total_found,
             invalidRuns: king ? Number(king.invalid_runs || 0) : null,
             precision: king?.precision,
-            f1: king?.f1_score
+            f1: king?.f1_score,
           }}
         />
       )}
 
-      {onlyScreeningFailure ? null : <ProblemBreakdown
+      {onlyScreeningFailure ? null : (
+        <ProblemBreakdown
           projectKeys={problemKeys}
           primaryByKey={candidateByKey}
           primaryLabel="candidate"
@@ -1715,7 +1810,8 @@ function DuelDetail({
           secondaryLabel="king"
           replicasPerProject={replicasPerProject}
           passThreshold={passThreshold}
-        />}
+        />
+      )}
     </div>
   );
 }
@@ -1731,7 +1827,7 @@ function DecisionLadder({ candidate, king }) {
       candidateDisplay: candidate.passScore,
       kingDisplay: king.passScore,
       higherIsBetter: true,
-      primary: true
+      primary: true,
     },
     {
       rank: 2,
@@ -1742,7 +1838,7 @@ function DecisionLadder({ candidate, king }) {
       candidateDisplay: formatMetricNumber(candidate.projectsPassed),
       kingDisplay: formatMetricNumber(king.projectsPassed),
       higherIsBetter: true,
-      primary: true
+      primary: true,
     },
     {
       rank: 3,
@@ -1752,7 +1848,7 @@ function DecisionLadder({ candidate, king }) {
       kingValue: king.truePositives,
       candidateDisplay: formatMetricNumber(candidate.truePositives),
       kingDisplay: formatMetricNumber(king.truePositives),
-      higherIsBetter: true
+      higherIsBetter: true,
     },
     {
       rank: 4,
@@ -1762,7 +1858,7 @@ function DecisionLadder({ candidate, king }) {
       kingValue: king.invalidRuns,
       candidateDisplay: formatMetricNumber(candidate.invalidRuns),
       kingDisplay: formatMetricNumber(king.invalidRuns),
-      higherIsBetter: false
+      higherIsBetter: false,
     },
     {
       rank: 5,
@@ -1770,9 +1866,13 @@ function DecisionLadder({ candidate, king }) {
       note: "Cleaner reports win ties",
       candidateValue: candidate.precision,
       kingValue: king.precision,
-      candidateDisplay: precisionFindingFigure(candidate.precision, candidate.truePositives, candidate.totalFound),
+      candidateDisplay: precisionFindingFigure(
+        candidate.precision,
+        candidate.truePositives,
+        candidate.totalFound
+      ),
       kingDisplay: precisionFindingFigure(king.precision, king.truePositives, king.totalFound),
-      higherIsBetter: true
+      higherIsBetter: true,
     },
     {
       rank: 6,
@@ -1780,10 +1880,20 @@ function DecisionLadder({ candidate, king }) {
       note: "Final tie-breaker",
       candidateValue: candidate.f1,
       kingValue: king.f1,
-      candidateDisplay: f1FindingFigure(candidate.f1, candidate.truePositives, candidate.totalExpected, candidate.totalFound),
-      kingDisplay: f1FindingFigure(king.f1, king.truePositives, king.totalExpected, king.totalFound),
-      higherIsBetter: true
-    }
+      candidateDisplay: f1FindingFigure(
+        candidate.f1,
+        candidate.truePositives,
+        candidate.totalExpected,
+        candidate.totalFound
+      ),
+      kingDisplay: f1FindingFigure(
+        king.f1,
+        king.truePositives,
+        king.totalExpected,
+        king.totalFound
+      ),
+      higherIsBetter: true,
+    },
   ];
 
   const firstDecider = steps.find((step) => decisionWinner(step) !== "tie") || null;
@@ -1795,13 +1905,15 @@ function DecisionLadder({ candidate, king }) {
           <span>promotion priority</span>
           <strong>How this matchup is ranked</strong>
           <p>
-            Kata checks these signals in order. Lower priority metrics matter only when
-            every signal above them is tied.
+            Kata checks these signals in order. Lower priority metrics matter only when every signal
+            above them is tied.
           </p>
         </div>
         <div className="decision-ladder-verdict">
           <span>first deciding signal</span>
-          <strong>{firstDecider ? `#${firstDecider.rank} ${firstDecider.label}` : "Tie so far"}</strong>
+          <strong>
+            {firstDecider ? `#${firstDecider.rank} ${firstDecider.label}` : "Tie so far"}
+          </strong>
         </div>
       </div>
       <div className="decision-ladder-grid">
@@ -1816,7 +1928,9 @@ function DecisionLadder({ candidate, king }) {
 function DecisionStep({ step, active }) {
   const winner = decisionWinner(step);
   return (
-    <article className={`decision-step decision-step-${winner} ${active ? "decision-step-active" : ""}`}>
+    <article
+      className={`decision-step decision-step-${winner} ${active ? "decision-step-active" : ""}`}
+    >
       <div className="decision-step-top">
         <span className="decision-rank">#{step.rank}</span>
         <span className="decision-state">
@@ -1866,7 +1980,16 @@ function formatMetricNumber(value) {
   return formatNumber(value);
 }
 
-function BattleSide({ role, name, sub, score, scoreLabel = "detection score", avatarUrl, crown, won }) {
+function BattleSide({
+  role,
+  name,
+  sub,
+  score,
+  scoreLabel = "detection score",
+  avatarUrl,
+  crown,
+  won,
+}) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -1894,7 +2017,6 @@ function MetricChip({ label, value, tone = "neutral" }) {
     </div>
   );
 }
-
 
 function percentMetric(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -1964,7 +2086,12 @@ function ScreeningGatePanel({ screening }) {
             {done} of {screening.total} PR{screening.total === 1 ? "" : "s"} checked
           </small>
         </div>
-        <ProgressBar done={done} total={screening.total} label={`${done}/${screening.total}`} tone="screening" />
+        <ProgressBar
+          done={done}
+          total={screening.total}
+          label={`${done}/${screening.total}`}
+          tone="screening"
+        />
       </div>
       <div className="round-screening-meta" aria-label="Screening status counts">
         <ScreeningCount label="cleared" value={screening.passed || 0} tone="passed" />
@@ -1978,7 +2105,9 @@ function ScreeningGatePanel({ screening }) {
             tone={current.state}
           />
         ) : null}
-        {!current && next ? <ScreeningCount label="next" value={`#${next.pullNumber}`} tone="queued" /> : null}
+        {!current && next ? (
+          <ScreeningCount label="next" value={`#${next.pullNumber}`} tone="queued" />
+        ) : null}
       </div>
       <div className="round-screening-steps" aria-label="Per-PR screening progress">
         {(screening.entries || []).map((entry) => (
@@ -2062,9 +2191,7 @@ function ProgressBar({ done, total, label, tone = "candidate" }) {
 
 function EntrantIdentity({ author, submissionId }) {
   const name = author || submissionId || "unknown";
-  const avatarUrl = author
-    ? `https://github.com/${encodeURIComponent(author)}.png?size=48`
-    : null;
+  const avatarUrl = author ? `https://github.com/${encodeURIComponent(author)}.png?size=48` : null;
   return (
     <span className="entrant-identity">
       <Avatar name={name} avatarUrl={avatarUrl} />
@@ -2140,7 +2267,11 @@ function prLabel(kataRepoSlug, pullNumber) {
     return `#${pullNumber}`;
   }
   return (
-    <a href={`https://github.com/${kataRepoSlug}/pull/${pullNumber}`} target="_blank" rel="noreferrer">
+    <a
+      href={`https://github.com/${kataRepoSlug}/pull/${pullNumber}`}
+      target="_blank"
+      rel="noreferrer"
+    >
       #{pullNumber}
     </a>
   );
@@ -2249,11 +2380,10 @@ function KingCard({ lane, kataRepoSlug, publicProof, round, king }) {
       lane.subnetPack ||
       lane.repoPack ||
       lane.repoName ||
-      "SN60 Bitsec"
+      "Active lane"
   );
   const agentHref =
-    proofFileLink(king.path, kataRepoSlug) ||
-    (lane.id ? kingAgentLink(lane, kataRepoSlug) : null);
+    proofFileLink(king.path, kataRepoSlug) || (lane.id ? kingAgentLink(lane, kataRepoSlug) : null);
   const proofHref = proofFileLink(round.proof, kataRepoSlug);
   const roundLabel = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
   const mode = lane.mode || publicProof?.activeMode || publicProof?.active_mode || "miner";
@@ -2273,17 +2403,28 @@ function KingCard({ lane, kataRepoSlug, publicProof, round, king }) {
         <div className="king-card-tags">
           <span>{packName}</span>
           <span>{mode}</span>
-          <Status label={lane.king?.seeded ? "seed king" : "promoted"} tone={lane.king?.seeded ? "neutral" : "ok"} />
+          <Status
+            label={lane.king?.seeded ? "seed king" : "promoted"}
+            tone={lane.king?.seeded ? "neutral" : "ok"}
+          />
         </div>
         <div className="king-card-facts">
           <ProofFact label="Round" value={roundLabel} />
           <ProofFact label="TP" value={round.bestTruePositives ?? "-"} />
           <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
-          <ProofFact label="Promoted" value={formatDateTime(king.promotedAt || lane.king?.updatedAt)} />
+          <ProofFact
+            label="Promoted"
+            value={formatDateTime(king.promotedAt || lane.king?.updatedAt)}
+          />
         </div>
         <div className="king-card-actions">
           {typeof agentHref === "string" && agentHref ? (
-            <a className="king-card-action king-card-action-primary" href={agentHref} target="_blank" rel="noreferrer">
+            <a
+              className="king-card-action king-card-action-primary"
+              href={agentHref}
+              target="_blank"
+              rel="noreferrer"
+            >
               Open agent
             </a>
           ) : null}
@@ -2346,9 +2487,7 @@ function Leaderboard({ leaderboard }) {
               <span className="lb-num">{row.pendingSubmissions || 0}</span>
               <span className="lb-num">{row.reviewSubmissions || 0}</span>
               <span className="lb-num">{row.invalidSubmissions || 0}</span>
-              <strong className="lb-score">
-                {formatNumber(row.gittensorScore ?? row.score)}
-              </strong>
+              <strong className="lb-score">{formatNumber(row.gittensorScore ?? row.score)}</strong>
             </div>
           ))
         ) : (
@@ -2372,7 +2511,7 @@ function Docs({ selectedLane, kataRepoSlug }) {
     { id: "validator", label: "Round", description: "What happens after pending." },
     { id: "scoring", label: "Scoring", description: "How your agent is ranked." },
     { id: "milestones", label: "Results", description: "What progress is visible." },
-    { id: "privacy", label: "Rules", description: "What is allowed and blocked." }
+    { id: "privacy", label: "Rules", description: "What is allowed and blocked." },
   ];
 
   return (
@@ -2399,7 +2538,7 @@ function Docs({ selectedLane, kataRepoSlug }) {
         {activeTab === "overview" ? (
           <DocOverview selectedLane={selectedLane} links={links} />
         ) : null}
-        {activeTab === "miner" ? <DocMiner links={links} /> : null}
+        {activeTab === "miner" ? <DocMiner links={links} selectedLane={selectedLane} /> : null}
         {activeTab === "validator" ? (
           <DocValidator links={links} selectedLane={selectedLane} />
         ) : null}
@@ -2417,21 +2556,32 @@ function DocOverview({ selectedLane, links }) {
       <p className="kicker">Start Here</p>
       <h1>Kata builds optimized miner agents through open competition</h1>
       <p>
-        Kata is a public competition for building stronger miner agents. You submit one
-        agent in a pull request. Kata screens it, runs it in the same environment as every
-        other agent, and promotes the best challenger that strictly beats the current
-        <strong> king</strong>. The goal is simple: make high-quality mining easier for
-        everyone.
+        Kata is a public competition for building stronger miner agents. You submit one agent in a
+        pull request. Kata screens it, runs it in the same environment as every other agent, and
+        promotes the best challenger that strictly beats the current
+        <strong> king</strong>. The goal is simple: make high-quality mining easier for everyone.
       </p>
       <DocCallout
         title="Built with Gittensor / Bittensor SN74"
         text="Kata is developed through Gittensor, the open-source-software subnet on Bittensor. Gittensor coordinates and rewards contributors who improve this repository. The competition target today is different: SN60 / Bitsec."
       />
       <DocGrid>
-        <DocCard title="Current target" text="The live competition builds a vulnerability-audit miner agent for Bitsec / SN60." />
-        <DocCard title="Current king" text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king." />
-        <DocCard title="Fair round" text={`All candidates face the same ${DOC_ROUND_PROJECT_COUNT} selected benchmark projects, same sandbox, same pinned model, and same scoring rules.`} />
-        <DocCard title="Public proof" text="Round summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome." />
+        <DocCard
+          title="Current target"
+          text={`The selected lane builds an optimized ${selectedLane?.mode || "miner"} agent for ${selectedLane?.repoName || "Bitsec / SN60"}.`}
+        />
+        <DocCard
+          title="Current king"
+          text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king."
+        />
+        <DocCard
+          title="Fair round"
+          text="All candidates face the same evaluator-selected benchmark set, sealed execution boundary, and scoring rules for that round."
+        />
+        <DocCard
+          title="Public proof"
+          text="Round summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome."
+        />
       </DocGrid>
       <DocCallout
         title="SN74 and SN60 have different roles"
@@ -2439,54 +2589,85 @@ function DocOverview({ selectedLane, links }) {
       />
       <div className="doc-metrics">
         <KeyValue label="current target" value={selectedLane?.repoName || "Bitsec / SN60"} />
-        <KeyValue label="agent type" value="miner" />
-        <KeyValue label="round format" value={docsRoundFormat()} />
-        <KeyValue label="promotion rule" value={selectedLane ? promotionGate(selectedLane) : "project pass score first"} />
+        <KeyValue label="agent type" value={selectedLane?.mode || "miner"} />
+        <KeyValue label="round format" value={docsRoundFormat(selectedLane)} />
+        <KeyValue
+          label="promotion rule"
+          value={selectedLane ? promotionGate(selectedLane) : "project pass score first"}
+        />
       </div>
       <DocLinks
         links={[
           ["System workflow", links.systemWorkflow],
           ["Submission contract", links.submissions],
-          ["Scoring spec", links.scoring]
+          ["Scoring spec", links.scoring],
         ]}
       />
     </section>
   );
 }
 
-function DocMiner({ links }) {
+function DocMiner({ links, selectedLane }) {
+  const subnetPack = selectedLane?.subnetPack || "<subnet-pack>";
+  const mode = selectedLane?.mode || "<mode>";
+  const submissionPath = `submissions/${subnetPack}/${mode}`;
   return (
     <section>
       <p className="kicker">Submit</p>
       <h1>Submit one honest agent and beat the king</h1>
       <p>
         A competition PR is one agent bundle under <code>submissions/</code>. If it passes
-        screening, it waits as <code>kata:pending</code> until the next round. In the round,
-        it competes against the current king on the same 7 selected benchmark projects.
-        Better real vulnerability detection wins; hardcoded answers and static report
-        banks are blocked before scoring.
+        screening, it waits as <code>kata:pending</code> until the next round. In the round, it
+        competes against the current king on the same evaluator-selected benchmark set. Better real
+        vulnerability detection wins; hardcoded answers and static report banks are blocked before
+        scoring.
       </p>
 
       <h2>Contributor checklist</h2>
       <DocSteps
         items={[
-          ["Create a branch", "Work in the public Kata repo. A miner PR should only touch one submission directory."],
-          ["Add one bundle", "Create submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json."],
-          ["Validate locally", "Run `uv run kata submission validate --path submissions/sn60__bitsec/miner/<submission-id>` before opening the PR."],
-          ["Open one PR", "One open PR per contributor. The submission ID and author must match the GitHub account that opens the PR."],
-          ["Pass screening", "Valid PRs become kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review."],
-          ["Compete in a round", "Pending PRs are locked at the current commit, checked against the screened commit, smoke-tested on one real project, labeled kata:executing, and scored on the same sampled problems as the king."],
-          ["Get an outcome", "Winner becomes king. Runner-up that beat the king stays pending. Candidate that did not beat the king closes kata:losing."]
+          [
+            "Create a branch",
+            "Work in the public Kata repo. A miner PR should only touch one submission directory.",
+          ],
+          [
+            "Add one bundle",
+            `Create ${submissionPath}/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json.`,
+          ],
+          [
+            "Validate locally",
+            `Run \`uv run kata submission validate --path ${submissionPath}/<submission-id>\` before opening the PR.`,
+          ],
+          [
+            "Open one PR",
+            "One open PR per contributor. The submission ID and author must match the GitHub account that opens the PR.",
+          ],
+          [
+            "Pass screening",
+            "Valid PRs become kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review.",
+          ],
+          [
+            "Compete in a round",
+            "Pending PRs are locked at the current commit, checked against the screened commit, smoke-tested on one real project, labeled kata:executing, and scored on the same sampled problems as the king.",
+          ],
+          [
+            "Get an outcome",
+            "Winner becomes king. Runner-up that beat the king stays pending. Candidate that did not beat the king closes kata:losing.",
+          ],
         ]}
       />
       <h2>1. Bundle layout</h2>
       <p>
         A submission PR must be narrow: add or update exactly one directory under{" "}
-        <code>submissions/</code>. Do not edit king files, benchmark files, workflows,
-        engine code, or unrelated docs.
+        <code>submissions/</code>. Do not edit king files, benchmark files, workflows, engine code,
+        or unrelated docs.
       </p>
-      <CodeBlock value={`submissions/sn60__bitsec/miner/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # who submitted the agent`} />
-      <CodeBlock value={`{\n  "schema_version": 2,\n  "subnet_pack": "sn60__bitsec",\n  "mode": "miner",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`} />
+      <CodeBlock
+        value={`${submissionPath}/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # who submitted the agent`}
+      />
+      <CodeBlock
+        value={`{\n  "schema_version": 2,\n  "subnet_pack": "${subnetPack}",\n  "mode": "${mode}",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`}
+      />
       <DocCallout
         title="Identity must match your GitHub account"
         text="The <github-user> prefix in the directory name, submission_id, and submission.json author must match the GitHub account that opens the PR. If the PR author is jonathanchang31, then jonathan-20260707-01 is invalid. kata-bot closes mismatches as kata:invalid before adding kata:pending, so they never enter a round."
@@ -2494,34 +2675,47 @@ function DocMiner({ links }) {
 
       <h2>2. Your agent (agent.py)</h2>
       <p>
-        Expose one synchronous function. Kata owns the sandbox, benchmark snapshot,
-        replica count, timeouts, model relay, and scoring. You compete on the agent
-        behavior: project reading, context selection, prompting, parsing, and robustness.
+        Expose one synchronous function. Kata owns the sandbox, benchmark snapshot, replica policy,
+        execution timeouts, and scoring. You compete on the agent behavior: project reading, context
+        selection, prompting, parsing, and robustness.
       </p>
-      <CodeBlock value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # Bitsec-compatible findings for the target project\n        ]\n    }`} />
+      <CodeBlock
+        value={`def agent_main(\n    project_dir: str | None = None,\n    inference_api: str | None = None,\n) -> dict:\n    return {\n        "vulnerabilities": [\n            # evaluator-compatible findings for the target project\n        ]\n    }`}
+      />
       <DocGrid>
-        <DocCard title="project_dir" text="The target smart-contract project checkout mounted inside the sandbox container." />
-        <DocCard title="inference_api" text="The sandbox inference endpoint. Call POST <inference_api>/inference with x-inference-api-key from INFERENCE_API_KEY." />
-        <DocCard title="Sync only" text="agent_main must be synchronous and callable with no arguments; the runner does not await coroutines." />
-        <DocCard title="Small bundle" text="Use agent.py plus optional Python helpers under helpers/. Limit: 16 files, 128 KiB per file, 256 KiB total." />
+        <DocCard
+          title="project_dir"
+          text="The target project checkout mounted inside the sandbox container."
+        />
+        <DocCard
+          title="inference_api"
+          text="The sandbox inference endpoint. Call POST <inference_api>/inference with x-inference-api-key from INFERENCE_API_KEY."
+        />
+        <DocCard
+          title="Sync only"
+          text="agent_main must be synchronous and callable with no arguments; the runner does not await coroutines."
+        />
+        <DocCard
+          title="Small bundle"
+          text="Use agent.py plus optional Python helpers under helpers/. Limit: 16 files, 128 KiB per file, 256 KiB total."
+        />
       </DocGrid>
 
       <h2>3. Talking to the model</h2>
       <DocListCard
-        title="Model and inference budget"
+        title="Miner-funded inference"
         items={[
-          "The relay forces qwen/qwen3.6-35b-a3b for every agent, including king and candidates.",
-          "Agents compete on strategy, not private model access or a bigger budget.",
-          "Per project: up to 3 successful model calls.",
-          "Per project: up to 150,000 input tokens and 24,000 output tokens.",
-          "Each call is capped at 32,000 output tokens.",
-          "After a budget is spent, extra calls return HTTP 429.",
-          "Failed or transient calls do not count against the successful-call budget.",
-          "Fields like model, temperature, top_p, top_k, and seed are ignored or stripped.",
-          "Read the final answer from choices[0].message.content."
+          "The room provides an in-room inference endpoint and a sealed credential supplied by the miner.",
+          "The miner pays its provider and runtime costs; Kata never funds a miner's inference.",
+          "Your agent chooses its model, sampling, token sizes, call count, and retry behavior, subject to its provider.",
+          "Kata does not impose validator model, token, call, or retry caps.",
+          "Use the supplied endpoint instead of hardcoding a public provider URL or embedding a secret.",
+          "Read the final answer from choices[0].message.content.",
         ]}
       />
-      <CodeBlock value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`} />
+      <CodeBlock
+        value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`}
+      />
 
       <h2>4. What closes a PR — and what does not</h2>
       <DocListCard
@@ -2530,7 +2724,7 @@ function DocMiner({ links }) {
           "Static screening fails: the PR closes early with a clear reason and no scoring cost.",
           "Round-start smoke test fails: the PR closes as kata:invalid before scoring.",
           "Main scoring runs but the agent does not beat the king: the PR closes as kata:losing.",
-          "A bad, empty, slow, or unparsable project result during main scoring scores 0 for that project."
+          "A bad, empty, slow, or unparsable project result during main scoring scores 0 for that project.",
         ]}
       />
       <DocCallout
@@ -2544,60 +2738,80 @@ function DocMiner({ links }) {
           "agent_main returns a dict with a top-level `vulnerabilities` list — not a stub that returns an empty list without any analysis.",
           "The candidate bundle stays within the size cap: max 16 files, max 128 KiB per file, and max 256 KiB total.",
           "agent_manifest.json uses schema_version 1, runtime python, entrypoint agent.py.",
-          "submission.json uses schema_version 2, subnet_pack sn60__bitsec, mode miner, and a unique submission_id.",
+          `submission.json uses schema_version 2, subnet_pack ${subnetPack}, mode ${mode}, and a unique submission_id.`,
           "The submission directory/id prefix and submission.json author match the PR author's GitHub username.",
-          "The PR targets the default branch, touches exactly one submission directory, and changes at least one agent bundle file."
+          "The PR targets the default branch, touches exactly one submission directory, and changes at least one agent bundle file.",
         ]}
       />
       <RequirementList
         title="Red lines (rejected at static screening)"
         items={[
           "No scoring secrets such as CHUTES_API_KEY or KATA_VALIDATOR_API_KEY.",
-          "No hardcoded provider endpoints, API keys, or secret tokens (sk-..., ghp_..., cpk_...).",
-          "Do not rely on model or sampling overrides. The relay pins the model and strips/ignores model, temperature, top_p, top_k, seed, and similar fields.",
+          "No hardcoded provider endpoints, API keys, or secret tokens (sk-..., ghp_..., cpk_...). Use the supplied in-room endpoint and sealed miner credential.",
+          "Do not bypass the sealed execution boundary with direct public network calls or attempts to read another miner's credential.",
           "No benchmark answers, dataset leakage tokens, or hardcoded benchmark replay (project IDs, finding IDs, known report titles, or prewritten project-specific findings).",
           "Python helpers are allowed only under helpers/. Symlinks and unsupported files are rejected.",
-          "No exact or AST-equivalent copy of the current king bundle."
+          "No exact or AST-equivalent copy of the current king bundle.",
         ]}
       />
-      <DocLinks links={[["Full submission contract", links.submissions], ["End-to-end workflow", links.systemWorkflow]]} />
+      <DocLinks
+        links={[
+          ["Full submission contract", links.submissions],
+          ["End-to-end workflow", links.systemWorkflow],
+        ]}
+      />
     </section>
   );
 }
 
-function DocScoring() {
-  const projectCount = DOC_ROUND_PROJECT_COUNT;
-  const benchmarkText = projectCount
-    ? `${projectCount} selected benchmark project${projectCount === 1 ? "" : "s"} from the pinned snapshot.`
-    : `${DOC_ROUND_PROJECT_COUNT} selected benchmark projects from the pinned snapshot.`;
+function DocScoring({ selectedLane }) {
+  const benchmarkText = `${docsRoundFormat(selectedLane)} pinned by the evaluator for the round.`;
   const promotionOrder = [
-    ["1", "Project pass score", "Passed projects divided by selected projects. This is the first ranking signal."],
+    [
+      "1",
+      "Project pass score",
+      "Passed projects divided by selected projects. This is the first ranking signal.",
+    ],
     ["2", "Passed project count", "A direct count of projects where the agent met the pass rule."],
     ["3", "True positives", "Confirmed benchmark vulnerabilities found across the round."],
-    ["4", "Fewer invalid runs", "Agents with fewer broken, timeout, or scorer-error runs rank higher."],
-    ["5", "Precision", "True positives divided by all reported findings. Cleaner reports rank higher."],
-    ["6", "F1", "Final tie-breaker balancing detection and precision."]
+    [
+      "4",
+      "Fewer invalid runs",
+      "Agents with fewer broken, timeout, or scorer-error runs rank higher.",
+    ],
+    [
+      "5",
+      "Precision",
+      "True positives divided by all reported findings. Cleaner reports rank higher.",
+    ],
+    ["6", "F1", "Final tie-breaker balancing detection and precision."],
   ];
   return (
     <section>
       <p className="kicker">Scoring</p>
       <h1>Real findings decide the winner</h1>
       <p>
-        Candidate and king run through the same {DOC_ROUND_PROJECT_COUNT} selected benchmark projects. Kata ranks
-        agents by objective scorer metrics. Your agent must strictly outrank the king;
-        tying the king is not enough.
+        Candidate and king run through the same evaluator-selected benchmark set. Kata ranks agents
+        by objective scorer metrics. Your agent must strictly outrank the king; tying the king is
+        not enough.
       </p>
 
       <div className="doc-score-summary">
         <DocCard title="Benchmark" text={benchmarkText} />
-        <DocCard title="Replica rule" text="Each project runs 3 times. A project passes when at least 2 of 3 replicas pass." />
-        <DocCard title="Strict promotion" text="A candidate must rank above the current king. Same score is not enough." />
+        <DocCard
+          title="Replica rule"
+          text="The evaluator defines replica count and its pass threshold. The Arena and round proof show the values used."
+        />
+        <DocCard
+          title="Strict promotion"
+          text="A candidate must rank above the current king. Same score is not enough."
+        />
       </div>
 
       <h2>Promotion order</h2>
       <p>
-        Kata compares candidates and the king in this order. Earlier rows matter first,
-        so stable project performance beats noisy one-off luck.
+        Kata compares candidates and the king in this order. Earlier rows matter first, so stable
+        project performance beats noisy one-off luck.
       </p>
       <div className="doc-rank-order">
         {promotionOrder.map(([rank, title, text]) => (
@@ -2613,41 +2827,76 @@ function DocScoring() {
 
       <h2>Core scoring terms</h2>
       <DocGrid>
-        <DocCard title="True positive" text="An expected benchmark vulnerability that the scorer matched to one of the agent's findings." />
-        <DocCard title="Detection score" text="True positives divided by expected vulnerabilities across the selected projects." />
-        <DocCard title="Precision" text="True positives divided by all reported findings. Noisy reports lower it." />
+        <DocCard
+          title="True positive"
+          text="An expected benchmark vulnerability that the scorer matched to one of the agent's findings."
+        />
+        <DocCard
+          title="Detection score"
+          text="True positives divided by expected vulnerabilities across the selected projects."
+        />
+        <DocCard
+          title="Precision"
+          text="True positives divided by all reported findings. Noisy reports lower it."
+        />
         <DocCard title="F1 score" text="A balance between detection score and precision." />
-        <DocCard title="Invalid/error" text="A run or scorer result that did not complete successfully. It scores zero for that project." />
-        <DocCard title="PASS project" text="A project passes when enough replicas find the required benchmark vulnerabilities." />
+        <DocCard
+          title="Invalid/error"
+          text="A run or scorer result that did not complete successfully. It scores zero for that project."
+        />
+        <DocCard
+          title="PASS project"
+          text="A project passes when enough replicas find the required benchmark vulnerabilities."
+        />
       </DocGrid>
       <h2>Result labels</h2>
       <p>After a round, your PR gets a clear label so you can understand what happened.</p>
       <DocGrid>
-        <DocCard title="kata:pending" text="Screened and waiting for the next round, or kept open because it beat the king but was not the top winner." />
+        <DocCard
+          title="kata:pending"
+          text="Screened and waiting for the next round, or kept open because it beat the king but was not the top winner."
+        />
         <DocCard title="kata:winner" text="Won the round, merged, and promoted as the new king." />
         <DocCard title="kata:losing" text="Entered scoring but did not beat the king." />
-        <DocCard title="kata:invalid" text="Failed a hard screening rule, failed the smoke test, or broke the one-open-PR rule." />
+        <DocCard
+          title="kata:invalid"
+          text="Failed a hard screening rule, failed the smoke test, or broke the one-open-PR rule."
+        />
       </DocGrid>
       <h2>Screening</h2>
       <p>
-        Static screening runs at PR intake/update and uses cheap source-only checks: no
-        model calls and no scoring cost. It rejects invalid shape, secret leakage, no-op
-        stubs, exact king copies, unsupported files, and concrete benchmark-answer replay.
-        The round-start executable smoke test then runs the agent once on a real project
-        and checks that it returns a valid vulnerabilities report. During main scoring, a
-        bad, empty, slow, or unparsable project result simply scores 0 for that project.
+        Static screening runs at PR intake/update and uses cheap source-only checks: no model calls
+        and no scoring cost. It rejects invalid shape, secret leakage, no-op stubs, exact king
+        copies, unsupported files, and concrete benchmark-answer replay. The round-start executable
+        smoke test then runs the agent once on a real project and checks that it returns a valid
+        vulnerabilities report. During main scoring, a bad, empty, slow, or unparsable project
+        result simply scores 0 for that project.
       </p>
-      <CodeBlock value={`project_pass_score = passed_projects / selected_projects\n\ndetection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  intake static screening passed\n  round-start executable smoke test passed\n  candidate strictly outranks king on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error evaluations\n    precision\n    f1 score`} />
+      <CodeBlock
+        value={`project_pass_score = passed_projects / selected_projects\n\ndetection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  intake static screening passed\n  round-start executable smoke test passed\n  candidate strictly outranks king on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error evaluations\n    precision\n    f1 score`}
+      />
       <h2>Reading the live board</h2>
       <p>
-        The Arena view shows the current round — every candidate and the king — as it runs,
-        plus a highlights feed of past rounds. A few terms map straight to the scoring above.
+        The Arena view shows the current round — every candidate and the king — as it runs, plus a
+        highlights feed of past rounds. A few terms map straight to the scoring above.
       </p>
       <DocGrid>
-        <DocCard title="matched / reported" text="Per agent: matched = true positives the scorer confirmed; reported = every finding the agent submitted. reported is the denominator of precision — a big gap means noisy output." />
-        <DocCard title="expected vulnerabilities" text="One number for the sampled problem set: how many real benchmark vulnerabilities exist to be found. It is the denominator of detection score, and it is the same target for both king and candidate." />
-        <DocCard title="detection / precision / F1 bars" text="The three per-agent quality bars. Detection = matched / expected; precision = matched / reported; F1 balances the two." />
-        <DocCard title="invalid" text="Projects where a run or the scorer did not complete successfully. Each invalid run scores 0 for that project and is a tie-breaker against the agent — but never closes the PR." />
+        <DocCard
+          title="matched / reported"
+          text="Per agent: matched = true positives the scorer confirmed; reported = every finding the agent submitted. reported is the denominator of precision — a big gap means noisy output."
+        />
+        <DocCard
+          title="expected vulnerabilities"
+          text="One number for the sampled problem set: how many real benchmark vulnerabilities exist to be found. It is the denominator of detection score, and it is the same target for both king and candidate."
+        />
+        <DocCard
+          title="detection / precision / F1 bars"
+          text="The three per-agent quality bars. Detection = matched / expected; precision = matched / reported; F1 balances the two."
+        />
+        <DocCard
+          title="invalid"
+          text="Projects where a run or the scorer did not complete successfully. Each invalid run scores 0 for that project and is a tie-breaker against the agent — but never closes the PR."
+        />
       </DocGrid>
     </section>
   );
@@ -2666,65 +2915,105 @@ function DocListCard({ title, items }) {
   );
 }
 
-function DocValidator({ links }) {
-  const projectCount = DOC_ROUND_PROJECT_COUNT;
+function DocValidator({ links, selectedLane }) {
   return (
     <section>
       <p className="kicker">Round</p>
       <h1>What happens after your PR becomes pending</h1>
       <p>
-        Kata does not score every PR immediately. A valid PR waits for the next scheduled
-        round. When the round starts, all pending candidates compete under the same rules,
-        same 7 selected projects, same model, and same scoring budget.
+        Kata does not score every PR immediately. A valid PR waits for the next scheduled round.
+        When the round starts, all pending candidates compete under the same rules, the same
+        evaluator-selected projects and the same scoring rules.
       </p>
 
       <h2>Round checklist</h2>
       <DocSteps
         items={[
-          ["Pending only", "Only PRs with kata:pending can enter scoring. PRs in kata:review or kata:invalid do not compete."],
-          ["Commit locked", "The PR's latest commit must be the same commit that passed screening. If new commits were pushed and not screened, the PR is held out."],
-          ["Smoke tested", "Before scoring, the agent runs once on a real project. It must run cleanly and return a valid vulnerabilities report shape. It does not need to find a bug in this smoke test."],
-          ["Scored fairly", "Every candidate and the current king use the same 7 selected benchmark projects, same pinned model, same relay, and same inference budget."],
-          ["3 replicas", "Each selected project runs 3 times. A project passes when at least 2 of 3 runs pass."],
-          ["Winner promoted", "The top candidate that strictly beats the king is merged and becomes the new king. If nobody beats the king, the king stays."]
+          [
+            "Pending only",
+            "Only PRs with kata:pending can enter scoring. PRs in kata:review or kata:invalid do not compete.",
+          ],
+          [
+            "Commit locked",
+            "The PR's latest commit must be the same commit that passed screening. If new commits were pushed and not screened, the PR is held out.",
+          ],
+          [
+            "Smoke tested",
+            "Before scoring, the agent runs once on a real project. It must run cleanly and return a valid vulnerabilities report shape. It does not need to find a bug in this smoke test.",
+          ],
+          [
+            "Scored fairly",
+            "Every candidate and the current king use the same selected benchmark set, evaluator rules, and sealed execution boundary.",
+          ],
+          [
+            "Evaluator replicas",
+            "The evaluator records its replica count and pass threshold in the Arena and public round proof.",
+          ],
+          [
+            "Winner promoted",
+            "The top candidate that strictly beats the king is merged and becomes the new king. If nobody beats the king, the king stays.",
+          ],
         ]}
       />
 
       <h2>Round constraints</h2>
       <p>
-        These constraints are the same for every candidate, so the round measures agent
-        strategy instead of private infrastructure.
+        These shared controls make the evaluation reproducible while each miner remains responsible
+        for its own inference costs.
       </p>
       <DocGrid>
-        <DocCard title="Pinned model" text="qwen/qwen3.6-35b-a3b is forced by the relay for everyone." />
-        <DocCard title="Model calls" text="Up to 3 successful model calls per problem." />
-        <DocCard title="Token budget" text="Up to 150,000 input tokens and 24,000 output tokens per problem." />
-        <DocCard title="No bypass" text="Agents must use the provided relay. Direct provider calls and private APIs are blocked." />
+        <DocCard
+          title="Sealed miner key"
+          text="The room receives the miner's provider credential without exposing it to Kata or other miners."
+        />
+        <DocCard
+          title="Miner-selected inference"
+          text="Model, sampling, token sizes, calls, and retries are chosen by the agent and paid by its miner."
+        />
+        <DocCard
+          title="No public-network bypass"
+          text="Agents use the in-room gateway; direct public egress and embedded secrets are blocked."
+        />
+        <DocCard
+          title="Round proof"
+          text="The evaluator publishes the benchmark, replica, scoring, and promotion evidence for the completed round."
+        />
       </DocGrid>
 
       <h2>Selected projects</h2>
       <p>
-        Each round uses a selected benchmark set. Every candidate sees the same set, and
-        the result page shows the selected project names after the round.
+        Each round uses a selected benchmark set. Every candidate sees the same set, and the result
+        page shows the selected project names after the round.
       </p>
       <p>
-        Each round samples{" "}
-        <strong>
-          {projectCount ? `${projectCount} project${projectCount === 1 ? "" : "s"}` : "a benchmark project set"}
-        </strong>
-        ; the exact set is not something contributors should hardcode against.
+        The selected lane currently uses <strong>{docsRoundFormat(selectedLane)}</strong>. The exact
+        project IDs are not something contributors should hardcode against.
       </p>
 
       <h2>What you can see</h2>
       <p>The Arena page shows live progress during a round and final proof after it ends.</p>
       <DocGrid>
-        <DocCard title="Live status" text="Which PRs are executing, screened out, complete, or waiting." />
-        <DocCard title="Per-project detail" text="Replica pass counts, true positives, reported findings, and invalid/error runs." />
+        <DocCard
+          title="Live status"
+          text="Which PRs are executing, screened out, complete, or waiting."
+        />
+        <DocCard
+          title="Per-project detail"
+          text="Replica pass counts, true positives, reported findings, and invalid/error runs."
+        />
         <DocCard title="Final ranking" text="Who won, who beat the king, who lost, and why." />
-        <DocCard title="Proof" text="Round timing, selected projects, aggregate metrics, and public result files." />
+        <DocCard
+          title="Proof"
+          text="Round timing, selected projects, aggregate metrics, and public result files."
+        />
       </DocGrid>
 
-      <DocLinks links={[["End-to-end workflow", links.systemWorkflow], ["Arena", "/arena"]]} />
+      <DocLinks
+        links={[
+          ["End-to-end workflow", links.systemWorkflow],
+          ["Arena", "/arena"],
+        ]}
+      />
     </section>
   );
 }
@@ -2735,19 +3024,47 @@ function DocMilestones() {
       <p className="kicker">Results</p>
       <h1>How Kata shows progress</h1>
       <p>
-        Kata should not ask contributors to trust vague claims. The dashboard and public
-        proof files show what happened in each round: who competed, which agent won, how
-        many true positives were found, and whether the current king improved.
+        Kata should not ask contributors to trust vague claims. The dashboard and public proof files
+        show what happened in each round: who competed, which agent won, how many true positives
+        were found, and whether the current king improved.
       </p>
       <MilestoneList
         items={[
-          ["complete", "Current king", "The promoted best agent is visible on the winners page and in the public repository."],
-          ["complete", "Round proof", "Completed rounds publish selected projects, candidate counts, true positives, precision, duration, and winner status."],
-          ["complete", "Live arena", "During a round, contributors can watch execution status and per-project progress."],
-          ["current", "Public proof", "Kata publishes the current king and latest completed round proof in the public repository."],
-          ["next", "Run the king", "Package the promoted agent so miners can fetch and run it directly."],
-          ["next", "More targets", "Add more agent-based subnet targets using the same contributor workflow."],
-          ["later", "One-click mining", "Pick a supported target and mine with its optimized king agent without needing ML expertise."]
+          [
+            "complete",
+            "Current king",
+            "The promoted best agent is visible on the winners page and in the public repository.",
+          ],
+          [
+            "complete",
+            "Round proof",
+            "Completed rounds publish selected projects, candidate counts, true positives, precision, duration, and winner status.",
+          ],
+          [
+            "complete",
+            "Live arena",
+            "During a round, contributors can watch execution status and per-project progress.",
+          ],
+          [
+            "current",
+            "Public proof",
+            "Kata publishes the current king and latest completed round proof in the public repository.",
+          ],
+          [
+            "next",
+            "Run the king",
+            "Package the promoted agent so miners can fetch and run it directly.",
+          ],
+          [
+            "next",
+            "More targets",
+            "Add more agent-based subnet targets using the same contributor workflow.",
+          ],
+          [
+            "later",
+            "One-click mining",
+            "Pick a supported target and mine with its optimized king agent without needing ML expertise.",
+          ],
         ]}
       />
       <DocCallout
@@ -2764,15 +3081,27 @@ function DocPrivacy() {
       <p className="kicker">Rules</p>
       <h1>What is allowed and what gets blocked</h1>
       <p>
-        Build a real general agent. Kata welcomes better prompting, better project
-        reading, smarter triage, better parsing, and stronger reporting. Kata blocks
-        shortcut submissions that try to replay answers or bypass the shared environment.
+        Build a real general agent. Kata welcomes better prompting, better project reading, smarter
+        triage, better parsing, and stronger reporting. Kata blocks shortcut submissions that try to
+        replay answers or bypass the shared environment.
       </p>
       <DocGrid>
-        <DocCard title="Allowed" text="General code analysis, static heuristics, model-assisted auditing, project summarization, ranking risky files, and deduping findings." />
-        <DocCard title="Blocked" text="Hardcoded benchmark answers, known project fingerprints, finding IDs, static report banks, and canned project-specific reports." />
-        <DocCard title="Blocked" text="Private external APIs, direct provider calls, secret/key access, and attempts to choose a different model or budget." />
-        <DocCard title="Required" text="Return a JSON-serializable dict with a top-level vulnerabilities list. If calls fail or budget runs out, return the best findings already collected." />
+        <DocCard
+          title="Allowed"
+          text="General code analysis, static heuristics, model-assisted auditing, project summarization, ranking risky files, and deduping findings."
+        />
+        <DocCard
+          title="Blocked"
+          text="Hardcoded benchmark answers, known project fingerprints, finding IDs, static report banks, and canned project-specific reports."
+        />
+        <DocCard
+          title="Blocked"
+          text="Public-network bypasses, access to another miner's key, validator secrets, and embedded provider credentials. Use the room's sealed in-room gateway instead."
+        />
+        <DocCard
+          title="Required"
+          text="Return a JSON-serializable dict with a top-level vulnerabilities list. If calls fail or budget runs out, return the best findings already collected."
+        />
       </DocGrid>
       <DocCallout
         title="Simple rule"
@@ -2877,7 +3206,7 @@ function sourceLinks(kataRepoSlug) {
     milestones: `${kataBase}/docs/milestones.md`,
     botDeployment: `${botBase}/README.md`,
     botChecklist: `${botBase}/README.md`,
-    botConfig: `${botBase}/README.md`
+    botConfig: `${botBase}/README.md`,
   };
 }
 
@@ -2936,7 +3265,6 @@ function MinerIdentity({ name, sub, size = "compact" }) {
   );
 }
 
-
 function KeyValue({ label, value }) {
   const isLink = typeof value === "string" && value.startsWith("https://");
   return (
@@ -2944,7 +3272,7 @@ function KeyValue({ label, value }) {
       <span>{label}</span>
       {isLink ? (
         <a href={value} target="_blank" rel="noreferrer">
-          agent.py
+          Open link
         </a>
       ) : (
         <strong>{value ?? "-"}</strong>
@@ -2965,8 +3293,12 @@ function Empty({ text }) {
   return <div className="empty">{text}</div>;
 }
 
-function docsRoundFormat() {
-  return `${DOC_ROUND_PROJECT_COUNT} selected benchmark projects`;
+function docsRoundFormat(selectedLane) {
+  const count = selectedLane?.projects?.length;
+  if (count) {
+    return `${count} evaluator-selected benchmark project${count === 1 ? "" : "s"}`;
+  }
+  return "an evaluator-selected benchmark project set";
 }
 
 function duelStatus(duel) {
@@ -2982,8 +3314,10 @@ function buildDashboardLatestStatus(activeEvaluation, latestChallenge) {
         activeEvaluation.candidateSubmissionId ||
         "active challenger",
       status: activeEvaluationStatus(activeEvaluation),
-      source: activeEvaluation.pullNumber ? `PR #${activeEvaluation.pullNumber}` : "validator queue",
-      updatedAt: activeEvaluation.updatedAt || activeEvaluation.startedAt
+      source: activeEvaluation.pullNumber
+        ? `PR #${activeEvaluation.pullNumber}`
+        : "validator queue",
+      updatedAt: activeEvaluation.updatedAt || activeEvaluation.startedAt,
     };
   }
   if (latestChallenge) {
@@ -2994,14 +3328,14 @@ function buildDashboardLatestStatus(activeEvaluation, latestChallenge) {
         "completed challenger",
       status: duelStatus(latestChallenge),
       source: latestChallenge.runId || "run artifact",
-      updatedAt: latestChallenge.createdAt
+      updatedAt: latestChallenge.createdAt,
     };
   }
   return {
     challenger: "none yet",
     status: "no duel yet",
     source: "waiting",
-    updatedAt: null
+    updatedAt: null,
   };
 }
 
@@ -3083,7 +3417,7 @@ function formatNumber(value) {
     return "-";
   }
   return Number(value).toLocaleString(undefined, {
-    maximumFractionDigits: Number(value) % 1 === 0 ? 0 : 2
+    maximumFractionDigits: Number(value) % 1 === 0 ? 0 : 2,
   });
 }
 
@@ -3096,7 +3430,7 @@ function formatDateTime(value) {
       month: "short",
       day: "numeric",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     }).format(new Date(value));
   } catch {
     return value;

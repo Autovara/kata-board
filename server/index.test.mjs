@@ -10,11 +10,11 @@ test("streamStamp changes when live round progress advances but generatedAt is u
   const generatedAt = "2026-07-13T00:00:00.000Z";
   const first = streamStamp({
     generatedAt,
-    round: { liveProgress: { king: { done: 1, total: 7 } } }
+    round: { liveProgress: { king: { done: 1, total: 7 } } },
   });
   const second = streamStamp({
     generatedAt,
-    round: { liveProgress: { king: { done: 2, total: 7 } } }
+    round: { liveProgress: { king: { done: 2, total: 7 } } },
   });
   assert.notEqual(first, second);
 });
@@ -22,27 +22,24 @@ test("streamStamp changes when live round progress advances but generatedAt is u
 test("streamStamp is stable when nothing changes", () => {
   const payload = {
     generatedAt: "2026-07-13T00:00:00.000Z",
-    round: { liveProgress: { king: { done: 3, total: 7 } } }
+    round: { liveProgress: { king: { done: 3, total: 7 } } },
   };
   assert.equal(streamStamp(payload), streamStamp({ ...payload }));
 });
 
 test("streamStamp tolerates a missing round or progress", () => {
-  assert.equal(
-    streamStamp({ generatedAt: "t" }),
-    streamStamp({ generatedAt: "t", round: null })
-  );
+  assert.equal(streamStamp({ generatedAt: "t" }), streamStamp({ generatedAt: "t", round: null }));
 });
 
 test("streamStamp reflects per-lane byLane progress so multi-lane rounds stream", () => {
   const generatedAt = "2026-07-13T00:00:00.000Z";
   const first = streamStamp({
     generatedAt,
-    byLane: { "l1:miner": { round: { liveProgress: { king: { done: 1, total: 7 } } } } }
+    byLane: { "l1:miner": { round: { liveProgress: { king: { done: 1, total: 7 } } } } },
   });
   const second = streamStamp({
     generatedAt,
-    byLane: { "l1:miner": { round: { liveProgress: { king: { done: 2, total: 7 } } } } }
+    byLane: { "l1:miner": { round: { liveProgress: { king: { done: 2, total: 7 } } } } },
   });
   assert.notEqual(first, second);
 });

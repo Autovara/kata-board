@@ -27,7 +27,7 @@ function prefixStream(stream, prefix, target) {
 function spawnCommand(name, command, args, env) {
   const child = spawn(command, args, {
     env,
-    stdio: ["inherit", "pipe", "pipe"]
+    stdio: ["inherit", "pipe", "pipe"],
   });
 
   childProcesses.push(child);
@@ -95,7 +95,9 @@ async function findFreePort(startPort) {
       return port;
     }
   }
-  throw new Error(`could not find a free API port in range ${startPort}-${startPort + MAX_PORT_SCAN - 1}`);
+  throw new Error(
+    `could not find a free API port in range ${startPort}-${startPort + MAX_PORT_SCAN - 1}`
+  );
 }
 
 async function resolveApiSetup() {
@@ -104,7 +106,7 @@ async function resolveApiSetup() {
     return {
       apiTarget: explicitApiTarget,
       apiPort: requestedPort,
-      startApi: false
+      startApi: false,
     };
   }
 
@@ -112,7 +114,7 @@ async function resolveApiSetup() {
     return {
       apiTarget: `http://127.0.0.1:${requestedPort}`,
       apiPort: requestedPort,
-      startApi: true
+      startApi: true,
     };
   }
 
@@ -121,7 +123,7 @@ async function resolveApiSetup() {
     return {
       apiTarget: `http://127.0.0.1:${requestedPort}`,
       apiPort: requestedPort,
-      startApi: false
+      startApi: false,
     };
   }
 
@@ -130,7 +132,7 @@ async function resolveApiSetup() {
   return {
     apiTarget: `http://127.0.0.1:${fallbackPort}`,
     apiPort: fallbackPort,
-    startApi: true
+    startApi: true,
   };
 }
 
@@ -142,7 +144,7 @@ async function main() {
   const sharedEnv = {
     ...process.env,
     PORT: `${setup.apiPort}`,
-    VITE_API_TARGET: setup.apiTarget
+    VITE_API_TARGET: setup.apiTarget,
   };
 
   if (setup.startApi) {

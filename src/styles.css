@@ -745,8 +745,7 @@ button {
   border-radius: 12px;
   padding: 16px;
   background:
-    linear-gradient(145deg, rgba(244, 247, 239, 0.05), transparent 54%),
-    rgba(16, 19, 16, 0.86);
+    linear-gradient(145deg, rgba(244, 247, 239, 0.05), transparent 54%), rgba(16, 19, 16, 0.86);
 }
 
 .arena-meta-card-ok {
@@ -836,133 +835,6 @@ button {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
-}
-
-.sn60-panel {
-  display: grid;
-  gap: 16px;
-  border: 1px solid rgba(37, 208, 171, 0.24);
-  border-radius: 8px;
-  padding: 18px;
-  background:
-    linear-gradient(145deg, rgba(37, 208, 171, 0.08), transparent 44%),
-    var(--panel-2);
-}
-
-.sn60-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.sn60-panel-head h2 {
-  margin: 0;
-  font-size: 28px;
-  overflow-wrap: anywhere;
-}
-
-.sn60-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.sn60-metric {
-  min-height: 102px;
-  display: grid;
-  align-content: space-between;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px;
-  background: rgba(8, 9, 8, 0.28);
-}
-
-.sn60-metric span,
-.sn60-metric small,
-.sn60-detail-block > span,
-.replica-strip span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-}
-
-.sn60-metric strong {
-  color: var(--text);
-  font-size: 22px;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-}
-
-.sn60-metric small {
-  line-height: 1.35;
-}
-
-.sn60-detail-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 12px;
-}
-
-.sn60-detail-block {
-  display: grid;
-  gap: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 14px;
-  background: rgba(8, 9, 8, 0.22);
-}
-
-.replica-strip {
-  display: grid;
-  grid-template-columns: 82px 1fr;
-  gap: 12px;
-  align-items: center;
-}
-
-.replica-strip div {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.replica-strip i,
-.replica-strip em {
-  min-width: 42px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--text);
-  background:
-    linear-gradient(90deg, rgba(37, 208, 171, 0.28) var(--replica-score), rgba(244, 247, 239, 0.05) 0);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
-  font-style: normal;
-}
-
-.replica-strip em {
-  min-width: 132px;
-  color: var(--muted);
-  background: rgba(244, 247, 239, 0.04);
-}
-
-.sn60-screening-notes {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.sn60-screening-notes span {
-  border: 1px solid rgba(255, 95, 90, 0.28);
-  border-radius: 999px;
-  padding: 6px 8px;
-  color: var(--soft);
-  background: rgba(255, 95, 90, 0.08);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
 }
 
 .progress-ring {
@@ -1206,8 +1078,7 @@ button {
   padding: 14px 14px 13px;
   color: var(--text);
   background:
-    linear-gradient(135deg, rgba(244, 247, 239, 0.035), transparent 60%),
-    rgba(12, 15, 12, 0.84);
+    linear-gradient(135deg, rgba(244, 247, 239, 0.035), transparent 60%), rgba(12, 15, 12, 0.84);
   text-align: left;
   cursor: pointer;
   transition:
@@ -1221,8 +1092,7 @@ button {
   border-color: rgba(185, 255, 93, 0.38);
   border-left-color: var(--green);
   background:
-    linear-gradient(135deg, rgba(185, 255, 93, 0.09), transparent 66%),
-    rgba(16, 19, 16, 0.95);
+    linear-gradient(135deg, rgba(185, 255, 93, 0.09), transparent 66%), rgba(16, 19, 16, 0.95);
   box-shadow: inset 0 0 0 1px rgba(185, 255, 93, 0.04);
 }
 
@@ -1368,8 +1238,7 @@ button {
   color: var(--muted);
   background:
     radial-gradient(circle at 100% 0, rgba(37, 208, 171, 0.08), transparent 40%),
-    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
-    rgba(16, 19, 16, 0.78);
+    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent), rgba(16, 19, 16, 0.78);
   text-align: left;
   cursor: pointer;
   transition:
@@ -1398,8 +1267,7 @@ button {
   color: var(--text);
   border-color: rgba(185, 255, 93, 0.34);
   background:
-    radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.12), transparent 44%),
-    rgba(18, 23, 18, 0.9);
+    radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.12), transparent 44%), rgba(18, 23, 18, 0.9);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
 }
 
@@ -1514,8 +1382,7 @@ button {
   padding: 18px;
   background:
     radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.1), transparent 42%),
-    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
-    rgba(7, 9, 7, 0.56);
+    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent), rgba(7, 9, 7, 0.56);
   animation: page-rise 320ms ease-out both;
 }
 
@@ -1546,8 +1413,7 @@ button {
   border-radius: 18px;
   background:
     radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.13), transparent 36%),
-    linear-gradient(180deg, rgba(244, 247, 239, 0.035), transparent),
-    rgba(7, 9, 7, 0.76);
+    linear-gradient(180deg, rgba(244, 247, 239, 0.035), transparent), rgba(7, 9, 7, 0.76);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
@@ -1559,8 +1425,7 @@ button {
   border-radius: 18px;
   background:
     radial-gradient(circle at 0 0, rgba(185, 255, 93, 0.1), transparent 38%),
-    linear-gradient(180deg, rgba(244, 247, 239, 0.035), transparent),
-    rgba(7, 9, 7, 0.7);
+    linear-gradient(180deg, rgba(244, 247, 239, 0.035), transparent), rgba(7, 9, 7, 0.7);
 }
 
 .doc-list-card strong {
@@ -1623,8 +1488,7 @@ button {
   border: 1px solid rgba(244, 247, 239, 0.1);
   border-radius: 18px;
   background:
-    linear-gradient(90deg, rgba(185, 255, 93, 0.075), transparent 48%),
-    rgba(7, 9, 7, 0.5);
+    linear-gradient(90deg, rgba(185, 255, 93, 0.075), transparent 48%), rgba(7, 9, 7, 0.5);
 }
 
 .doc-rank-item > span {
@@ -1671,8 +1535,7 @@ button {
   border: 1px solid rgba(244, 247, 239, 0.1);
   border-radius: 18px;
   background:
-    linear-gradient(90deg, rgba(185, 255, 93, 0.055), transparent 44%),
-    rgba(7, 9, 7, 0.5);
+    linear-gradient(90deg, rgba(185, 255, 93, 0.055), transparent 44%), rgba(7, 9, 7, 0.5);
   animation: page-rise 320ms ease-out both;
 }
 
@@ -1759,8 +1622,7 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
-    linear-gradient(90deg, rgba(185, 255, 93, 0.06), transparent 44%),
-    rgba(7, 9, 7, 0.58);
+    linear-gradient(90deg, rgba(185, 255, 93, 0.06), transparent 44%), rgba(7, 9, 7, 0.58);
   animation: page-rise 320ms ease-out both;
 }
 
@@ -1901,9 +1763,7 @@ button {
   .stat-row,
   .winner-grid,
   .arena-meta-grid,
-  .arena-visual-grid,
-  .sn60-grid,
-  .sn60-detail-grid {
+  .arena-visual-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1954,19 +1814,8 @@ button {
   .stat-row,
   .winner-grid,
   .arena-meta-grid,
-  .arena-visual-grid,
-  .sn60-grid,
-  .sn60-detail-grid {
+  .arena-visual-grid {
     grid-template-columns: 1fr;
-  }
-
-  .sn60-panel-head,
-  .replica-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .sn60-panel-head {
-    display: grid;
   }
 
   .table-head,
@@ -1989,7 +1838,6 @@ button {
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
   }
-
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -2016,13 +1864,14 @@ button {
 /*  solely when the user welcomes motion, so content is never stuck hidden.     */
 /* ============================================================================ */
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
 /* --- consistent interaction affordances --- */
 .stat,
 .section-block,
 .arena-meta-card,
-.sn60-metric,
 .winner-card,
 .doc-card,
 .lane-tab,
@@ -2041,7 +1890,6 @@ html { scroll-behavior: smooth; }
 .stat:hover,
 .section-block:hover,
 .arena-meta-card:hover,
-.sn60-metric:hover,
 .winner-card:hover,
 .doc-card:hover {
   transform: translateY(-3px);
@@ -2049,11 +1897,22 @@ html { scroll-behavior: smooth; }
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.38);
 }
 
-.button:hover { transform: translateY(-2px); }
-.button.primary:hover { box-shadow: 0 12px 30px rgba(185, 255, 93, 0.2); }
-.social-link:hover { transform: translateY(-2px); color: var(--green); }
-.lane-tab:hover { transform: translateY(-2px); }
-.table-row:hover { background: var(--panel-2); }
+.button:hover {
+  transform: translateY(-2px);
+}
+.button.primary:hover {
+  box-shadow: 0 12px 30px rgba(185, 255, 93, 0.2);
+}
+.social-link:hover {
+  transform: translateY(-2px);
+  color: var(--green);
+}
+.lane-tab:hover {
+  transform: translateY(-2px);
+}
+.table-row:hover {
+  background: var(--panel-2);
+}
 
 /* keyboard accessibility */
 .nav-item:focus-visible,
@@ -2067,7 +1926,9 @@ html { scroll-behavior: smooth; }
 }
 
 /* --- animated nav indicator --- */
-.nav-item { position: relative; }
+.nav-item {
+  position: relative;
+}
 .nav-item::after {
   content: "";
   position: absolute;
@@ -2082,7 +1943,9 @@ html { scroll-behavior: smooth; }
   transition: transform 0.2s ease;
 }
 .nav-item:hover::after,
-.nav-item.active::after { transform: scaleX(1); }
+.nav-item.active::after {
+  transform: scaleX(1);
+}
 
 /* --- live status pulse in the header --- */
 .header-status .status-ok::before {
@@ -2099,27 +1962,57 @@ html { scroll-behavior: smooth; }
 /* --- motion: entrance + ambient (only when welcomed) --- */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes kata-fade-up {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   @keyframes kata-pulse-dot {
-    0%   { box-shadow: 0 0 0 0 rgba(185, 255, 93, 0.55); }
-    70%  { box-shadow: 0 0 0 8px rgba(185, 255, 93, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(185, 255, 93, 0); }
+    0% {
+      box-shadow: 0 0 0 0 rgba(185, 255, 93, 0.55);
+    }
+    70% {
+      box-shadow: 0 0 0 8px rgba(185, 255, 93, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(185, 255, 93, 0);
+    }
   }
-  @keyframes kata-shimmer { to { transform: translateX(100%); } }
+  @keyframes kata-shimmer {
+    to {
+      transform: translateX(100%);
+    }
+  }
 
   /* page sections reveal with a gentle stagger */
   .stack > * {
     animation: kata-fade-up 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   }
-  .stack > *:nth-child(1) { animation-delay: 0.02s; }
-  .stack > *:nth-child(2) { animation-delay: 0.08s; }
-  .stack > *:nth-child(3) { animation-delay: 0.14s; }
-  .stack > *:nth-child(4) { animation-delay: 0.20s; }
-  .stack > *:nth-child(5) { animation-delay: 0.26s; }
-  .stack > *:nth-child(6) { animation-delay: 0.32s; }
-  .stack > *:nth-child(n + 7) { animation-delay: 0.36s; }
+  .stack > *:nth-child(1) {
+    animation-delay: 0.02s;
+  }
+  .stack > *:nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  .stack > *:nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  .stack > *:nth-child(4) {
+    animation-delay: 0.2s;
+  }
+  .stack > *:nth-child(5) {
+    animation-delay: 0.26s;
+  }
+  .stack > *:nth-child(6) {
+    animation-delay: 0.32s;
+  }
+  .stack > *:nth-child(n + 7) {
+    animation-delay: 0.36s;
+  }
 
   /* cards within grids reveal with their own stagger */
   .stat-row > *,
@@ -2130,19 +2023,31 @@ html { scroll-behavior: smooth; }
   }
   .stat-row > *:nth-child(2),
   [class$="-grid"] > *:nth-child(2),
-  .table-section .table-row:nth-child(2) { animation-delay: 0.05s; }
+  .table-section .table-row:nth-child(2) {
+    animation-delay: 0.05s;
+  }
   .stat-row > *:nth-child(3),
   [class$="-grid"] > *:nth-child(3),
-  .table-section .table-row:nth-child(3) { animation-delay: 0.10s; }
+  .table-section .table-row:nth-child(3) {
+    animation-delay: 0.1s;
+  }
   .stat-row > *:nth-child(4),
   [class$="-grid"] > *:nth-child(4),
-  .table-section .table-row:nth-child(4) { animation-delay: 0.15s; }
+  .table-section .table-row:nth-child(4) {
+    animation-delay: 0.15s;
+  }
   [class$="-grid"] > *:nth-child(5),
-  .table-section .table-row:nth-child(5) { animation-delay: 0.20s; }
+  .table-section .table-row:nth-child(5) {
+    animation-delay: 0.2s;
+  }
   [class$="-grid"] > *:nth-child(6),
-  .table-section .table-row:nth-child(6) { animation-delay: 0.25s; }
+  .table-section .table-row:nth-child(6) {
+    animation-delay: 0.25s;
+  }
   [class$="-grid"] > *:nth-child(n + 7),
-  .table-section .table-row:nth-child(n + 7) { animation-delay: 0.30s; }
+  .table-section .table-row:nth-child(n + 7) {
+    animation-delay: 0.3s;
+  }
 
   .header-status .status-ok::before {
     animation: kata-pulse-dot 1.9s ease-out infinite;
@@ -2170,8 +2075,6 @@ html { scroll-behavior: smooth; }
   .dashboard-grid,
   .docs-layout,
   .arena-meta-grid,
-  .sn60-grid,
-  .sn60-detail-grid,
   .arena-visual-grid,
   .winner-grid,
   .doc-grid {
@@ -2215,10 +2118,16 @@ html { scroll-behavior: smooth; }
     flex-wrap: wrap;
     gap: 12px;
   }
-  .nav { flex-wrap: wrap; }
-  .stat-row { grid-template-columns: repeat(2, 1fr) !important; }
+  .nav {
+    flex-wrap: wrap;
+  }
+  .stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
   .table-head,
-  .table-row { font-size: 0.86rem; }
+  .table-row {
+    font-size: 0.86rem;
+  }
 }
 
 /* ============================================================================ */
@@ -2246,7 +2155,9 @@ html { scroll-behavior: smooth; }
   gap: 16px;
   min-width: 0;
 }
-.live-now-copy { min-width: 0; }
+.live-now-copy {
+  min-width: 0;
+}
 .live-now-copy strong {
   display: block;
   font-size: 1.05rem;
@@ -2315,8 +2226,12 @@ html { scroll-behavior: smooth; }
   text-transform: uppercase;
   color: var(--muted);
 }
-.live-stat-ok strong { color: var(--green); }
-.live-stat-bad strong { color: var(--red); }
+.live-stat-ok strong {
+  color: var(--green);
+}
+.live-stat-bad strong {
+  color: var(--red);
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .live-flag-on i {
@@ -2325,8 +2240,13 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 620px) {
-  .live-now { flex-direction: column; align-items: stretch; }
-  .live-now-queue { grid-template-columns: repeat(4, 1fr); }
+  .live-now {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .live-now-queue {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 /* ============================================================================ */
@@ -2353,8 +2273,17 @@ html { scroll-behavior: smooth; }
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
 }
-.how-step strong { display: block; margin-bottom: 6px; font-size: 18px; }
-.how-step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.how-step strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 18px;
+}
+.how-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
 
 /* --- Arena: centered king vs candidate hero --- */
 .arena-hero {
@@ -2367,8 +2296,13 @@ html { scroll-behavior: smooth; }
     radial-gradient(130% 80% at 50% -10%, rgba(185, 255, 93, 0.07), transparent 60%),
     linear-gradient(180deg, var(--panel-2), var(--panel));
 }
-.arena-hero-head { text-align: center; }
-.arena-hero-head h1 { margin: 0 auto; font-size: clamp(34px, 6vw, 62px); }
+.arena-hero-head {
+  text-align: center;
+}
+.arena-hero-head h1 {
+  margin: 0 auto;
+  font-size: clamp(34px, 6vw, 62px);
+}
 .arena-hero-head h1 em {
   font-style: normal;
   color: var(--green);
@@ -2385,25 +2319,49 @@ html { scroll-behavior: smooth; }
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
 }
-.arena-hero .battle { padding: 0; background: transparent; }
-
-.battle-side { align-content: start; }
-.battle-side-top { display: flex; align-items: center; gap: 12px; }
-.battle-crown { color: var(--green); font-size: 26px; line-height: 1; }
-.battle-side-won {
-  border-color: rgba(185, 255, 93, 0.5);
-  box-shadow: 0 0 0 1px rgba(185, 255, 93, 0.22), 0 18px 46px rgba(0, 0, 0, 0.4);
+.arena-hero .battle {
+  padding: 0;
+  background: transparent;
 }
 
-.battle-bars { display: grid; gap: 14px; width: 100%; padding: 0 12px; }
+.battle-side {
+  align-content: start;
+}
+.battle-side-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.battle-crown {
+  color: var(--green);
+  font-size: 26px;
+  line-height: 1;
+}
+.battle-side-won {
+  border-color: rgba(185, 255, 93, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(185, 255, 93, 0.22),
+    0 18px 46px rgba(0, 0, 0, 0.4);
+}
+
+.battle-bars {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  padding: 0 12px;
+}
 .battle-bar-head {
   display: flex;
   justify-content: space-between;
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
 }
-.battle-bar-head span { color: var(--muted); }
-.battle-bar-head strong { color: var(--text); }
+.battle-bar-head span {
+  color: var(--muted);
+}
+.battle-bar-head strong {
+  color: var(--text);
+}
 .battle-bar-track {
   height: 8px;
   margin-top: 7px;
@@ -2417,8 +2375,12 @@ html { scroll-behavior: smooth; }
   border-radius: inherit;
   transition: width 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.battle-bar-king .battle-bar-track i { background: linear-gradient(90deg, var(--green), var(--cyan)); }
-.battle-bar-candidate .battle-bar-track i { background: linear-gradient(90deg, var(--cyan), var(--green)); }
+.battle-bar-king .battle-bar-track i {
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+}
+.battle-bar-candidate .battle-bar-track i {
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}
 
 /* --- Winners: king cards --- */
 .winner-grid {
@@ -2437,9 +2399,19 @@ html { scroll-behavior: smooth; }
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(185, 255, 93, 0.05), var(--panel));
 }
-.winner-crown { font-size: 30px; line-height: 1; color: var(--green); }
-.winner-card .avatar { width: 74px; height: 74px; }
-.winner-card h2 { margin: 6px 0 0; font-size: 22px; }
+.winner-crown {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--green);
+}
+.winner-card .avatar {
+  width: 74px;
+  height: 74px;
+}
+.winner-card h2 {
+  margin: 6px 0 0;
+  font-size: 22px;
+}
 .winner-sub {
   margin: 0;
   color: var(--muted);
@@ -2474,22 +2446,50 @@ html { scroll-behavior: smooth; }
   color: var(--muted);
   font-size: 12px;
 }
-.winner-link { color: var(--green); font-weight: 700; white-space: nowrap; }
+.winner-link {
+  color: var(--green);
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 /* --- Leaderboard: medals + emphasis --- */
-.lb-rank { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.lb-num { color: var(--soft); font-variant-numeric: tabular-nums; }
-.lb-score { color: var(--green); font-variant-numeric: tabular-nums; }
-.lb-top { border-color: rgba(185, 255, 93, 0.2); }
-.lb-top-1 { background: linear-gradient(90deg, rgba(185, 255, 93, 0.09), transparent 60%); }
-.lb-top-2 { background: linear-gradient(90deg, rgba(244, 247, 239, 0.05), transparent 60%); }
-.lb-top-3 { background: linear-gradient(90deg, rgba(255, 138, 61, 0.06), transparent 60%); }
+.lb-rank {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.lb-num {
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+.lb-score {
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.lb-top {
+  border-color: rgba(185, 255, 93, 0.2);
+}
+.lb-top-1 {
+  background: linear-gradient(90deg, rgba(185, 255, 93, 0.09), transparent 60%);
+}
+.lb-top-2 {
+  background: linear-gradient(90deg, rgba(244, 247, 239, 0.05), transparent 60%);
+}
+.lb-top-3 {
+  background: linear-gradient(90deg, rgba(255, 138, 61, 0.06), transparent 60%);
+}
 
 /* --- responsive for the redesigned blocks --- */
 @media (max-width: 760px) {
-  .how-row { grid-template-columns: 1fr; }
-  .arena-hero .battle { grid-template-columns: 1fr; }
-  .arena-hero .battle-mid { order: -1; }
+  .how-row {
+    grid-template-columns: 1fr;
+  }
+  .arena-hero .battle {
+    grid-template-columns: 1fr;
+  }
+  .arena-hero .battle-mid {
+    order: -1;
+  }
 }
 
 /* ============================================================================ */
@@ -2497,7 +2497,9 @@ html { scroll-behavior: smooth; }
 /* ============================================================================ */
 
 /* Dashboard stat row adapts to any card count (no empty column). */
-.stat-row { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.stat-row {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
 
 /* Compact, centered battle so it doesn't stretch too wide/tall. */
 .arena-hero .battle {
@@ -2513,8 +2515,15 @@ html { scroll-behavior: smooth; }
   padding: 22px 18px;
   text-align: center;
 }
-.battle-side .avatar { width: 84px; height: 84px; }
-.battle-crown { font-size: 26px; line-height: 1; color: var(--green); }
+.battle-side .avatar {
+  width: 84px;
+  height: 84px;
+}
+.battle-crown {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--green);
+}
 .battle-role {
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
@@ -2527,7 +2536,9 @@ html { scroll-behavior: smooth; }
   line-height: 1.05;
   overflow-wrap: anywhere;
 }
-.battle-score { margin-top: 2px; }
+.battle-score {
+  margin-top: 2px;
+}
 .battle-score strong {
   display: block;
   color: var(--green);
@@ -2561,7 +2572,10 @@ html { scroll-behavior: smooth; }
   justify-content: space-between;
   gap: 16px;
 }
-.lane-card-head h2 { margin: 4px 0 0; font-size: 22px; }
+.lane-card-head h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+}
 .lane-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2575,11 +2589,27 @@ html { scroll-behavior: smooth; }
   border-radius: 12px;
   background: var(--panel);
 }
-.lane-metric span { color: var(--muted); font-size: 12px; }
-.lane-metric strong { color: var(--text); font-size: 18px; overflow-wrap: anywhere; }
-.lane-metric small { color: var(--muted); font-size: 11px; }
-.lane-metric-ok strong { color: var(--green); }
-.lane-notes { display: flex; flex-wrap: wrap; gap: 8px; }
+.lane-metric span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.lane-metric strong {
+  color: var(--text);
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.lane-metric small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.lane-metric-ok strong {
+  color: var(--green);
+}
+.lane-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .lane-notes span {
   padding: 6px 10px;
   border: 1px solid var(--line);
@@ -2589,7 +2619,9 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 760px) {
-  .lane-metrics { grid-template-columns: repeat(2, 1fr); }
+  .lane-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ============================================================================ */
@@ -2626,9 +2658,15 @@ html { scroll-behavior: smooth; }
   height: 116px;
   border-width: 3px;
 }
-.battle-crown { font-size: 30px; }
-.battle-side h2 { font-size: clamp(24px, 3.4vw, 34px); }
-.battle-score strong { font-size: 34px; }
+.battle-crown {
+  font-size: 30px;
+}
+.battle-side h2 {
+  font-size: clamp(24px, 3.4vw, 34px);
+}
+.battle-score strong {
+  font-size: 34px;
+}
 
 /* middle is now just the VS badge */
 .battle-mid {
@@ -2654,13 +2692,23 @@ html { scroll-behavior: smooth; }
 }
 
 /* six clean metrics read best as 3 columns */
-.lane-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lane-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 
 @media (max-width: 760px) {
-  .arena-hero .battle { grid-template-columns: 1fr; }
-  .arena-hero .battle-mid { order: -1; }
-  .battle-compare { grid-template-columns: 1fr; }
-  .lane-metrics { grid-template-columns: repeat(2, 1fr); }
+  .arena-hero .battle {
+    grid-template-columns: 1fr;
+  }
+  .arena-hero .battle-mid {
+    order: -1;
+  }
+  .battle-compare {
+    grid-template-columns: 1fr;
+  }
+  .lane-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ============================================================================ */
@@ -2670,17 +2718,25 @@ html { scroll-behavior: smooth; }
   font-size: clamp(30px, 5vw, 50px);
   white-space: nowrap;
 }
-.lane-metric-bad strong { color: var(--red); }
+.lane-metric-bad strong {
+  color: var(--red);
+}
 
 @media (max-width: 460px) {
-  .arena-hero-head h1 { white-space: normal; }
+  .arena-hero-head h1 {
+    white-space: normal;
+  }
 }
 
 /* ============================================================================ */
 /*  Arena v4 — smaller hero cards, borderless & clean                           */
 /* ============================================================================ */
-.arena-hero { padding: 22px 20px; }
-.arena-hero .battle-wrap { max-width: 860px; }
+.arena-hero {
+  padding: 22px 20px;
+}
+.arena-hero .battle-wrap {
+  max-width: 860px;
+}
 
 /* smaller duel cards, no visible borders — separated by background contrast */
 .battle-side {
@@ -2691,16 +2747,30 @@ html { scroll-behavior: smooth; }
   background: var(--panel-3);
 }
 .battle-side-candidate,
-.battle-side-king { border: 0; }
-.battle-side .avatar { width: 92px; height: 92px; border-width: 2px; }
-.battle-side h2 { font-size: clamp(20px, 2.8vw, 27px); }
-.battle-crown { font-size: 26px; }
-.battle-score strong { font-size: 27px; }
+.battle-side-king {
+  border: 0;
+}
+.battle-side .avatar {
+  width: 92px;
+  height: 92px;
+  border-width: 2px;
+}
+.battle-side h2 {
+  font-size: clamp(20px, 2.8vw, 27px);
+}
+.battle-crown {
+  font-size: 26px;
+}
+.battle-score strong {
+  font-size: 27px;
+}
 
 /* only the winner is accented — a soft ring, not a hard border */
 .battle-side-won {
   border: 0;
-  box-shadow: 0 0 0 1.5px rgba(185, 255, 93, 0.45), 0 14px 34px rgba(0, 0, 0, 0.34);
+  box-shadow:
+    0 0 0 1.5px rgba(185, 255, 93, 0.45),
+    0 14px 34px rgba(0, 0, 0, 0.34);
 }
 
 /* the comparison strip recedes behind the cards */
@@ -2735,7 +2805,9 @@ html { scroll-behavior: smooth; }
   border-color: var(--green);
   box-shadow: 0 0 0 5px rgba(185, 255, 93, 0.14);
 }
-.battle-side-won h2 { color: var(--green); }
+.battle-side-won h2 {
+  color: var(--green);
+}
 /* comparison bars stand on their own — no surrounding box */
 .battle-compare {
   border: 0;
@@ -2773,7 +2845,9 @@ html { scroll-behavior: smooth; }
   border-color: rgba(244, 247, 239, 0.2);
   box-shadow: none;
 }
-.battle-side-won h2 { color: var(--green); }
+.battle-side-won h2 {
+  color: var(--green);
+}
 
 /* shrink the score-bar strip below the cards */
 .battle-compare {
@@ -2782,21 +2856,31 @@ html { scroll-behavior: smooth; }
   gap: 16px;
   padding: 0;
 }
-.battle-bar-track { height: 6px; }
-.battle-bar-head { font-size: 11px; }
+.battle-bar-track {
+  height: 6px;
+}
+.battle-bar-head {
+  font-size: 11px;
+}
 
 /* ============================================================================ */
 /*  Arena v7 — bars sit right below the cards, at a comfortable size            */
 /* ============================================================================ */
-.arena-hero .battle-wrap { gap: 10px; }   /* bars tuck just below the cards */
+.arena-hero .battle-wrap {
+  gap: 10px;
+} /* bars tuck just below the cards */
 .battle-compare {
-  max-width: none;                         /* full width — not cramped */
+  max-width: none; /* full width — not cramped */
   margin: 0;
   gap: 22px;
   padding: 0;
 }
-.battle-bar-track { height: 9px; }
-.battle-bar-head { font-size: 12px; }
+.battle-bar-track {
+  height: 9px;
+}
+.battle-bar-head {
+  font-size: 12px;
+}
 
 /* ============================================================================ */
 /*  Arena v8 — trim the score-bar strip width a little                          */
@@ -2810,7 +2894,7 @@ html { scroll-behavior: smooth; }
 /*  Arena v9 — score-bar strip matches the hero-card row width exactly          */
 /* ============================================================================ */
 .battle-compare {
-  max-width: none;   /* fill the battle-wrap = same width as the two cards */
+  max-width: none; /* fill the battle-wrap = same width as the two cards */
   margin: 0;
 }
 
@@ -2821,13 +2905,21 @@ html { scroll-behavior: smooth; }
   grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
   gap: 14px;
 }
-.battle-compare > :nth-child(1) { grid-column: 1; }  /* king bar under king card */
-.battle-compare > :nth-child(2) { grid-column: 3; }  /* candidate bar under candidate card */
+.battle-compare > :nth-child(1) {
+  grid-column: 1;
+} /* king bar under king card */
+.battle-compare > :nth-child(2) {
+  grid-column: 3;
+} /* candidate bar under candidate card */
 
 @media (max-width: 760px) {
-  .battle-compare { grid-template-columns: 1fr; }
+  .battle-compare {
+    grid-template-columns: 1fr;
+  }
   .battle-compare > :nth-child(1),
-  .battle-compare > :nth-child(2) { grid-column: auto; }
+  .battle-compare > :nth-child(2) {
+    grid-column: auto;
+  }
 }
 
 /* ============================================================================ */
@@ -2909,8 +3001,7 @@ html { scroll-behavior: smooth; }
   border: 1px solid var(--line);
   border-radius: 20px;
   background:
-    linear-gradient(145deg, rgba(244, 247, 239, 0.055), transparent 58%),
-    rgba(16, 19, 16, 0.82);
+    linear-gradient(145deg, rgba(244, 247, 239, 0.055), transparent 58%), rgba(16, 19, 16, 0.82);
 }
 
 .battle-side-candidate {
@@ -2924,8 +3015,7 @@ html { scroll-behavior: smooth; }
 .battle-side-won {
   border-color: rgba(185, 255, 93, 0.58);
   background:
-    linear-gradient(145deg, rgba(185, 255, 93, 0.1), transparent 58%),
-    rgba(16, 19, 16, 0.88);
+    linear-gradient(145deg, rgba(185, 255, 93, 0.1), transparent 58%), rgba(16, 19, 16, 0.88);
 }
 
 .battle-side .avatar {
@@ -3064,8 +3154,7 @@ html { scroll-behavior: smooth; }
   border: 1px solid var(--line);
   border-radius: 16px;
   background:
-    linear-gradient(145deg, rgba(244, 247, 239, 0.045), transparent 58%),
-    rgba(8, 9, 8, 0.28);
+    linear-gradient(145deg, rgba(244, 247, 239, 0.045), transparent 58%), rgba(8, 9, 8, 0.28);
 }
 
 .arena-insight-ok {
@@ -3345,9 +3434,7 @@ html { scroll-behavior: smooth; }
   gap: 6px;
   padding: 14px 12px;
   border-color: rgba(244, 247, 239, 0.14);
-  background:
-    linear-gradient(180deg, rgba(244, 247, 239, 0.04), transparent),
-    rgba(8, 9, 8, 0.48);
+  background: linear-gradient(180deg, rgba(244, 247, 239, 0.04), transparent), rgba(8, 9, 8, 0.48);
 }
 
 .battle-decision strong {
@@ -3486,8 +3573,7 @@ html { scroll-behavior: smooth; }
   border-radius: 18px;
   padding: 16px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(37, 208, 171, 0.11), transparent 38%),
-    rgba(8, 9, 8, 0.28);
+    radial-gradient(circle at 0% 0%, rgba(37, 208, 171, 0.11), transparent 38%), rgba(8, 9, 8, 0.28);
 }
 
 .live-task-progress-head small {
@@ -4185,8 +4271,7 @@ html { scroll-behavior: smooth; }
   gap: 12px;
   border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
-    rgba(255, 255, 255, 0.026);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), rgba(255, 255, 255, 0.026);
 }
 
 .king-metric-support .metric-chip-value {
@@ -4292,8 +4377,7 @@ html { scroll-behavior: smooth; }
   border: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
-    rgba(255, 255, 255, 0.025);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), rgba(255, 255, 255, 0.025);
 }
 
 .decision-step-active {
@@ -4457,9 +4541,15 @@ html { scroll-behavior: smooth; }
   font-size: 28px;
 }
 
-.status-metric-ok strong { color: var(--green); }
-.status-metric-warn strong { color: var(--orange); }
-.status-metric-bad strong { color: var(--red); }
+.status-metric-ok strong {
+  color: var(--green);
+}
+.status-metric-warn strong {
+  color: var(--orange);
+}
+.status-metric-bad strong {
+  color: var(--red);
+}
 
 .submission-status-lists {
   display: grid;
@@ -4474,8 +4564,7 @@ html { scroll-behavior: smooth; }
   border-radius: 18px;
   padding: 20px;
   background:
-    linear-gradient(135deg, rgba(185, 255, 93, 0.08), transparent 42%),
-    rgba(16, 19, 16, 0.88);
+    linear-gradient(135deg, rgba(185, 255, 93, 0.08), transparent 42%), rgba(16, 19, 16, 0.88);
 }
 
 .proof-card-head,
@@ -4687,8 +4776,7 @@ html { scroll-behavior: smooth; }
   border: 1px solid rgba(244, 247, 239, 0.12);
   border-radius: 28px;
   background:
-    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent 42%),
-    rgba(16, 19, 16, 0.84);
+    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent 42%), rgba(16, 19, 16, 0.84);
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.2);
   animation: dashboard-reveal 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -4794,9 +4882,7 @@ html { scroll-behavior: smooth; }
   border-radius: 999px;
   padding: 8px 12px;
   color: var(--soft);
-  background:
-    linear-gradient(180deg, rgba(244, 247, 239, 0.055), transparent),
-    rgba(8, 9, 8, 0.24);
+  background: linear-gradient(180deg, rgba(244, 247, 239, 0.055), transparent), rgba(8, 9, 8, 0.24);
   font-size: 13px;
   font-weight: 700;
 }
@@ -4917,9 +5003,7 @@ html { scroll-behavior: smooth; }
 .dashboard-proof .proof-fact,
 .dashboard-ops .status-metric {
   border-color: rgba(244, 247, 239, 0.12);
-  background:
-    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
-    rgba(8, 9, 8, 0.34);
+  background: linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent), rgba(8, 9, 8, 0.34);
 }
 
 .dashboard-proof .proof-fact strong {
@@ -5062,8 +5146,7 @@ html { scroll-behavior: smooth; }
   overflow: hidden;
   border: 1px solid rgba(244, 247, 239, 0.1);
   border-radius: 18px;
-  background:
-    linear-gradient(145deg, rgba(11, 13, 11, 0.95), rgba(27, 32, 27, 0.88));
+  background: linear-gradient(145deg, rgba(11, 13, 11, 0.95), rgba(27, 32, 27, 0.88));
 }
 
 .asset-image::after {
@@ -5083,7 +5166,9 @@ html { scroll-behavior: smooth; }
   min-height: inherit;
   object-fit: cover;
   transform: scale(1.01);
-  transition: transform 260ms ease, filter 260ms ease;
+  transition:
+    transform 260ms ease,
+    filter 260ms ease;
 }
 
 .dashboard-hero-visual .asset-image img {
@@ -5121,7 +5206,12 @@ html { scroll-behavior: smooth; }
   border-radius: 20px;
   background:
     radial-gradient(circle at 50% -12%, rgba(185, 255, 93, 0.18), transparent 36%),
-    linear-gradient(180deg, rgba(244, 247, 239, 0.06), rgba(244, 247, 239, 0.018) 44%, rgba(8, 9, 8, 0.22)),
+    linear-gradient(
+      180deg,
+      rgba(244, 247, 239, 0.06),
+      rgba(244, 247, 239, 0.018) 44%,
+      rgba(8, 9, 8, 0.22)
+    ),
     rgba(16, 19, 16, 0.88);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.26);
   scroll-snap-align: start;
@@ -5143,7 +5233,9 @@ html { scroll-behavior: smooth; }
 
 .king-card:hover {
   border-color: rgba(185, 255, 93, 0.38);
-  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(185, 255, 93, 0.07);
+  box-shadow:
+    0 24px 58px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(185, 255, 93, 0.07);
   transform: translateY(-3px);
 }
 
@@ -5183,7 +5275,9 @@ html { scroll-behavior: smooth; }
   width: 62px;
   height: 62px;
   border-color: rgba(185, 255, 93, 0.46);
-  box-shadow: 0 0 0 7px rgba(185, 255, 93, 0.07), 0 14px 34px rgba(0, 0, 0, 0.26);
+  box-shadow:
+    0 0 0 7px rgba(185, 255, 93, 0.07),
+    0 14px 34px rgba(0, 0, 0, 0.26);
 }
 
 .king-card-identity h1 {
@@ -5246,9 +5340,7 @@ html { scroll-behavior: smooth; }
   padding: 10px;
   border-color: rgba(244, 247, 239, 0.12);
   border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent),
-    rgba(8, 9, 8, 0.3);
+  background: linear-gradient(180deg, rgba(244, 247, 239, 0.045), transparent), rgba(8, 9, 8, 0.3);
 }
 
 .king-card-facts .proof-fact strong {
@@ -5302,17 +5394,13 @@ html { scroll-behavior: smooth; }
 .king-card-action-primary {
   border-color: rgba(185, 255, 93, 0.72);
   color: #071008;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent),
-    var(--green);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent), var(--green);
   box-shadow: 0 10px 24px rgba(185, 255, 93, 0.12);
 }
 
 .king-card-action-primary:hover {
   color: #071008;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent),
-    #caff70;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent), #caff70;
 }
 
 .status-list-card {
@@ -5652,8 +5740,7 @@ html { scroll-behavior: smooth; }
   padding: 18px;
   border-bottom: 1px solid var(--line);
   background:
-    linear-gradient(90deg, rgba(37, 208, 171, 0.08), transparent 58%),
-    rgba(8, 9, 8, 0.36);
+    linear-gradient(90deg, rgba(37, 208, 171, 0.08), transparent 58%), rgba(8, 9, 8, 0.36);
 }
 .round-screening-head {
   display: grid;
@@ -5817,17 +5904,31 @@ html { scroll-behavior: smooth; }
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
 }
-.round-verdict strong { display: block; font-size: 15px; }
-.round-verdict p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-.round-verdict-crown { font-size: 26px; line-height: 1; }
+.round-verdict strong {
+  display: block;
+  font-size: 15px;
+}
+.round-verdict p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.round-verdict-crown {
+  font-size: 26px;
+  line-height: 1;
+}
 .round-verdict-win {
   background: rgba(185, 255, 93, 0.08);
 }
-.round-verdict-win .round-verdict-crown { color: var(--green); }
+.round-verdict-win .round-verdict-crown {
+  color: var(--green);
+}
 .round-verdict-hold {
   background: rgba(139, 149, 138, 0.08);
 }
-.round-verdict-hold .round-verdict-crown { color: var(--muted); }
+.round-verdict-hold .round-verdict-crown {
+  color: var(--muted);
+}
 
 /* round table grids */
 .round-grid {
@@ -5885,11 +5986,25 @@ html { scroll-behavior: smooth; }
   background: var(--panel-2);
   white-space: nowrap;
 }
-.rstat-pending   { color: #5aa2ff; border-color: rgba(90, 162, 255, 0.45); }
-.rstat-executing { color: #f5c542; border-color: rgba(245, 197, 66, 0.5); }
-.rstat-winner    { color: var(--green); border-color: rgba(185, 255, 93, 0.45); }
-.rstat-losing    { color: var(--muted); }
-.rstat-invalid   { color: var(--red); border-color: rgba(255, 95, 90, 0.45); }
+.rstat-pending {
+  color: #5aa2ff;
+  border-color: rgba(90, 162, 255, 0.45);
+}
+.rstat-executing {
+  color: #f5c542;
+  border-color: rgba(245, 197, 66, 0.5);
+}
+.rstat-winner {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.45);
+}
+.rstat-losing {
+  color: var(--muted);
+}
+.rstat-invalid {
+  color: var(--red);
+  border-color: rgba(255, 95, 90, 0.45);
+}
 .rstat-screening-failed {
   color: #ffb2ad;
   border-color: rgba(255, 95, 90, 0.55);
@@ -5905,10 +6020,21 @@ html { scroll-behavior: smooth; }
   border-color: rgba(37, 208, 171, 0.5);
   background: rgba(37, 208, 171, 0.08);
 }
-.rstat-stale     { color: #ff8a4c; border-color: rgba(255, 138, 76, 0.45); }
-.rstat-hold      { color: #b18cff; border-color: rgba(177, 140, 255, 0.45); }
-.rstat-king      { color: #ffd479; border-color: rgba(255, 212, 121, 0.5); }
-.rstat-neutral   { color: var(--muted); }
+.rstat-stale {
+  color: #ff8a4c;
+  border-color: rgba(255, 138, 76, 0.45);
+}
+.rstat-hold {
+  color: #b18cff;
+  border-color: rgba(177, 140, 255, 0.45);
+}
+.rstat-king {
+  color: #ffd479;
+  border-color: rgba(255, 212, 121, 0.5);
+}
+.rstat-neutral {
+  color: var(--muted);
+}
 
 /* beats-king badge */
 .beat-badge {
@@ -5920,9 +6046,18 @@ html { scroll-behavior: smooth; }
   font-size: 12px;
   border: 1px solid var(--line);
 }
-.beat-yes { color: var(--green); border-color: rgba(185, 255, 93, 0.45); background: rgba(185, 255, 93, 0.08); }
-.beat-no { color: var(--muted); }
-.beat-pending { color: var(--muted); border-color: transparent; }
+.beat-yes {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.45);
+  background: rgba(185, 255, 93, 0.08);
+}
+.beat-no {
+  color: var(--muted);
+}
+.beat-pending {
+  color: var(--muted);
+  border-color: transparent;
+}
 
 .screening-failure-panel {
   display: grid;
@@ -5934,8 +6069,7 @@ html { scroll-behavior: smooth; }
   border: 1px solid rgba(255, 95, 90, 0.34);
   border-radius: 22px;
   background:
-    radial-gradient(circle at 0 0, rgba(255, 95, 90, 0.18), transparent 34%),
-    rgba(55, 12, 14, 0.44);
+    radial-gradient(circle at 0 0, rgba(255, 95, 90, 0.18), transparent 34%), rgba(55, 12, 14, 0.44);
 }
 
 .screening-failure-panel strong {
@@ -6012,7 +6146,6 @@ html { scroll-behavior: smooth; }
   .round-screening-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
 }
 
 /* live round progress bars */
@@ -6075,23 +6208,12 @@ html { scroll-behavior: smooth; }
   background: var(--panel-2);
 }
 
-
-
 .duel-detail-title {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
-
-
-
-
-
-
-
-
-
 
 /* full-page per-PR duel view */
 .duel-page {
@@ -6134,10 +6256,21 @@ html { scroll-behavior: smooth; }
   gap: 12px;
   flex-wrap: wrap;
 }
-.duel-task-bar-head > span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
-.duel-task-bar-head strong { font-size: 15px; }
-.duel-task-bar-head small { color: var(--muted); }
-.duel-task-track { height: 8px; }
+.duel-task-bar-head > span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.duel-task-bar-head strong {
+  font-size: 15px;
+}
+.duel-task-bar-head small {
+  color: var(--muted);
+}
+.duel-task-track {
+  height: 8px;
+}
 
 /* king-only detail: per-problem grid (3 columns) */
 .king-problem-grid {

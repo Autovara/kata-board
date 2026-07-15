@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  githubRequest,
-  loadGithubCliLeaderboard,
-  parseGithubTokenList
-} from "./github.mjs";
+import { githubRequest, loadGithubCliLeaderboard, parseGithubTokenList } from "./github.mjs";
 
 test("githubRequest retries public reads without a rejected token", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -19,12 +15,12 @@ test("githubRequest retries public reads without a rejected token", async (t) =>
       return new Response(JSON.stringify({ message: "bad credentials" }), {
         status: 403,
         statusText: "Forbidden",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     }
     return new Response(JSON.stringify([{ number: 76 }]), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   };
 
@@ -44,7 +40,7 @@ test("githubRequest rotates configured read tokens", async (t) => {
     authorizations.push(options.headers?.Authorization || null);
     return new Response(JSON.stringify([{ number: authorizations.length }]), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   };
 
@@ -60,7 +56,7 @@ test("parseGithubTokenList trims comma-separated read tokens", () => {
   assert.deepEqual(parseGithubTokenList(" read-a,read-b, , read-c "), [
     "read-a",
     "read-b",
-    "read-c"
+    "read-c",
   ]);
 });
 
@@ -75,7 +71,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       url: "https://github.com/Autovara/kata/pull/76",
       author: { login: "jonathanchang31" },
       labels: [{ name: "kata:winner:sn60__bitsec" }],
-      files: [{ path: "submissions/sn60__bitsec/miner/jonathan-20260707-01/agent.py" }]
+      files: [{ path: "submissions/sn60__bitsec/miner/jonathan-20260707-01/agent.py" }],
     },
     {
       number: 84,
@@ -86,7 +82,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       url: "https://github.com/Autovara/kata/pull/84",
       author: { login: "davion-knight" },
       labels: [{ name: "kata:losing" }],
-      files: [{ path: "submissions/sn60__bitsec/miner/davion-knight-20260707-01/agent.py" }]
+      files: [{ path: "submissions/sn60__bitsec/miner/davion-knight-20260707-01/agent.py" }],
     },
     {
       number: 85,
@@ -97,7 +93,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       url: "https://github.com/Autovara/kata/pull/85",
       author: { login: "reviewer" },
       labels: [{ name: "kata:review" }],
-      files: [{ path: "submissions/sn60__bitsec/miner/reviewer-20260707-01/agent.py" }]
+      files: [{ path: "submissions/sn60__bitsec/miner/reviewer-20260707-01/agent.py" }],
     },
     {
       number: 80,
@@ -108,13 +104,13 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
       url: "https://github.com/Autovara/kata/pull/80",
       author: { login: "maintainer" },
       labels: [],
-      files: [{ path: "README.md" }]
-    }
+      files: [{ path: "README.md" }],
+    },
   ]);
 
   const leaderboard = loadGithubCliLeaderboard({
     repoSlug: "Autovara/kata",
-    run: () => output
+    run: () => output,
   });
 
   assert.equal(leaderboard.source, "github-cli");
@@ -131,10 +127,7 @@ test("loadGithubCliLeaderboard ranks all miner PR contributors from gh output", 
   assert.equal(reviewer.recentPulls[0].statusLabel, "kata:review");
   assert.equal(davion.closedSubmissions, 1);
   assert.equal(davion.losingSubmissions, 1);
-  assert.equal(
-    leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,
-    "jonathanchang31"
-  );
+  assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].author, "jonathanchang31");
 });
 
 test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a historical win", () => {
@@ -148,7 +141,7 @@ test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a histor
       url: "https://github.com/Autovara/kata/pull/98",
       author: { login: "kiannidev" },
       labels: [{ name: "kata:defeat" }],
-      files: [{ path: "submissions/sn60__bitsec/miner/kianni-20260708-01/agent.py" }]
+      files: [{ path: "submissions/sn60__bitsec/miner/kianni-20260708-01/agent.py" }],
     },
     {
       number: 124,
@@ -159,13 +152,13 @@ test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a histor
       url: "https://github.com/Autovara/kata/pull/124",
       author: { login: "Daedalus-Icarus" },
       labels: [{ name: "kata:winner:sn60__bitsec" }],
-      files: [{ path: "submissions/sn60__bitsec/miner/daedalus-20260710-01/agent.py" }]
-    }
+      files: [{ path: "submissions/sn60__bitsec/miner/daedalus-20260710-01/agent.py" }],
+    },
   ]);
 
   const leaderboard = loadGithubCliLeaderboard({
     repoSlug: "Autovara/kata",
-    run: () => output
+    run: () => output,
   });
 
   const kianni = leaderboard.rows.find((row) => row.author === "kiannidev");
@@ -174,9 +167,6 @@ test("loadGithubCliLeaderboard counts a dethroned king (kata:defeat) as a histor
   assert.equal(kianni.wins, 1, "dethroned king should still have 1 win");
   assert.equal(daedalus.wins, 1);
   // But the current king is the kata:winner PR, not the dethroned (kata:defeat) one.
-  assert.equal(
-    leaderboard.latestLaneWinners["sn60__bitsec::miner"].author,
-    "Daedalus-Icarus"
-  );
+  assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].author, "Daedalus-Icarus");
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].pullNumber, 124);
 });

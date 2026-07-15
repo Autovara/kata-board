@@ -23,7 +23,7 @@ export function createAuthorRow(author) {
     gittensorScore: 0,
     winnerPulls: [],
     lastActivityAt: null,
-    recentPulls: []
+    recentPulls: [],
   };
 }
 
@@ -52,7 +52,7 @@ export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
         gittensorBaseScore: entry.wins,
         gittensorScore,
         score: gittensorScore,
-        latestWinnerAt
+        latestWinnerAt,
       };
     })
     .sort(
@@ -83,16 +83,14 @@ const KATA_GITTENSOR_CONFIG = {
     "kata:losing": 0.0,
     "kata:stale": 0.0,
     "kata:hold": 0.0,
-    "kata:evaluating": 0.0
-  }
+    "kata:evaluating": 0.0,
+  },
 };
 
 export function calculateKataGittensorScore(entry, now = new Date()) {
   const pulls = Array.isArray(entry?.winnerPulls) ? entry.winnerPulls : [];
   return Number(
-    pulls
-      .reduce((total, pull) => total + calculateKataWinnerPullScore(pull, now), 0)
-      .toFixed(4)
+    pulls.reduce((total, pull) => total + calculateKataWinnerPullScore(pull, now), 0).toFixed(4)
   );
 }
 
@@ -131,12 +129,10 @@ function calculateKataTimeDecay(mergedAt, now) {
 
 function resolveKataLabelMultiplier(labels) {
   const normalized = normalizeLabelNames(labels);
-  const candidateLabels = normalized.length ? normalized : ["kata:winner:sn60__bitsec"];
+  const candidateLabels = normalized;
   const candidates = [];
   for (const label of candidateLabels) {
-    for (const [pattern, multiplier] of Object.entries(
-      KATA_GITTENSOR_CONFIG.labelMultipliers
-    )) {
+    for (const [pattern, multiplier] of Object.entries(KATA_GITTENSOR_CONFIG.labelMultipliers)) {
       if (labelMatchesPattern(label, pattern)) {
         candidates.push([label, multiplier]);
       }
@@ -151,7 +147,11 @@ function resolveKataLabelMultiplier(labels) {
 
 function normalizeLabelNames(labels) {
   return (Array.isArray(labels) ? labels : [])
-    .map((label) => String(label?.name || label || "").trim().toLowerCase())
+    .map((label) =>
+      String(label?.name || label || "")
+        .trim()
+        .toLowerCase()
+    )
     .filter(Boolean);
 }
 
@@ -164,8 +164,10 @@ function labelMatchesPattern(label, pattern) {
 }
 
 function latestWinnerTimestamp(pulls) {
-  return (Array.isArray(pulls) ? pulls : [])
-    .map((pull) => pull?.mergedAt)
-    .filter(Boolean)
-    .sort((left, right) => new Date(right) - new Date(left))[0] || null;
+  return (
+    (Array.isArray(pulls) ? pulls : [])
+      .map((pull) => pull?.mergedAt)
+      .filter(Boolean)
+      .sort((left, right) => new Date(right) - new Date(left))[0] || null
+  );
 }

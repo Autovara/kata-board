@@ -114,17 +114,10 @@ export default function App() {
   }, []);
 
   const payload = state.payload;
-  const lanes = payload?.lanes || [];
-
-  useEffect(() => {
-    if (!lanes.length) {
-      setSelectedLaneId(null);
-      return;
-    }
-    if (!selectedLaneId || !lanes.some((lane) => lane.id === selectedLaneId)) {
-      setSelectedLaneId(lanes[0].id);
-    }
-  }, [lanes, selectedLaneId]);
+  // Memoize so `lanes` is a stable reference between fetches (a fresh `[]` each render would churn
+  // the hooks below). selectedLaneId is only the user's explicit pick; selectedLane derives a
+  // fallback, so no effect is needed to auto-select (which would setState during render).
+  const lanes = useMemo(() => payload?.lanes ?? [], [payload]);
 
   const selectedLane = useMemo(
     () => lanes.find((lane) => lane.id === selectedLaneId) || lanes[0] || null,

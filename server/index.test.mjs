@@ -33,3 +33,16 @@ test("streamStamp tolerates a missing round or progress", () => {
     streamStamp({ generatedAt: "t", round: null })
   );
 });
+
+test("streamStamp reflects per-lane byLane progress so multi-lane rounds stream", () => {
+  const generatedAt = "2026-07-13T00:00:00.000Z";
+  const first = streamStamp({
+    generatedAt,
+    byLane: { "l1:miner": { round: { liveProgress: { king: { done: 1, total: 7 } } } } }
+  });
+  const second = streamStamp({
+    generatedAt,
+    byLane: { "l1:miner": { round: { liveProgress: { king: { done: 2, total: 7 } } } } }
+  });
+  assert.notEqual(first, second);
+});

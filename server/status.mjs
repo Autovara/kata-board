@@ -79,6 +79,26 @@ function loadLaneCompetition(kataRoot, stateDir, laneId) {
 // liveProgress refresh propagates to both. Multiple lanes: each reads its own round + public proof
 // from its lane-scoped bot state / public-results; the leaderboard and activity stay the shared
 // cross-lane view for now.
+// Refresh each lane's live round progress on a cache hit. The sole lane's byLane entry shares the
+// top-level round object (already refreshed by the caller); additional lanes read their own
+// lane-scoped state/<laneId>/round-progress.json so their live progress also advances every frame.
+export function refreshByLaneRoundProgress(status, roots) {
+  if (!status || !status.byLane) {
+    return;
+  }
+  const stateDir = path.dirname(roots.roundStatusPath);
+  for (const lane of status.lanes || []) {
+    const entry = status.byLane[lane.id];
+    if (!entry || !entry.round || entry.round === status.round) {
+      continue;
+    }
+    entry.round.liveProgress = loadRoundProgress(
+      path.join(stateDir, lane.laneId, "round-progress.json"),
+      roots.kataRoot
+    );
+  }
+}
+
 export function buildByLane(lanes, fields, context = {}) {
   if (!Array.isArray(lanes) || !lanes.length) {
     return {};
@@ -117,6 +137,7 @@ export async function loadBoardStatus(env) {
         roots.kataRoot
       );
     }
+    refreshByLaneRoundProgress(cachedStatus, roots);
     return cachedStatus;
   }
   const validator = await loadValidatorStatus(runtimeEnv, roots);

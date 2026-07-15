@@ -6,7 +6,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { buildByLane, loadBoardStatus, loadPublicProof } from "./status.mjs";
+import {
+  buildByLane,
+  loadBoardStatus,
+  loadPublicProof,
+  refreshByLaneRoundProgress
+} from "./status.mjs";
 
 function writeJson(dir, name, payload) {
   fs.mkdirSync(dir, { recursive: true });
@@ -206,6 +211,40 @@ test("public proof resolves the round proof relative to kataRoot, incl. a per-la
   const proof = loadPublicProof(path.join(laneDir, "current.json"), root);
   assert.equal(proof.selectedProjectCount, 2);
   assert.deepEqual(proof.selectedProjects, ["p1", "p2"]);
+});
+
+test("refreshByLaneRoundProgress reloads each lane's progress from its lane-scoped state", () => {
+  const kataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-laneprog-"));
+  const stateDir = path.join(kataRoot, "state");
+  writeJson(path.join(stateDir, "b__y"), "round-progress.json", {
+    state: "executing",
+    run_id: "b-round-1"
+  });
+  const status = {
+    round: null, // multi-lane: no top-level round
+    lanes: [{ id: "b__y:miner", laneId: "b__y" }],
+    byLane: { "b__y:miner": { round: { liveProgress: { runId: "STALE" } } } }
+  };
+  refreshByLaneRoundProgress(status, {
+    roundStatusPath: path.join(stateDir, "round-status.json"),
+    kataRoot
+  });
+  assert.equal(status.byLane["b__y:miner"].round.liveProgress.runId, "b-round-1");
+});
+
+test("refreshByLaneRoundProgress skips the sole lane that shares the top-level round object", () => {
+  const sharedRound = { liveProgress: { runId: "top" } };
+  const status = {
+    round: sharedRound,
+    lanes: [{ id: "a:miner", laneId: "a" }],
+    byLane: { "a:miner": { round: sharedRound } }
+  };
+  // Nonexistent paths: it must skip (entry.round === status.round) and not read anything.
+  refreshByLaneRoundProgress(status, {
+    roundStatusPath: "/nonexistent/round-status.json",
+    kataRoot: "/nonexistent"
+  });
+  assert.equal(status.byLane["a:miner"].round.liveProgress.runId, "top");
 });
 
 test("byLane reads each lane's own round and proof when there are multiple lanes", () => {

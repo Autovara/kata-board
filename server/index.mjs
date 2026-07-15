@@ -143,7 +143,20 @@ if (isMainModule) {
 // round progress, which changes on a cache hit while generatedAt does not.
 export function streamStamp(payload) {
   const progress = payload?.round?.liveProgress;
-  return `${payload?.generatedAt ?? ""}|${progress ? JSON.stringify(progress) : ""}`;
+  // Include EACH lane's live progress so the SSE stream also pushes multi-lane round updates
+  // (byLane progress advances on a cache hit while generatedAt does not).
+  const byLane = payload?.byLane;
+  let laneProgress = "";
+  if (byLane && typeof byLane === "object") {
+    laneProgress = Object.keys(byLane)
+      .sort()
+      .map((id) => {
+        const p = byLane[id]?.round?.liveProgress;
+        return `${id}:${p ? JSON.stringify(p) : ""}`;
+      })
+      .join("|");
+  }
+  return `${payload?.generatedAt ?? ""}|${progress ? JSON.stringify(progress) : ""}|${laneProgress}`;
 }
 
 function streamIntervalMs(env) {

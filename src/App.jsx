@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import GridBackground from "./GridBackground.jsx";
 import {
-  KATA_IMAGES,
   PAGES,
   POLL_INTERVAL_MS,
   ROUND_STATE_BANNER,
@@ -193,7 +192,44 @@ export default function App() {
           <Docs selectedLane={selectedLane} kataRepoSlug={payload.publicLinks?.kataRepo} />
         ) : null}
       </main>
+      <Footer kataRepoSlug={payload?.publicLinks?.kataRepo} onNavigate={navigate} />
     </div>
+  );
+}
+
+function Footer({ kataRepoSlug, onNavigate }) {
+  const year = new Date().getFullYear();
+  const repo = kataRepoSlug || "Autovara/kata";
+  return (
+    <footer className="site-footer">
+      <div className="site-footer-inner">
+        <div className="site-footer-brand">
+          <span className="site-footer-mark">Kata</span>
+          <p>Open competition that builds the strongest miner agent for every subnet.</p>
+          <span className="site-footer-tag">Built on Gittensor · Bittensor SN74</span>
+        </div>
+        <nav className="site-footer-nav" aria-label="Footer">
+          <div className="site-footer-col">
+            <h4>Explore</h4>
+            <button type="button" onClick={() => onNavigate("/arena")}>Arena</button>
+            <button type="button" onClick={() => onNavigate("/winners")}>Winners</button>
+            <button type="button" onClick={() => onNavigate("/leaderboard")}>Leaderboard</button>
+          </div>
+          <div className="site-footer-col">
+            <h4>Build</h4>
+            <button type="button" onClick={() => onNavigate("/docs")}>Submit an agent</button>
+            <a href={`https://github.com/${repo}`} target="_blank" rel="noreferrer">GitHub</a>
+            <a href={`https://github.com/${repo}/blob/main/README.md`} target="_blank" rel="noreferrer">
+              Docs
+            </a>
+          </div>
+        </nav>
+      </div>
+      <div className="site-footer-bottom">
+        <span>© {year} Kata</span>
+        <span>MIT licensed</span>
+      </div>
+    </footer>
   );
 }
 
@@ -279,9 +315,11 @@ function Dashboard({ payload, lanes, selectedLane, validator, onNavigate, onSele
 
   return (
     <div className="dashboard-page">
-      <DashboardHero lanes={lanes} onNavigate={onNavigate} />
+      <DashboardHero onNavigate={onNavigate} />
 
       <DashboardStats payload={payload} lanes={lanes} />
+
+      <DashboardWorkflow />
 
       <DashboardSubnets
         payload={payload}
@@ -290,8 +328,6 @@ function Dashboard({ payload, lanes, selectedLane, validator, onNavigate, onSele
         onNavigate={onNavigate}
         onSelectLane={onSelectLane}
       />
-
-      <DashboardFlow onNavigate={onNavigate} />
 
       <DashboardOperations
         latestStatus={latestStatus}
@@ -302,26 +338,38 @@ function Dashboard({ payload, lanes, selectedLane, validator, onNavigate, onSele
   );
 }
 
-function DashboardHero({ lanes, onNavigate }) {
-  const subnetCount = Array.isArray(lanes) ? lanes.length : 0;
+function DashboardHero({ onNavigate }) {
   return (
     <section className="dash-hero">
-      <p className="kicker">Built on Gittensor · Bittensor SN74</p>
-      <h1 className="dash-hero-title">
-        Kata builds the <span className="dash-mark">strongest agent</span> for every subnet.
-      </h1>
-      <p className="dash-hero-sub">
-        Open competition scores every challenger against the reigning king on the same benchmark.
-        The proven winner is merged and published as the new king — one engine, driving{" "}
-        {subnetCount === 1 ? "one subnet" : `${subnetCount || "many"} subnets`} toward one-click mining.
-      </p>
-      <div className="dash-hero-actions">
-        <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
-          Watch the Arena
-        </button>
-        <button type="button" className="button" onClick={() => onNavigate("/docs")}>
-          Submit an agent
-        </button>
+      <div className="dash-hero-copy">
+        <p className="kicker">Built with Gittensor · Bittensor SN74</p>
+        <h1 className="dash-hero-title">
+          <span>Kata is an</span>{" "}
+          <span className="dash-hero-mark">optimization engine</span>{" "}
+          <span>for miner agents</span>
+        </h1>
+        <p className="dash-hero-sub">
+          Kata runs open competition to build stronger miner agents for Bittensor subnets, promotes
+          the best proven agent as king, and moves mining toward a simple one-click experience.
+        </p>
+        <div className="dash-hero-actions">
+          <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
+            Watch the Arena
+          </button>
+          <button type="button" className="button" onClick={() => onNavigate("/docs")}>
+            Submit an agent
+          </button>
+        </div>
+      </div>
+      <div className="dash-hero-visual">
+        <img
+          className="dash-hero-image"
+          src="/dashboard-hero.png"
+          alt="Kata competition arena"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
       </div>
     </section>
   );
@@ -455,54 +503,30 @@ function SubnetMetric({ label, value }) {
   );
 }
 
-function DashboardFlow({ onNavigate }) {
+function DashboardWorkflow() {
+  const stages = [
+    { n: "01", title: "Submit", text: "A contributor opens one PR that adds a single agent." },
+    { n: "02", title: "Screen", text: "kata-bot checks the PR and labels it pending — no scoring yet." },
+    { n: "03", title: "Round", text: "On a schedule, every pending agent is scored at once." },
+    { n: "04", title: "Score", text: "King versus candidates on the same problems, in the sealed room." },
+    { n: "05", title: "Promote", text: "The top agent that beats the king is merged as the new king." },
+  ];
   return (
-    <section className="dashboard-flow">
-      <div className="dashboard-section-head">
-        <span className="showcase-kicker">How Kata works</span>
-        <h2>One PR enters. One verified king comes out.</h2>
+    <section className="dash-workflow">
+      <div className="dash-section-head">
+        <span className="showcase-kicker">How it works</span>
+        <h2>One PR in, one verified king out.</h2>
       </div>
-      <div className="dashboard-flow-grid">
-        <DashboardFlowCard
-          image={KATA_IMAGES.vulnerabilityFinding}
-          step="01"
-          title="Submit one agent PR"
-          text="A contributor adds exactly one miner agent bundle and follows the submission rules."
-          action="Submission guide"
-          onClick={() => onNavigate("/docs")}
-        />
-        <DashboardFlowCard
-          image={KATA_IMAGES.benchmarkProjects}
-          step="02"
-          title="Compete on the same set"
-          text="Qualified agents are scored against the current king on identical sampled problems."
-          action="Open arena"
-          onClick={() => onNavigate("/arena")}
-        />
-        <DashboardFlowCard
-          image={KATA_IMAGES.currentKing}
-          step="03"
-          title="Promote the strongest king"
-          text="The top challenger that objectively beats the king is merged and published."
-          action="See winners"
-          onClick={() => onNavigate("/winners")}
-        />
-      </div>
+      <ol className="dash-pipeline">
+        {stages.map((stage) => (
+          <li className="dash-stage" key={stage.n}>
+            <span className="dash-stage-n">{stage.n}</span>
+            <h3>{stage.title}</h3>
+            <p>{stage.text}</p>
+          </li>
+        ))}
+      </ol>
     </section>
-  );
-}
-
-function DashboardFlowCard({ image, step, title, text, action, onClick }) {
-  return (
-    <article className="dashboard-flow-card">
-      <AssetImage src={image} alt="" tone="flow" />
-      <span>{step}</span>
-      <h3>{title}</h3>
-      <p>{text}</p>
-      <button type="button" className="showcase-link" onClick={onClick}>
-        {action}
-      </button>
-    </article>
   );
 }
 
@@ -524,14 +548,6 @@ function DashboardOperations({ latestStatus, submissionStatus, generatedAt }) {
         <SubmissionStatusPanel submissionStatus={submissionStatus} />
       </div>
     </section>
-  );
-}
-
-function AssetImage({ src, alt, tone = "default" }) {
-  return (
-    <figure className={`asset-image asset-image-${tone}`}>
-      <img src={src} alt={alt} loading="lazy" />
-    </figure>
   );
 }
 

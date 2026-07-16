@@ -65,21 +65,37 @@ export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
     );
 }
 
+// Mirrors gittensor's authoritative Autovara/kata entry in
+// gittensor/validator/weights/master_repositories.json (entrius/gittensor),
+// as of PR #1638: subnet-specific winner tiers and kata:defeat:* = 0.2.
+// Label resolution takes the MAX matching multiplier, so kata:winner:sn60__bitsec
+// resolves to 2.0 (not the 1.0 kata:winner:* fallback).
+//
+// This reproduces gittensor's per-PR EARNED score (fixed_base_score × label ×
+// time_decay). It intentionally does NOT model the parts of the real mechanism
+// the board has no inputs for: the 7-day pr_lookback window, the eligibility
+// gate, open-PR collateral/spam, and the maintainer_cut (0.5) + emission-share
+// normalization. So this is a relative earned-score estimate, not the on-chain
+// emission weight.
 const KATA_GITTENSOR_CONFIG = {
   fixedBaseScore: 1.0,
   timeDecayGraceHours: 0,
-  timeDecayMidpointDays: 2,
-  timeDecaySteepness: 1.0,
+  timeDecayMidpointDays: 3,
+  timeDecaySteepness: 0.75,
   timeDecayMinMultiplier: 0.05,
   defaultLabelMultiplier: 0.0,
   labelMultipliers: {
+    "kata:winner:sn60__bitsec": 2.0,
+    "kata:winner:sn22__desearch": 3.0,
     "kata:winner:*": 1.0,
-    "kata:defeat:*": 0.25,
+    "kata:defeat:*": 0.2,
+    "kata:pending": 0.0,
+    "kata:review": 0.0,
+    "kata:executing": 0.0,
     "kata:invalid": 0.0,
     "kata:losing": 0.0,
-    "kata:stale": 0.0,
     "kata:hold": 0.0,
-    "kata:review": 0.0,
+    "kata:stale": 0.0,
   },
 };
 

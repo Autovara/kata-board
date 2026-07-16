@@ -17,7 +17,7 @@ test("calculates Kata score from a subnet-qualified winner label and Gittensor d
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 0.8808);
+  assert.equal(score, 1.8093);
 });
 
 test("uses the subnet-qualified defeat multiplier for a dethroned king", () => {
@@ -34,7 +34,23 @@ test("uses the subnet-qualified defeat multiplier for a dethroned king", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 0.2202);
+  assert.equal(score, 0.1809);
+});
+
+test("resolves the subnet-specific winner tier by the highest matching multiplier", () => {
+  // PR #1638: kata:winner:sn22__desearch = 3.0 (vs the 1.0 kata:winner:* base).
+  const sn22 = calculateKataGittensorScore(
+    {
+      winnerPulls: [
+        {
+          mergedAt: "2026-07-08T17:30:00Z",
+          labels: ["kata:winner:sn22__desearch"],
+        },
+      ],
+    },
+    new Date("2026-07-08T17:30:00Z")
+  );
+  assert.equal(sn22, 2.714);
 });
 
 test("applies Gittensor-style time decay to old winner score", () => {
@@ -69,7 +85,7 @@ test("does not count open PRs as leaderboard miner score", () => {
     new Date("2026-07-08T17:30:00Z")
   );
 
-  assert.equal(score, 0.8808);
+  assert.equal(score, 1.8093);
 });
 
 test("does not award a score when a reconstructed winner has no trusted Kata label", () => {

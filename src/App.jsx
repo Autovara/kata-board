@@ -309,12 +309,9 @@ function DiscordIcon() {
 
 function Reveal({ children }) {
   const ref = useRef(null);
-  const [shown, setShown] = useState(false);
+  const [shown, setShown] = useState(typeof IntersectionObserver === "undefined");
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") {
-      setShown(true);
-      return undefined;
-    }
+    if (shown) return undefined;
     const el = ref.current;
     if (!el) return undefined;
     const io = new IntersectionObserver(
@@ -332,7 +329,7 @@ function Reveal({ children }) {
       io.disconnect();
       clearTimeout(safety);
     };
-  }, []);
+  }, [shown]);
   return (
     <div ref={ref} className={`reveal${shown ? " reveal-in" : ""}`}>
       {children}
@@ -1107,6 +1104,7 @@ function RoundPanel({
   return (
     <div className="round-block">
       <div className="round-block-head">
+        <span className="showcase-kicker">Arena</span>
         <SectionTitle title={roundTitle} />
         <p className="section-lead round-lead">
           {candidateOnly
@@ -2483,95 +2481,73 @@ function Arena({ selectedLane, round, roundHistory, kataRepoSlug }) {
   );
 }
 
-function Winners({ lanes, kataRepoSlug, publicProof }) {
-  const round = publicProof?.latestRound || {};
-  const king = publicProof?.currentKing || {};
-  const activePack = publicProof?.activePack || publicProof?.active_pack;
-  const activeLane =
-    lanes.find((lane) => lane.subnetPack === activePack || lane.repoPack === activePack) ||
-    lanes[0] ||
-    {};
-  const visibleLanes = lanes.length ? lanes : [activeLane];
+function Winners({ lanes, kataRepoSlug }) {
+  const visibleLanes = Array.isArray(lanes) ? lanes : [];
   return (
-    <section className="winners-page">
+    <div className="stack">
+      <PageIntro
+        eyebrow="Winners"
+        title="Reigning kings"
+        text="The current champion for each subnet — the agent that beat every challenger and holds the crown. Every king is published in the open, so anyone can run it."
+      />
       <div className="king-grid">
-        {visibleLanes.map((lane, index) => (
-          <KingCard
-            key={lane.id || activePack || index}
-            lane={lane}
-            kataRepoSlug={kataRepoSlug}
-            publicProof={index === 0 ? publicProof : null}
-            round={index === 0 ? round : {}}
-            king={index === 0 ? king : {}}
-          />
-        ))}
+        {visibleLanes.length ? (
+          visibleLanes.map((lane) => (
+            <KingCard key={lane.id} lane={lane} kataRepoSlug={kataRepoSlug} />
+          ))
+        ) : (
+          <Empty text="No active subnets yet." />
+        )}
       </div>
-    </section>
+    </div>
   );
 }
 
-function KingCard({ lane, kataRepoSlug, publicProof, round, king }) {
-  const winner = king.author || lane.currentHolder || "Seed king";
-  const packName = formatPackLabel(
-    publicProof?.activePack ||
-      publicProof?.active_pack ||
-      lane.subnetPack ||
-      lane.repoPack ||
-      lane.repoName ||
-      "Active lane"
-  );
-  const agentHref =
-    proofFileLink(king.path, kataRepoSlug) || (lane.id ? kingAgentLink(lane, kataRepoSlug) : null);
-  const proofHref = proofFileLink(round.proof, kataRepoSlug);
-  const roundLabel = round.roundNumber ? `Round ${round.roundNumber}` : "Latest round";
-  const mode = lane.mode || publicProof?.activeMode || publicProof?.active_mode || "miner";
+function KingCard({ lane, kataRepoSlug }) {
+  const king = lane.king || {};
+  const seeded = king.seeded;
+  const winner = seeded ? "Seed king" : lane.currentHolder || king.author || "—";
+  const packName = formatPackLabel(lane.subnetPack || lane.repoName || "subnet");
+  const pr = lane.currentHolderPullNumber || king.sourcePullRequest || null;
+  const agentHref = lane.id ? kingAgentLink(lane, kataRepoSlug) : null;
+  const prHref = pr && kataRepoSlug ? `https://github.com/${kataRepoSlug}/pull/${pr}` : null;
   return (
     <article className="king-card">
-      <div className="king-card-body">
-        <div className="king-card-crown" aria-hidden="true">
-          ♔
+      <div className="king-card-top">
+        <span className="king-card-pack">{packName}</span>
+        <Status label={seeded ? "seed king" : "promoted"} tone={seeded ? "neutral" : "ok"} />
+      </div>
+      <div className="king-card-identity">
+        <Avatar name={winner} />
+        <div className="king-card-name">
+          <span className="king-card-crown" aria-hidden="true">
+            ♔
+          </span>
+          <h2>{winner}</h2>
+          <span className="king-card-sub">{king.submissionId || "current king"}</span>
         </div>
-        <div className="king-card-identity">
-          <Avatar name={winner} />
-          <div>
-            <h1>{winner}</h1>
-            <p>{king.submissionId || lane.king?.submissionId || "current king"}</p>
-          </div>
-        </div>
-        <div className="king-card-tags">
-          <span>{packName}</span>
-          <span>{mode}</span>
-          <Status
-            label={lane.king?.seeded ? "seed king" : "promoted"}
-            tone={lane.king?.seeded ? "neutral" : "ok"}
-          />
-        </div>
-        <div className="king-card-facts">
-          <ProofFact label="Round" value={roundLabel} />
-          <ProofFact label="TP" value={round.bestTruePositives ?? "-"} />
-          <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
-          <ProofFact
-            label="Promoted"
-            value={formatDateTime(king.promotedAt || lane.king?.updatedAt)}
-          />
-        </div>
-        <div className="king-card-actions">
-          {typeof agentHref === "string" && agentHref ? (
-            <a
-              className="king-card-action king-card-action-primary"
-              href={agentHref}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open agent
-            </a>
-          ) : null}
-          {typeof proofHref === "string" && proofHref ? (
-            <a className="king-card-action" href={proofHref} target="_blank" rel="noreferrer">
-              View proof
-            </a>
-          ) : null}
-        </div>
+      </div>
+      <div className="king-card-facts">
+        <ProofFact label="Promoted" value={formatDateTime(king.updatedAt || lane.kingUpdatedAt)} />
+        <ProofFact label="Source" value={pr ? `PR #${pr}` : "seed baseline"} />
+        <ProofFact label="Mode" value={lane.mode || "miner"} />
+      </div>
+      <div className="king-card-actions">
+        {typeof agentHref === "string" && agentHref ? (
+          <a
+            className="king-card-action king-card-action-primary"
+            href={agentHref}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open agent
+          </a>
+        ) : null}
+        {prHref ? (
+          <a className="king-card-action" href={prHref} target="_blank" rel="noreferrer">
+            View winning PR
+          </a>
+        ) : null}
       </div>
     </article>
   );
@@ -2585,25 +2561,21 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Contributor leaderboard"
-        text="All Kata contributors are shown here. Gittensor score is earned only by promoted winner PRs, while open, pending, review, and invalid counts show the live submission state."
+        text="Every contributor who has entered the arena. Gittensor score is earned only by an agent that was promoted to king, and it decays over time — so a fresh king out-earns an old one."
       />
 
-      <section className="table-section">
-        <div className="table-head">
-          <span>rank</span>
-          <span>contributor</span>
-          <span>wins</span>
-          <span>submissions</span>
-          <span>open</span>
-          <span>pending</span>
-          <span>review</span>
-          <span>invalid</span>
-          <span>Gittensor score</span>
+      <section className="lb-table">
+        <div className="lb-head">
+          <span>Rank</span>
+          <span>Contributor</span>
+          <span className="lb-num">Wins</span>
+          <span className="lb-num">Submissions</span>
+          <span className="lb-num">Gittensor score</span>
         </div>
         {rows.length ? (
           rows.map((row, index) => (
             <div
-              className={`table-row ${index < 3 ? `lb-top lb-top-${index + 1}` : ""}`}
+              className={`lb-row${index < 3 ? ` lb-row-top lb-row-${index + 1}` : ""}`}
               key={row.author}
             >
               <span className="lb-rank">{rankBadge(index)}</span>
@@ -2613,23 +2585,19 @@ function Leaderboard({ leaderboard }) {
                   row.currentKings
                     ? `${row.currentKings} active king${row.currentKings === 1 ? "" : "s"}`
                     : row.wins
-                      ? "promoted miner"
-                      : row.openSubmissions
-                        ? "active contributor"
-                        : "contributor"
+                      ? "promoted contributor"
+                      : "contributor"
                 }
               />
               <span className="lb-num">{row.wins}</span>
               <span className="lb-num">{row.totalSubmissions}</span>
-              <span className="lb-num">{row.openSubmissions}</span>
-              <span className="lb-num">{row.pendingSubmissions || 0}</span>
-              <span className="lb-num">{row.reviewSubmissions || 0}</span>
-              <span className="lb-num">{row.invalidSubmissions || 0}</span>
-              <strong className="lb-score">{formatNumber(row.gittensorScore ?? row.score)}</strong>
+              <strong className="lb-num lb-score">
+                {formatNumber(row.gittensorScore ?? row.score)}
+              </strong>
             </div>
           ))
         ) : (
-          <Empty text="No ranked challengers yet." />
+          <Empty text="No ranked contributors yet." />
         )}
       </section>
     </div>
@@ -3490,26 +3458,6 @@ function kingAgentLink(lane, repoSlug) {
     return path;
   }
   return `https://github.com/${repoSlug}/blob/main/${path}`;
-}
-
-function proofFileLink(relativePath, repoSlug) {
-  if (!relativePath) {
-    return null;
-  }
-  if (String(relativePath).startsWith("https://")) {
-    return relativePath;
-  }
-  if (!repoSlug) {
-    return relativePath;
-  }
-  return `https://github.com/${repoSlug}/blob/main/${relativePath}`;
-}
-
-function formatPercent(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return "-";
-  }
-  return `${(Number(value) * 100).toFixed(2)}%`;
 }
 
 function avatarUrl(name) {

@@ -7097,3 +7097,139 @@ html {
   stroke: rgba(255, 138, 61, 0.45);
   stroke-width: 1.4;
 }
+
+/* ===== Winners page (redesigned) ===== */
+.king-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+.king-card {
+  background: linear-gradient(158deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.king-card:hover {
+  border-color: rgba(185, 255, 93, 0.32);
+  transform: translateY(-3px);
+}
+.king-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.king-card-pack {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.king-card-identity {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.king-card-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.king-card-name h2 {
+  font-size: 1.4rem;
+  margin: 0;
+  line-height: 1.1;
+}
+.king-card-crown {
+  color: #fbbf24;
+  font-size: 1rem;
+  line-height: 1;
+}
+.king-card-sub {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.king-card-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.king-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ===== Leaderboard (redesigned) ===== */
+.lb-table {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.lb-head,
+.lb-row {
+  display: grid;
+  grid-template-columns: 66px 1.7fr 90px 140px 160px;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 24px;
+}
+.lb-head {
+  background: rgba(0, 0, 0, 0.28);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.lb-row {
+  border-bottom: 1px solid var(--line);
+  transition: background 0.15s ease;
+}
+.lb-row:last-child {
+  border-bottom: none;
+}
+.lb-row:hover {
+  background: rgba(185, 255, 93, 0.03);
+}
+.lb-num {
+  text-align: right;
+}
+.lb-rank {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--soft);
+}
+.lb-score {
+  color: var(--green);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.lb-row-1 {
+  background: rgba(251, 191, 36, 0.05);
+}
+.lb-row-top .lb-rank {
+  font-size: 1.25rem;
+}
+@media (max-width: 720px) {
+  .lb-head,
+  .lb-row {
+    grid-template-columns: 44px 1.4fr 70px;
+  }
+  .lb-head span:nth-child(4),
+  .lb-head span:nth-child(5),
+  .lb-row > *:nth-child(4),
+  .lb-row > *:nth-child(5) {
+    display: none;
+  }
+}

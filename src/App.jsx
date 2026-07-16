@@ -2518,17 +2518,19 @@ function KingCard({ lane, kataRepoSlug }) {
         <Status label={seeded ? "seed king" : "promoted"} tone={seeded ? "neutral" : "ok"} />
       </div>
       <div className="king-card-identity">
-        <Avatar name={winner} />
-        <div className="king-card-name">
+        <div className="king-card-avatar">
+          <Avatar name={winner} />
           <span className="king-card-crown" aria-hidden="true">
             ♔
           </span>
-          <h2>{winner}</h2>
+        </div>
+        <div className="king-card-name">
+          <h2 title={winner}>{winner}</h2>
           <span className="king-card-sub">{king.submissionId || "current king"}</span>
         </div>
       </div>
       <div className="king-card-facts">
-        <ProofFact label="Promoted" value={formatDateTime(king.updatedAt || lane.kingUpdatedAt)} />
+        <ProofFact label="Promoted" value={formatDate(king.updatedAt || lane.kingUpdatedAt)} />
         <ProofFact label="Source" value={pr ? `PR #${pr}` : "seed baseline"} />
         <ProofFact label="Mode" value={lane.mode || "miner"} />
       </div>
@@ -3517,6 +3519,21 @@ function formatDateTime(value) {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     }).format(new Date(value));
   } catch {
     return value;

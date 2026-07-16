@@ -7293,3 +7293,130 @@ html {
     opacity: 0;
   }
 }
+
+/* ===== Winners king card (polished, aligned) ===== */
+.king-grid {
+  grid-template-columns: repeat(auto-fill, minmax(400px, 460px));
+  gap: 20px;
+  justify-content: start;
+}
+.king-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(162deg, #101710, var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 26px 26px 24px;
+  gap: 22px;
+  box-shadow: none;
+}
+.king-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 26px;
+  right: 26px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--green), transparent);
+  opacity: 0.6;
+}
+.king-card:hover {
+  border-color: rgba(185, 255, 93, 0.4);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+.king-card-top {
+  align-items: center;
+}
+.king-card-pack {
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.king-card-identity {
+  align-items: center;
+  gap: 18px;
+}
+.king-card-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+.king-card-avatar .avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+}
+.king-card-crown {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #191507;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  color: #fbbf24;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+.king-card-name {
+  min-width: 0;
+  gap: 5px;
+}
+.king-card-name h2 {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.king-card-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.king-card-facts {
+  gap: 14px;
+  padding: 18px 0;
+}
+.king-card-facts .proof-fact strong {
+  white-space: nowrap;
+}
+.king-card-actions {
+  gap: 12px;
+}
+.king-card-action {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  padding: 11px 14px;
+  border-radius: 11px;
+}
+@media (max-width: 520px) {
+  .king-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== king card: override original fixed width + flex grid ===== */
+.king-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 460px));
+  gap: 20px;
+  align-items: stretch;
+  justify-content: start;
+  overflow-x: visible;
+  padding: 0;
+}
+.king-card {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 520px) {
+  .king-grid {
+    grid-template-columns: 1fr;
+  }
+}

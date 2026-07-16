@@ -164,10 +164,11 @@ export default function App() {
         {payload && pathname === "/" ? (
           <Dashboard
             payload={payload}
+            lanes={lanes}
             selectedLane={selectedLane}
             validator={payload.validator}
-            publicProof={payload.publicProof}
             onNavigate={navigate}
+            onSelectLane={setSelectedLaneId}
           />
         ) : null}
         {payload && (pathname === "/arena" || pathname === "/live") ? (
@@ -269,8 +270,7 @@ function DiscordIcon() {
   );
 }
 
-function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }) {
-  const overview = payload.overview || {};
+function Dashboard({ payload, lanes, selectedLane, validator, onNavigate, onSelectLane }) {
   const submissionStatus = payload.submissionStatus || null;
   const activeEvaluation = validator?.activeEvaluation || null;
   const recentActivity = payload.activity || [];
@@ -279,14 +279,17 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
 
   return (
     <div className="dashboard-page">
-      <DashboardHero
-        overview={overview}
-        selectedLane={selectedLane}
-        publicProof={publicProof}
-        onNavigate={onNavigate}
-      />
+      <DashboardHero lanes={lanes} onNavigate={onNavigate} />
 
-      <DashboardProof publicProof={publicProof} kataRepoSlug={payload.publicLinks?.kataRepo} />
+      <DashboardStats payload={payload} lanes={lanes} />
+
+      <DashboardSubnets
+        payload={payload}
+        lanes={lanes}
+        selectedLane={selectedLane}
+        onNavigate={onNavigate}
+        onSelectLane={onSelectLane}
+      />
 
       <DashboardFlow onNavigate={onNavigate} />
 
@@ -299,115 +302,156 @@ function Dashboard({ payload, selectedLane, validator, publicProof, onNavigate }
   );
 }
 
-function DashboardHero({ overview, selectedLane, publicProof, onNavigate }) {
-  const round = publicProof?.latestRound || {};
-  const king = publicProof?.currentKing || {};
-  const projectCount =
-    publicProof?.selectedProjectCount ??
-    overview.selectedCodebases ??
-    overview.benchmarkProjects ??
-    0;
-  const kingName = king.author || selectedLane?.currentHolder || "seed king";
-  const bestTp = round.bestTruePositives ?? "-";
-  const candidateCount = round.candidateCount ?? overview.uniqueChallengers ?? "-";
+function DashboardHero({ lanes, onNavigate }) {
+  const subnetCount = Array.isArray(lanes) ? lanes.length : 0;
   return (
-    <section className="dashboard-hero">
-      <div className="dashboard-hero-copy">
-        <p className="kicker">Built with Gittensor · Bittensor SN74</p>
-        <h1 className="dashboard-hero-title">
-          <span>Kata is an</span>{" "}
-          <span className="dashboard-hero-title-mark">optimization engine</span>{" "}
-          <span>for miner agents</span>
-        </h1>
-        <p>
-          Kata runs open competition to build stronger miner agents for Bittensor subnets, promotes
-          the best proven agent as king, and moves mining toward a simple one-click experience.
-        </p>
-        <div className="dashboard-hero-badges" aria-label="Kata network context">
-          <span>Gittensor / SN74 supported</span>
-          <span>
-            Live target:{" "}
-            {selectedLane?.subnetPack ? formatPackLabel(selectedLane.subnetPack) : "no active lane"}
-          </span>
-          <span>One-click mining roadmap</span>
-        </div>
-        <div className="actions">
-          <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
-            Watch the Arena
-          </button>
-          <button type="button" className="button" onClick={() => onNavigate("/docs")}>
-            Submit an agent
-          </button>
-        </div>
-      </div>
-
-      <div className="dashboard-hero-visual">
-        <AssetImage
-          src={KATA_IMAGES.heroDashboard}
-          alt="Kata dashboard competition arena"
-          tone="hero"
-        />
-        <div className="dashboard-live-panel">
-          <Status label="live" tone="ok" />
-          <DashboardMiniMetric label="King" value={kingName} />
-          <DashboardMiniMetric
-            label="Round"
-            value={round.roundNumber ? `Round ${round.roundNumber}` : "waiting"}
-          />
-          <DashboardMiniMetric label="Projects" value={projectCount || "-"} />
-          <DashboardMiniMetric label="Candidates" value={candidateCount} />
-          <DashboardMiniMetric label="Best TP" value={bestTp} />
-        </div>
+    <section className="dash-hero">
+      <p className="kicker">Built on Gittensor · Bittensor SN74</p>
+      <h1 className="dash-hero-title">
+        Kata builds the <span className="dash-mark">strongest agent</span> for every subnet.
+      </h1>
+      <p className="dash-hero-sub">
+        Open competition scores every challenger against the reigning king on the same benchmark.
+        The proven winner is merged and published as the new king — one engine, driving{" "}
+        {subnetCount === 1 ? "one subnet" : `${subnetCount || "many"} subnets`} toward one-click mining.
+      </p>
+      <div className="dash-hero-actions">
+        <button type="button" className="button primary" onClick={() => onNavigate("/arena")}>
+          Watch the Arena
+        </button>
+        <button type="button" className="button" onClick={() => onNavigate("/docs")}>
+          Submit an agent
+        </button>
       </div>
     </section>
   );
 }
 
-function DashboardProof({ publicProof, kataRepoSlug }) {
-  if (!publicProof) {
-    return null;
-  }
-  const round = publicProof.latestRound || {};
-  const king = publicProof.currentKing || {};
-  const proofHref = proofFileLink(round.proof, kataRepoSlug);
-  const kingHref = proofFileLink(king.path, kataRepoSlug);
-  const activePack = publicProof.activePack || publicProof.active_pack;
-  const packName = activePack ? formatPackLabel(activePack) : "Active lane";
-  const winner = round.winnerAuthor || king.author || "Current king";
+function DashboardStats({ payload, lanes }) {
+  const byLane = payload.byLane || {};
+  const laneList = Array.isArray(lanes) ? lanes : [];
+  const activeSubnets = laneList.length;
+  const crownedKings = laneList.filter((lane) => lane?.king && !lane.king.seeded).length;
+  const totalRounds = laneList.reduce(
+    (sum, lane) => sum + (byLane[lane.id]?.roundHistory?.length || 0),
+    0
+  );
+  const liveRounds = laneList.filter(
+    (lane) => byLane[lane.id]?.round?.state === "executing"
+  ).length;
   return (
-    <section className="dashboard-proof">
-      <div className="dashboard-proof-image">
-        <AssetImage src={KATA_IMAGES.proof} alt="Verified public proof artifact" tone="proof" />
+    <section className="dash-stats" aria-label="Network at a glance">
+      <StatTile label="Active subnets" value={activeSubnets} />
+      <StatTile label="Kings crowned" value={crownedKings} />
+      <StatTile label="Rounds run" value={totalRounds} />
+      <StatTile
+        label="Status"
+        value={liveRounds > 0 ? `${liveRounds} scoring` : "idle"}
+        tone={liveRounds > 0 ? "live" : "muted"}
+      />
+    </section>
+  );
+}
+
+function StatTile({ label, value, tone = "default" }) {
+  return (
+    <div className={`stat-tile stat-tile-${tone}`}>
+      <span className="stat-tile-value">{value}</span>
+      <span className="stat-tile-label">{label}</span>
+    </div>
+  );
+}
+
+function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLane }) {
+  const byLane = payload.byLane || {};
+  const laneList = Array.isArray(lanes) ? lanes : [];
+  return (
+    <section className="dash-subnets">
+      <div className="dash-section-head">
+        <span className="showcase-kicker">Subnets</span>
+        <h2>One engine, every target.</h2>
+        <p>Each subnet keeps its own king and runs its own rounds. Pick one to watch it live.</p>
       </div>
-      <div className="dashboard-proof-copy">
-        <span className="showcase-kicker">Public proof</span>
-        <h2>
-          {winner} is the current {packName} king
-        </h2>
-        <p>
-          The proof file records the round, benchmark selection, true-positive score, candidate
-          count, and timing without exposing private validator secrets.
-        </p>
-        <div className="dashboard-proof-metrics">
-          <ProofFact label="Projects" value={publicProof.selectedProjectCount ?? "-"} />
-          <ProofFact label="True positives" value={round.bestTruePositives ?? "-"} />
-          <ProofFact label="Detection" value={formatPercent(round.bestDetectionScore)} />
-          <ProofFact label="Candidates" value={round.candidateCount ?? "-"} />
-        </div>
-        <div className="proof-actions">
-          {proofHref ? (
-            <a href={proofHref} target="_blank" rel="noreferrer">
-              View public proof
-            </a>
-          ) : null}
-          {kingHref ? (
-            <a href={kingHref} target="_blank" rel="noreferrer" className="proof-secondary-action">
-              Open winning agent
-            </a>
-          ) : null}
-        </div>
+      <div className="dash-subnet-grid">
+        {laneList.map((lane) => (
+          <SubnetCard
+            key={lane.id}
+            lane={lane}
+            data={byLane[lane.id] || {}}
+            active={selectedLane?.id === lane.id}
+            onEnter={() => {
+              onSelectLane?.(lane.id);
+              onNavigate("/arena");
+            }}
+          />
+        ))}
+        <article className="subnet-card subnet-card-ghost">
+          <div className="subnet-card-head">
+            <div className="subnet-card-title">
+              <h3>More targets</h3>
+            </div>
+          </div>
+          <p className="subnet-ghost-text">
+            The same engine, rounds, and sealed room extend to new subnets as they come online.
+          </p>
+        </article>
       </div>
     </section>
+  );
+}
+
+function SubnetCard({ lane, data, active, onEnter }) {
+  const round = data.round || {};
+  const proofRound = data.publicProof?.latestRound || {};
+  const live = round.state === "executing";
+  const kingName = lane.king?.seeded
+    ? "seed king"
+    : lane.currentHolder || lane.king?.author || "—";
+  const roundNumber = round.roundNumber ?? proofRound.roundNumber ?? "—";
+  const candidates = round.candidateCount ?? proofRound.candidateCount ?? "—";
+  const bestTp = proofRound.bestTruePositives ?? round.bestTruePositives ?? "—";
+  return (
+    <article
+      className={`subnet-card${active ? " subnet-card-active" : ""}`}
+      role="button"
+      tabIndex={0}
+      onClick={onEnter}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEnter();
+        }
+      }}
+    >
+      <div className="subnet-card-head">
+        <div className="subnet-card-title">
+          <h3>{formatPackLabel(lane.subnetPack)}</h3>
+          <span className="subnet-pack">{lane.subnetPack}</span>
+        </div>
+        <span className={`subnet-pill ${live ? "subnet-pill-live" : "subnet-pill-idle"}`}>
+          {live ? "scoring" : "idle"}
+        </span>
+      </div>
+      <div className="subnet-king">
+        <span className="subnet-king-label">Current king</span>
+        <strong>{kingName}</strong>
+      </div>
+      <div className="subnet-metrics">
+        <SubnetMetric label="Round" value={roundNumber} />
+        <SubnetMetric label="Candidates" value={candidates} />
+        <SubnetMetric label="Best TP" value={bestTp} />
+      </div>
+      <span className="subnet-enter">Enter arena →</span>
+    </article>
+  );
+}
+
+function SubnetMetric({ label, value }) {
+  return (
+    <div className="subnet-metric">
+      <span className="subnet-metric-value">{value}</span>
+      <span className="subnet-metric-label">{label}</span>
+    </div>
   );
 }
 
@@ -480,15 +524,6 @@ function DashboardOperations({ latestStatus, submissionStatus, generatedAt }) {
         <SubmissionStatusPanel submissionStatus={submissionStatus} />
       </div>
     </section>
-  );
-}
-
-function DashboardMiniMetric({ label, value }) {
-  return (
-    <div className="dashboard-mini-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 

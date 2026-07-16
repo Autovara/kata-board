@@ -30,8 +30,14 @@ export default function GridBackground() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = window.innerWidth;
       H = window.innerHeight;
+      // Backing store is scaled for a crisp image on HiDPI screens...
       canvas.width = Math.floor(W * dpr);
       canvas.height = Math.floor(H * dpr);
+      // ...but the CSS display size must stay locked to the viewport, or a
+      // canvas (a replaced element) renders at its intrinsic dpr-scaled size and
+      // looks zoomed in, throwing off the pointer-to-cell mapping below.
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (reduce) drawGrid();
     }

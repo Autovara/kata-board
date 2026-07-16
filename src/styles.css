@@ -43,6 +43,8 @@ body {
 .grid-bg {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: -1;
   pointer-events: none;
   display: block;
@@ -6302,4 +6304,202 @@ html {
 }
 .battle-solo .battle-side {
   width: min(340px, 100%);
+}
+
+/* ===== Redesigned multi-subnet dashboard ===== */
+.dash-hero {
+  padding: 64px 0 36px;
+  max-width: 780px;
+}
+.dash-hero-title {
+  font-size: clamp(2rem, 4.6vw, 3.25rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin: 14px 0 18px;
+}
+.dash-mark {
+  color: var(--green);
+}
+.dash-hero-sub {
+  color: var(--soft);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 640px;
+}
+.dash-hero-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+  flex-wrap: wrap;
+}
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 4px 0 56px;
+}
+.stat-tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stat-tile-value {
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.stat-tile-label {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+.stat-tile-live .stat-tile-value {
+  color: var(--green);
+}
+
+.dash-section-head {
+  margin-bottom: 24px;
+}
+.dash-section-head h2 {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  letter-spacing: -0.02em;
+  margin: 8px 0 6px;
+}
+.dash-section-head p {
+  color: var(--muted);
+  max-width: 560px;
+}
+
+.dash-subnets {
+  margin-bottom: 60px;
+}
+.dash-subnet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 18px;
+}
+.subnet-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.subnet-card:hover,
+.subnet-card:focus-visible {
+  border-color: rgba(185, 255, 93, 0.5);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  outline: none;
+}
+.subnet-card-active {
+  border-color: rgba(185, 255, 93, 0.5);
+}
+.subnet-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.subnet-card-title h3 {
+  font-size: 1.15rem;
+  margin: 0 0 2px;
+}
+.subnet-pack {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.subnet-pill {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.subnet-pill-live {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.4);
+  background: rgba(185, 255, 93, 0.08);
+}
+.subnet-king {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.subnet-king-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.subnet-king strong {
+  font-size: 1.1rem;
+}
+.subnet-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.subnet-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.subnet-metric-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.subnet-metric-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.subnet-enter {
+  color: var(--green);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: auto;
+}
+.subnet-card-ghost {
+  cursor: default;
+  border-style: dashed;
+  background: transparent;
+  justify-content: flex-start;
+  gap: 12px;
+}
+.subnet-card-ghost:hover {
+  transform: none;
+  border-color: var(--line);
+  box-shadow: none;
+}
+.subnet-ghost-text {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .dash-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

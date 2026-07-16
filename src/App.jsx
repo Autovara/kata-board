@@ -2743,6 +2743,10 @@ function DocMiner({ links, selectedLane }) {
             `Create ${submissionPath}/<github-user>-YYYYMMDD-NN/ with agent.py, agent_manifest.json, and submission.json.`,
           ],
           [
+            "Seal your inference key",
+            "If the target runs miner-paid inference, encrypt a provider key to the attested room and commit the resulting sealed_inference_key. The platform only ever sees ciphertext.",
+          ],
+          [
             "Validate locally",
             `Run \`uv run kata submission validate --path ${submissionPath}/<submission-id>\` before opening the PR.`,
           ],
@@ -2771,7 +2775,7 @@ function DocMiner({ links, selectedLane }) {
         or unrelated docs.
       </p>
       <CodeBlock
-        value={`${submissionPath}/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # who submitted the agent`}
+        value={`${submissionPath}/<github-user>-YYYYMMDD-01/\n  agent.py             # your entrypoint\n  agent_manifest.json  # runtime contract\n  submission.json      # who submitted the agent\n  sealed_inference_key # encrypted provider key — added when you seal (step 3)`}
       />
       <CodeBlock
         value={`{\n  "schema_version": 2,\n  "subnet_pack": "${subnetPack}",\n  "mode": "${mode}",\n  "submission_id": "<github-user>-YYYYMMDD-01",\n  "created_at": "2026-07-01T00:00:00+00:00",\n  "author": "<github-user>",\n  "title": "short title",\n  "notes": "what changed in the agent"\n}`}
@@ -2809,7 +2813,26 @@ function DocMiner({ links, selectedLane }) {
         />
       </DocGrid>
 
-      <h2>3. Talking to the model</h2>
+      <h2>3. Seal your inference key</h2>
+      <p>
+        SN60 runs your agent inside an attested sealed room where it pays for its own model calls. You
+        never hand a raw API key to the platform: you encrypt a provider credential to the room and
+        commit only the ciphertext. Get the room URL, accepted providers, and measurement from the
+        target's repo, then run the sealing tool from{" "}
+        <a href="https://github.com/Autovara/kata-tee-runner" target="_blank" rel="noreferrer">
+          kata-tee-runner
+        </a>
+        :
+      </p>
+      <CodeBlock
+        value={`python kata_seal.py \\\n  --room https://<approved-room-url> \\\n  --provider openrouter \\\n  --key <your-provider-api-key> \\\n  --bundle ${submissionPath}/<github-user>-YYYYMMDD-01 \\\n  --measurement <approved-room-measurement>`}
+      />
+      <DocCallout
+        title="Only ciphertext leaves your machine"
+        text="Sealing writes sealed_inference_key into your bundle. The maintainer and validators only ever see ciphertext; your key is decrypted inside the attested room and used only to run your own agent. SN60 accepts the openrouter, chutes, and akashml providers."
+      />
+
+      <h2>4. Talking to the model</h2>
       <DocListCard
         title="Miner-funded inference"
         items={[
@@ -2825,7 +2848,7 @@ function DocMiner({ links, selectedLane }) {
         value={`import json, os, urllib.request\n\ndef ask_model(inference_api, prompt):\n    endpoint = (inference_api or os.environ.get("INFERENCE_API") or "").rstrip("/")\n    body = json.dumps({\n        "messages": [{"role": "user", "content": prompt}],\n        "max_tokens": 4000,\n    }).encode()\n    req = urllib.request.Request(\n        endpoint + "/inference",\n        data=body, method="POST",\n        headers={\n            "Content-Type": "application/json",\n            "x-inference-api-key": os.environ["INFERENCE_API_KEY"],\n        },\n    )\n    with urllib.request.urlopen(req, timeout=120) as r:\n        data = json.loads(r.read().decode())\n    return data["choices"][0]["message"]["content"]`}
       />
 
-      <h2>4. What closes a PR — and what does not</h2>
+      <h2>5. What closes a PR — and what does not</h2>
       <DocListCard
         title="How a PR can stop"
         items={[
@@ -2847,6 +2870,7 @@ function DocMiner({ links, selectedLane }) {
           "The candidate bundle stays within the size cap: max 16 files, max 128 KiB per file, and max 256 KiB total.",
           "agent_manifest.json uses schema_version 1, runtime python, entrypoint agent.py.",
           `submission.json uses schema_version 2, subnet_pack ${subnetPack}, mode ${mode}, and a unique submission_id.`,
+          "sealed_inference_key is present and is valid ciphertext (it must decode to at least 32 bytes) when the target runs miner-paid inference.",
           "The submission directory/id prefix and submission.json author match the PR author's GitHub username.",
           "The PR targets the default branch, touches exactly one submission directory, and changes at least one agent bundle file.",
         ]}
@@ -3303,18 +3327,21 @@ function sourceLinks(kataRepoSlug) {
     ? `https://github.com/${kataRepoSlug}/blob/main`
     : "https://github.com/Autovara/kata/blob/main";
   const botBase = "https://github.com/Autovara/kata-bot/blob/main";
-  // Point every link at a doc that actually exists in the kata repo today.
+  const sn60Base = "https://github.com/Autovara/kata-sn60/blob/main";
+  const teeBase = "https://github.com/Autovara/kata-tee-runner/blob/main";
+  // Every link points at a section that actually exists today. The kata repo now
+  // documents the engine in its README (docs/ was removed); each subnet documents
+  // its own task, screening, and scoring in its own repo.
   return {
     kataReadme: `${kataBase}/README.md`,
-    systemWorkflow: `${kataBase}/docs/workflow.md`,
-    submissions: `${kataBase}/docs/submissions.md`,
-    scoring: `${kataBase}/docs/submissions.md`,
-    benchmarkEvaluation: `${kataBase}/docs/submissions.md`,
+    systemWorkflow: `${kataBase}/README.md#how-kata-works`,
+    submissions: `${kataBase}/README.md#how-to-submit-an-agent`,
+    labels: `${kataBase}/README.md#pr-labels`,
+    scoring: `${sn60Base}/README.md#how-you-win-scoring`,
+    screening: `${sn60Base}/README.md#screening`,
+    sn60Readme: `${sn60Base}/README.md`,
+    sealedRoom: `${teeBase}/README.md`,
     githubAutomation: `${botBase}/README.md`,
-    milestones: `${kataBase}/docs/milestones.md`,
-    botDeployment: `${botBase}/README.md`,
-    botChecklist: `${botBase}/README.md`,
-    botConfig: `${botBase}/README.md`,
   };
 }
 

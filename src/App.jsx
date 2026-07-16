@@ -552,7 +552,8 @@ function SubnetMetric({ label, value }) {
   );
 }
 
-function WorkflowNode({ node }) {
+function WorkflowTagNode({ node }) {
+  const cx = node.x + node.w / 2;
   return (
     <g>
       <rect
@@ -561,49 +562,59 @@ function WorkflowNode({ node }) {
         y={node.y}
         width={node.w}
         height={node.h}
-        rx="13"
+        rx="12"
       />
       {node.king ? (
-        <path
-          className="wf-crown"
-          d={`M ${node.x + node.w / 2 - 20} ${node.y - 6} l 7 12 8 -14 8 14 7 -12 -3 20 -24 0 z`}
-        />
+        <path className="wf-crown" d={`M ${cx - 19} ${node.y - 6} l 7 12 8 -14 8 14 7 -12 -3 20 -24 0 z`} />
       ) : null}
-      <text className="wf-title" x={node.x + node.w / 2} y={node.y + node.h / 2 - 4} textAnchor="middle">
+      {node.tag ? (
+        <text className="wf-tag" x={node.x + 13} y={node.y + 17}>
+          {node.tag}
+        </text>
+      ) : null}
+      <text className="wf-title" x={cx} y={node.y + node.h / 2 + (node.tag ? 6 : -2)} textAnchor="middle">
         {node.t}
       </text>
-      <text className="wf-sub" x={node.x + node.w / 2} y={node.y + node.h / 2 + 16} textAnchor="middle">
-        {node.s}
-      </text>
+      {node.s ? (
+        <text className="wf-sub" x={cx} y={node.y + node.h / 2 + (node.tag ? 24 : 16)} textAnchor="middle">
+          {node.s}
+        </text>
+      ) : null}
     </g>
   );
 }
 
 function DashboardWorkflow() {
-  const nodes = [
-    { id: "c", x: 16, y: 108, w: 168, h: 84, t: "Contributor", s: "opens one PR" },
-    { id: "bot", x: 220, y: 108, w: 184, h: 84, t: "kata-bot", s: "screens · runs rounds" },
-    { id: "eng", x: 440, y: 108, w: 184, h: 84, t: "kata engine", s: "king vs candidates" },
-    { id: "tee", x: 860, y: 108, w: 176, h: 84, t: "kata-tee-runner", s: "sealed room · miner-paid" },
-    { id: "king", x: 1064, y: 108, w: 160, h: 84, t: "New King", s: "promoted to kings/", king: true },
-    { id: "board", x: 1064, y: 224, w: 160, h: 52, t: "kata-board", s: "shows it live", svc: true },
+  const spine = [
+    { id: "c", x: 18, y: 76, w: 150, h: 74, t: "Contributor", s: "opens one PR" },
+    { id: "in", x: 190, y: 76, w: 156, h: 74, t: "Intake", s: "screen → pending", tag: "kata-bot" },
+    { id: "rd", x: 368, y: 76, w: 148, h: 74, t: "Round", s: "→ executing", tag: "kata-bot" },
+    { id: "eng", x: 538, y: 76, w: 158, h: 74, t: "kata engine", s: "king vs candidates" },
+    { id: "prm", x: 912, y: 76, w: 150, h: 74, t: "Promote", s: "merge → king", tag: "kata-bot" },
+    { id: "king", x: 1082, y: 76, w: 140, h: 74, t: "New King", s: "→ kings/", king: true },
+    { id: "board", x: 1082, y: 300, w: 140, h: 54, t: "kata-board", s: "shows it live", svc: true },
   ];
   const subnets = [
-    { x: 656, y: 40, w: 172, h: 52, t: "SN60 · Bitsec" },
-    { x: 656, y: 124, w: 172, h: 52, t: "SN22 · Desearch" },
-    { x: 656, y: 208, w: 172, h: 52, t: "+ more targets" },
+    { x: 538, y: 210, w: 158, h: 42, t: "SN60 · Bitsec" },
+    { x: 538, y: 262, w: 158, h: 42, t: "SN22 · Desearch" },
+    { x: 538, y: 314, w: 158, h: 42, t: "+ more targets" },
   ];
+  const tee = { x: 726, y: 262, w: 158, h: 42, t: "kata-tee-runner", s: "sealed room · miner-paid" };
+  const rank = { x: 914, y: 262, w: 148, h: 42, t: "beats the king?" };
   const edges = [
-    "M 184 150 L 220 150",
-    "M 404 150 L 440 150",
-    "M 624 150 C 640 150, 640 66, 656 66",
-    "M 624 150 L 656 150",
-    "M 624 150 C 640 150, 640 234, 656 234",
-    "M 828 66 C 844 66, 844 150, 860 150",
-    "M 828 150 L 860 150",
-    "M 828 234 C 844 234, 844 150, 860 150",
-    "M 1036 150 L 1064 150",
-    "M 1144 192 L 1144 224",
+    "M 168 113 L 190 113",
+    "M 346 113 L 368 113",
+    "M 516 113 L 538 113",
+    "M 1062 113 L 1082 113",
+    "M 617 150 C 590 178, 538 190, 538 231",
+    "M 617 150 L 617 262",
+    "M 617 150 C 590 215, 538 272, 538 335",
+    "M 696 231 C 712 231, 712 283, 726 283",
+    "M 696 283 L 726 283",
+    "M 696 335 C 712 335, 712 283, 726 283",
+    "M 884 283 L 914 283",
+    "M 988 262 C 988 210, 987 176, 987 150",
+    "M 1152 150 L 1152 300",
   ];
   return (
     <section className="dash-workflow">
@@ -611,42 +622,47 @@ function DashboardWorkflow() {
         <span className="showcase-kicker">How it works</span>
         <h2>One PR in, one verified king out.</h2>
         <p>
-          The same engine runs every subnet in parallel. A challenger only wins by beating the
-          reigning king on the same benchmark — then it becomes the king to beat next round.
+          A contributor opens a PR; kata-bot screens it and runs scheduled rounds; the kata engine
+          scores the king against every candidate across all subnets in parallel, inside a sealed
+          room. The one agent that strictly beats the king is promoted — and becomes the bar to beat
+          next round.
         </p>
       </div>
       <div className="wf-diagram">
-        <svg viewBox="0 0 1240 300" role="img" aria-label="The Kata workflow: a contributor opens a PR, kata-bot screens it and runs scheduled rounds, the kata engine scores the king against candidates across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room, and the top agent that beats the king is promoted to kings and shown on kata-board. The new king becomes the bar to beat next round.">
+        <svg viewBox="0 0 1240 380" role="img" aria-label="Kata workflow: a contributor opens a PR; kata-bot screens it at intake to pending, then runs a scheduled round marking entrants executing; the kata engine scores the king against candidates across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room with miner-paid inference; the ranking checks whether a candidate strictly beats the king; kata-bot promotes the winner to a new king in kings and kata-board shows it live. The new king becomes the bar to beat next round.">
           <defs>
             <marker id="wfArrow" markerWidth="8" markerHeight="8" refX="5.5" refY="3" orient="auto">
               <path d="M0 0 L6 3 L0 6 z" className="wf-arrowhead" />
             </marker>
           </defs>
-          <path
-            className="wf-loop"
-            d="M 1144 108 C 1144 24, 302 24, 302 108"
-            markerEnd="url(#wfArrow)"
-          />
-          <text className="wf-loop-label" x="723" y="18" textAnchor="middle">
+          <rect className="wf-band" x="512" y="186" width="576" height="186" rx="16" />
+          <text className="wf-band-label" x="536" y="366">
+            SCORE EVERY SUBNET, IN PARALLEL
+          </text>
+          <path className="wf-loop" d="M 1152 76 C 1152 26, 442 26, 442 76" markerEnd="url(#wfArrow)" />
+          <text className="wf-loop-label" x="797" y="20" textAnchor="middle">
             the new king becomes next round&apos;s bar to beat
           </text>
           {edges.map((d, i) => (
             <path key={i} className="wf-edge" d={d} markerEnd="url(#wfArrow)" />
           ))}
-          <rect className="wf-band" x="640" y="20" width="204" height="256" rx="16" />
-          <text className="wf-band-label" x="742" y="290" textAnchor="middle">
-            subnets · in parallel
-          </text>
           {subnets.map((node) => (
             <g key={node.t}>
-              <rect className="wf-node wf-node-subnet" x={node.x} y={node.y} width={node.w} height={node.h} rx="11" />
-              <text className="wf-title" x={node.x + node.w / 2} y={node.y + node.h / 2 + 5} textAnchor="middle">
+              <rect className="wf-node wf-node-subnet" x={node.x} y={node.y} width={node.w} height={node.h} rx="10" />
+              <text className="wf-title wf-title-sm" x={node.x + node.w / 2} y={node.y + node.h / 2 + 5} textAnchor="middle">
                 {node.t}
               </text>
             </g>
           ))}
-          {nodes.map((node) => (
-            <WorkflowNode key={node.id} node={node} />
+          <WorkflowTagNode node={tee} />
+          <g>
+            <rect className="wf-node wf-node-rank" x={rank.x} y={rank.y} width={rank.w} height={rank.h} rx="10" />
+            <text className="wf-title wf-title-sm" x={rank.x + rank.w / 2} y={rank.y + rank.h / 2 + 5} textAnchor="middle">
+              {rank.t}
+            </text>
+          </g>
+          {spine.map((node) => (
+            <WorkflowTagNode key={node.id} node={node} />
           ))}
         </svg>
       </div>

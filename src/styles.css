@@ -6989,3 +6989,111 @@ html {
     transition: none;
   }
 }
+
+/* ===== v4 polish: width, footer, hero, cards, diagram ===== */
+.page {
+  width: min(1240px, calc(100vw - 40px));
+}
+.site-footer-inner,
+.site-footer-bottom {
+  width: min(1240px, calc(100vw - 40px));
+}
+.site-footer {
+  background: linear-gradient(180deg, #0d120c, #070907);
+  border-top: 1px solid var(--line-strong);
+  box-shadow: inset 0 1px 0 rgba(185, 255, 93, 0.07);
+}
+
+/* hero: bigger + slow zoom */
+.dash-hero {
+  grid-template-columns: 1fr 1.08fr;
+  gap: 40px;
+}
+.dash-hero-visual {
+  min-height: 380px;
+}
+.dash-hero-image {
+  min-height: 380px;
+  animation: heroZoom 18s ease-in-out infinite alternate;
+}
+@keyframes heroZoom {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.11); }
+}
+
+/* stat tiles: gradient + accent line + hover */
+.stat-tile {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(158deg, var(--panel-2), var(--panel));
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 22px;
+  right: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--green), transparent);
+  opacity: 0.55;
+}
+.stat-tile:hover {
+  border-color: rgba(185, 255, 93, 0.35);
+  transform: translateY(-3px);
+}
+
+/* subnet cards: gradient + hover sheen */
+.subnet-card {
+  background: linear-gradient(158deg, var(--panel-2), var(--panel));
+}
+.subnet-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  pointer-events: none;
+  background: radial-gradient(130% 90% at 82% 0%, rgba(185, 255, 93, 0.09), transparent 58%);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.subnet-card:hover::after {
+  opacity: 1;
+}
+.subnet-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ops cards: gradient + hover */
+.ops-card {
+  background: linear-gradient(158deg, var(--panel-2), var(--panel));
+  transition: border-color 0.2s ease;
+}
+.ops-card:hover {
+  border-color: var(--line-strong);
+}
+.ops-queue-item {
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.ops-queue-item:hover {
+  border-color: rgba(185, 255, 93, 0.3);
+  transform: translateY(-2px);
+}
+
+/* new diagram bits */
+.wf-tag {
+  fill: var(--muted);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+.wf-title-sm {
+  font-size: 13px;
+}
+.wf-node-rank {
+  fill: #1a1510;
+  stroke: rgba(255, 138, 61, 0.45);
+  stroke-width: 1.4;
+}

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import GridBackground from "./GridBackground.jsx";
+import heroImage from "../assets/hero.png";
 import {
   PAGES,
   POLL_INTERVAL_MS,
@@ -306,8 +307,40 @@ function DiscordIcon() {
   );
 }
 
+function Reveal({ children }) {
+  const ref = useRef(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") {
+      setShown(true);
+      return undefined;
+    }
+    const el = ref.current;
+    if (!el) return undefined;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+    );
+    io.observe(el);
+    const safety = setTimeout(() => setShown(true), 1500);
+    return () => {
+      io.disconnect();
+      clearTimeout(safety);
+    };
+  }, []);
+  return (
+    <div ref={ref} className={`reveal${shown ? " reveal-in" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
 function Dashboard({ payload, lanes, selectedLane, validator, onNavigate, onSelectLane }) {
-  const submissionStatus = payload.submissionStatus || null;
   const activeEvaluation = validator?.activeEvaluation || null;
   const recentActivity = payload.activity || [];
   const latestChallenge = recentActivity[0] || null;
@@ -317,23 +350,31 @@ function Dashboard({ payload, lanes, selectedLane, validator, onNavigate, onSele
     <div className="dashboard-page">
       <DashboardHero onNavigate={onNavigate} />
 
-      <DashboardStats payload={payload} lanes={lanes} />
+      <Reveal>
+        <DashboardStats payload={payload} lanes={lanes} />
+      </Reveal>
 
-      <DashboardWorkflow />
+      <Reveal>
+        <DashboardWorkflow />
+      </Reveal>
 
-      <DashboardSubnets
-        payload={payload}
-        lanes={lanes}
-        selectedLane={selectedLane}
-        onNavigate={onNavigate}
-        onSelectLane={onSelectLane}
-      />
+      <Reveal>
+        <DashboardSubnets
+          payload={payload}
+          lanes={lanes}
+          selectedLane={selectedLane}
+          onNavigate={onNavigate}
+          onSelectLane={onSelectLane}
+        />
+      </Reveal>
 
-      <DashboardOperations
-        latestStatus={latestStatus}
-        submissionStatus={submissionStatus}
-        generatedAt={payload.generatedAt}
-      />
+      <Reveal>
+        <DashboardOperations
+          payload={payload}
+          latestStatus={latestStatus}
+          generatedAt={payload.generatedAt}
+        />
+      </Reveal>
     </div>
   );
 }
@@ -362,49 +403,60 @@ function DashboardHero({ onNavigate }) {
         </div>
       </div>
       <div className="dash-hero-visual">
-        <img
-          className="dash-hero-image"
-          src="/dashboard-hero.png"
-          alt="Kata competition arena"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-        />
+        <img className="dash-hero-image" src={heroImage} alt="Kata competition arena" />
       </div>
     </section>
   );
 }
 
+function useCountUp(target) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const end = Number(target) || 0;
+    let raf;
+    const duration = 950;
+    const start = performance.now();
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / duration);
+      setN(Math.round(end * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return n;
+}
+
 function DashboardStats({ payload, lanes }) {
   const byLane = payload.byLane || {};
+  const overview = payload.overview || {};
   const laneList = Array.isArray(lanes) ? lanes : [];
-  const activeSubnets = laneList.length;
-  const crownedKings = laneList.filter((lane) => lane?.king && !lane.king.seeded).length;
-  const totalRounds = laneList.reduce(
+  const activeSubnets = overview.activeLanes ?? laneList.length;
+  const roundsRun = laneList.reduce(
     (sum, lane) => sum + (byLane[lane.id]?.roundHistory?.length || 0),
     0
   );
-  const liveRounds = laneList.filter(
-    (lane) => byLane[lane.id]?.round?.state === "executing"
-  ).length;
+  const challengers = overview.uniqueChallengers ?? 0;
+  const submissions = overview.totalSubmissions ?? 0;
+  const live = laneList.some((lane) => byLane[lane.id]?.round?.state === "executing");
   return (
     <section className="dash-stats" aria-label="Network at a glance">
-      <StatTile label="Active subnets" value={activeSubnets} />
-      <StatTile label="Kings crowned" value={crownedKings} />
-      <StatTile label="Rounds run" value={totalRounds} />
-      <StatTile
-        label="Status"
-        value={liveRounds > 0 ? `${liveRounds} scoring` : "idle"}
-        tone={liveRounds > 0 ? "live" : "muted"}
-      />
+      <StatTile label="Active subnets" value={activeSubnets} live={live} />
+      <StatTile label="Rounds run" value={roundsRun} />
+      <StatTile label="Challengers" value={challengers} />
+      <StatTile label="Agents submitted" value={submissions} />
     </section>
   );
 }
 
-function StatTile({ label, value, tone = "default" }) {
+function StatTile({ label, value, live }) {
+  const display = useCountUp(value);
   return (
-    <div className={`stat-tile stat-tile-${tone}`}>
-      <span className="stat-tile-value">{value}</span>
+    <div className="stat-tile">
+      <span className="stat-tile-value">
+        {display}
+        {live ? <span className="stat-live-dot" aria-label="live" /> : null}
+      </span>
       <span className="stat-tile-label">{label}</span>
     </div>
   );
@@ -450,14 +502,12 @@ function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLa
 
 function SubnetCard({ lane, data, active, onEnter }) {
   const round = data.round || {};
-  const proofRound = data.publicProof?.latestRound || {};
   const live = round.state === "executing";
   const kingName = lane.king?.seeded
     ? "seed king"
     : lane.currentHolder || lane.king?.author || "—";
-  const roundNumber = round.roundNumber ?? proofRound.roundNumber ?? "—";
-  const candidates = round.candidateCount ?? proofRound.candidateCount ?? "—";
-  const bestTp = proofRound.bestTruePositives ?? round.bestTruePositives ?? "—";
+  const rounds = data.roundHistory?.length ?? round.roundNumber ?? "—";
+  const challengers = data.leaderboard?.rows?.length ?? "—";
   return (
     <article
       className={`subnet-card${active ? " subnet-card-active" : ""}`}
@@ -485,9 +535,8 @@ function SubnetCard({ lane, data, active, onEnter }) {
         <strong>{kingName}</strong>
       </div>
       <div className="subnet-metrics">
-        <SubnetMetric label="Round" value={roundNumber} />
-        <SubnetMetric label="Candidates" value={candidates} />
-        <SubnetMetric label="Best TP" value={bestTp} />
+        <SubnetMetric label="Rounds run" value={rounds} />
+        <SubnetMetric label="Challengers" value={challengers} />
       </div>
       <span className="subnet-enter">Enter arena →</span>
     </article>
@@ -503,49 +552,162 @@ function SubnetMetric({ label, value }) {
   );
 }
 
+function WorkflowNode({ node }) {
+  return (
+    <g>
+      <rect
+        className={`wf-node${node.king ? " wf-node-king" : ""}${node.svc ? " wf-node-svc" : ""}`}
+        x={node.x}
+        y={node.y}
+        width={node.w}
+        height={node.h}
+        rx="13"
+      />
+      {node.king ? (
+        <path
+          className="wf-crown"
+          d={`M ${node.x + node.w / 2 - 20} ${node.y - 6} l 7 12 8 -14 8 14 7 -12 -3 20 -24 0 z`}
+        />
+      ) : null}
+      <text className="wf-title" x={node.x + node.w / 2} y={node.y + node.h / 2 - 4} textAnchor="middle">
+        {node.t}
+      </text>
+      <text className="wf-sub" x={node.x + node.w / 2} y={node.y + node.h / 2 + 16} textAnchor="middle">
+        {node.s}
+      </text>
+    </g>
+  );
+}
+
 function DashboardWorkflow() {
-  const stages = [
-    { n: "01", title: "Submit", text: "A contributor opens one PR that adds a single agent." },
-    { n: "02", title: "Screen", text: "kata-bot checks the PR and labels it pending — no scoring yet." },
-    { n: "03", title: "Round", text: "On a schedule, every pending agent is scored at once." },
-    { n: "04", title: "Score", text: "King versus candidates on the same problems, in the sealed room." },
-    { n: "05", title: "Promote", text: "The top agent that beats the king is merged as the new king." },
+  const nodes = [
+    { id: "c", x: 16, y: 108, w: 168, h: 84, t: "Contributor", s: "opens one PR" },
+    { id: "bot", x: 220, y: 108, w: 184, h: 84, t: "kata-bot", s: "screens · runs rounds" },
+    { id: "eng", x: 440, y: 108, w: 184, h: 84, t: "kata engine", s: "king vs candidates" },
+    { id: "tee", x: 860, y: 108, w: 176, h: 84, t: "kata-tee-runner", s: "sealed room · miner-paid" },
+    { id: "king", x: 1064, y: 108, w: 160, h: 84, t: "New King", s: "promoted to kings/", king: true },
+    { id: "board", x: 1064, y: 224, w: 160, h: 52, t: "kata-board", s: "shows it live", svc: true },
+  ];
+  const subnets = [
+    { x: 656, y: 40, w: 172, h: 52, t: "SN60 · Bitsec" },
+    { x: 656, y: 124, w: 172, h: 52, t: "SN22 · Desearch" },
+    { x: 656, y: 208, w: 172, h: 52, t: "+ more targets" },
+  ];
+  const edges = [
+    "M 184 150 L 220 150",
+    "M 404 150 L 440 150",
+    "M 624 150 C 640 150, 640 66, 656 66",
+    "M 624 150 L 656 150",
+    "M 624 150 C 640 150, 640 234, 656 234",
+    "M 828 66 C 844 66, 844 150, 860 150",
+    "M 828 150 L 860 150",
+    "M 828 234 C 844 234, 844 150, 860 150",
+    "M 1036 150 L 1064 150",
+    "M 1144 192 L 1144 224",
   ];
   return (
     <section className="dash-workflow">
       <div className="dash-section-head">
         <span className="showcase-kicker">How it works</span>
         <h2>One PR in, one verified king out.</h2>
+        <p>
+          The same engine runs every subnet in parallel. A challenger only wins by beating the
+          reigning king on the same benchmark — then it becomes the king to beat next round.
+        </p>
       </div>
-      <ol className="dash-pipeline">
-        {stages.map((stage) => (
-          <li className="dash-stage" key={stage.n}>
-            <span className="dash-stage-n">{stage.n}</span>
-            <h3>{stage.title}</h3>
-            <p>{stage.text}</p>
-          </li>
-        ))}
-      </ol>
+      <div className="wf-diagram">
+        <svg viewBox="0 0 1240 300" role="img" aria-label="The Kata workflow: a contributor opens a PR, kata-bot screens it and runs scheduled rounds, the kata engine scores the king against candidates across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room, and the top agent that beats the king is promoted to kings and shown on kata-board. The new king becomes the bar to beat next round.">
+          <defs>
+            <marker id="wfArrow" markerWidth="8" markerHeight="8" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L6 3 L0 6 z" className="wf-arrowhead" />
+            </marker>
+          </defs>
+          <path
+            className="wf-loop"
+            d="M 1144 108 C 1144 24, 302 24, 302 108"
+            markerEnd="url(#wfArrow)"
+          />
+          <text className="wf-loop-label" x="723" y="18" textAnchor="middle">
+            the new king becomes next round&apos;s bar to beat
+          </text>
+          {edges.map((d, i) => (
+            <path key={i} className="wf-edge" d={d} markerEnd="url(#wfArrow)" />
+          ))}
+          <rect className="wf-band" x="640" y="20" width="204" height="256" rx="16" />
+          <text className="wf-band-label" x="742" y="290" textAnchor="middle">
+            subnets · in parallel
+          </text>
+          {subnets.map((node) => (
+            <g key={node.t}>
+              <rect className="wf-node wf-node-subnet" x={node.x} y={node.y} width={node.w} height={node.h} rx="11" />
+              <text className="wf-title" x={node.x + node.w / 2} y={node.y + node.h / 2 + 5} textAnchor="middle">
+                {node.t}
+              </text>
+            </g>
+          ))}
+          {nodes.map((node) => (
+            <WorkflowNode key={node.id} node={node} />
+          ))}
+        </svg>
+      </div>
     </section>
   );
 }
 
-function DashboardOperations({ latestStatus, submissionStatus, generatedAt }) {
+function DashboardOperations({ payload, latestStatus, generatedAt }) {
+  const counts = payload.submissionStatus?.counts || {};
+  const outcomes = [
+    { label: "Submitted", value: counts.total ?? 0, tone: "muted" },
+    { label: "Promoted to king", value: counts.winner ?? 0, tone: "green" },
+    { label: "Competed", value: counts.losing ?? 0, tone: "soft" },
+    { label: "Screened out", value: counts.invalid ?? 0, tone: "red" },
+  ];
+  const queue = [
+    { label: "Pending", value: counts.pending ?? 0 },
+    { label: "In review", value: counts.review ?? 0 },
+    { label: "Executing", value: counts.executing ?? 0 },
+    { label: "On hold", value: counts.hold ?? 0 },
+  ];
   return (
-    <section className="dashboard-ops">
-      <div className="dashboard-section-head">
-        <span className="showcase-kicker">Operational status</span>
-        <h2>Live queue and review state.</h2>
+    <section className="dash-ops">
+      <div className="dash-section-head">
+        <span className="showcase-kicker">Live status</span>
+        <h2>Competition activity.</h2>
       </div>
-      <div className="dashboard-ops-grid">
-        <div className="dashboard-latest-card">
-          <SectionTitle title="Latest activity" />
-          <KeyValue label="challenger" value={latestStatus.challenger} />
-          <KeyValue label="status" value={latestStatus.status} />
-          <KeyValue label="source" value={latestStatus.source} />
-          <KeyValue label="updated" value={formatDateTime(latestStatus.updatedAt || generatedAt)} />
+      <div className="dash-ops-grid">
+        <div className="ops-card">
+          <h3>Where submissions end up</h3>
+          <ul className="ops-funnel">
+            {outcomes.map((row) => (
+              <li key={row.label} className={`ops-funnel-row ops-tone-${row.tone}`}>
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
+              </li>
+            ))}
+          </ul>
         </div>
-        <SubmissionStatusPanel submissionStatus={submissionStatus} />
+        <div className="ops-card">
+          <h3>In the queue right now</h3>
+          <div className="ops-queue">
+            {queue.map((item) => (
+              <div key={item.label} className="ops-queue-item">
+                <strong>{item.value}</strong>
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="ops-latest">
+            <span className="ops-latest-label">Latest</span>
+            <div className="ops-latest-body">
+              <span>
+                {latestStatus.challenger} · {latestStatus.status}
+              </span>
+              <span className="ops-latest-time">
+                {formatDateTime(latestStatus.updatedAt || generatedAt)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -556,104 +718,6 @@ function ProofFact({ label, value }) {
     <div className="proof-fact">
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
-  );
-}
-
-function SubmissionStatusPanel({ submissionStatus }) {
-  const counts = submissionStatus?.counts || {};
-  const pendingPulls = submissionStatus?.pendingPulls || [];
-  const reviewPulls = submissionStatus?.reviewPulls || [];
-  const holdPulls = submissionStatus?.holdPulls || [];
-  const invalidPulls = submissionStatus?.invalidPulls || [];
-  const approvals = submissionStatus?.reviewApprovals?.recent || [];
-  return (
-    <section className="section-block submission-status-panel">
-      <SectionTitle title="Submission screening status" />
-      <div className="submission-status-grid">
-        <StatusMetric label="pending" value={counts.pending || 0} tone="ok" />
-        <StatusMetric label="review" value={counts.review || 0} tone="warn" />
-        <StatusMetric label="on hold" value={counts.hold || 0} tone="warn" />
-        <StatusMetric label="approved reviews" value={counts.approvedReview || 0} tone="ok" />
-        <StatusMetric label="invalid" value={counts.invalid || 0} tone="bad" />
-      </div>
-      <div className="submission-status-lists">
-        <StatusPullList
-          title="Pending queue"
-          emptyText="No PRs are currently visible with kata:pending."
-          items={pendingPulls}
-        />
-        <StatusPullList
-          title="Screening review"
-          emptyText="No PRs are currently visible with kata:review."
-          items={reviewPulls}
-        />
-        <StatusPullList
-          title="On hold"
-          emptyText="No PRs are currently visible with kata:hold."
-          items={holdPulls}
-        />
-        <StatusPullList
-          title="Recently invalid"
-          emptyText="No recent submission PRs are visible with kata:invalid."
-          items={invalidPulls}
-        />
-        <StatusApprovalList approvals={approvals} />
-      </div>
-    </section>
-  );
-}
-
-function StatusMetric({ label, value, tone }) {
-  return (
-    <div className={`status-metric status-metric-${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function StatusPullList({ title, emptyText, items }) {
-  return (
-    <div className="status-list-card">
-      <strong>{title}</strong>
-      {items.length ? (
-        items.slice(0, 4).map((item) => (
-          <a
-            className="status-list-row"
-            href={item.htmlUrl || undefined}
-            key={`${item.statusLabel}-${item.pullNumber}-${item.author}`}
-            target={item.htmlUrl ? "_blank" : undefined}
-            rel={item.htmlUrl ? "noreferrer" : undefined}
-          >
-            <span>{item.pullNumber ? `#${item.pullNumber}` : "PR"}</span>
-            <small>{item.author || "unknown"}</small>
-          </a>
-        ))
-      ) : (
-        <p>{emptyText}</p>
-      )}
-    </div>
-  );
-}
-
-function StatusApprovalList({ approvals }) {
-  return (
-    <div className="status-list-card">
-      <strong>Review approvals</strong>
-      {approvals.length ? (
-        approvals.slice(0, 4).map((approval) => (
-          <div
-            className="status-list-row"
-            key={`${approval.repo}-${approval.pullNumber}-${approval.approvedAt}`}
-          >
-            <span>{approval.pullNumber ? `#${approval.pullNumber}` : "PR"}</span>
-            <small>{approval.approvedBy || "reviewer"}</small>
-          </div>
-        ))
-      ) : (
-        <p>No review approvals are recorded yet.</p>
-      )}
     </div>
   );
 }

@@ -213,9 +213,28 @@ export async function loadBoardStatus(env) {
     leaderboard,
     byLane,
     notes,
+    dataNotice: buildDataNotice(leaderboard),
   };
   cachedAt = Date.now();
   return cachedStatus;
+}
+
+// A user-facing banner when the board can't reach GitHub and is showing
+// provisional data reconstructed from local history. Names and rankings can be
+// incomplete in this mode; it clears automatically once GitHub recovers.
+function buildDataNotice(leaderboard) {
+  const githubError = leaderboard?.githubError;
+  if (!githubError || leaderboardSourceIncludes(leaderboard, "github")) {
+    return null;
+  }
+  return {
+    level: "warning",
+    message:
+      "GitHub is temporarily unavailable, so the leaderboard and current king are " +
+      "provisional — reconstructed from local history and may be incomplete. This " +
+      "corrects itself automatically once GitHub recovers.",
+    detail: String(githubError),
+  };
 }
 
 function leaderboardSourceIncludes(leaderboard, sourceName) {
@@ -3420,7 +3439,13 @@ function loadLocalGitWinnerLeaderboard(kataRoot) {
     if (!mergeCommit) {
       continue;
     }
-    const author = inferGitHubAuthorFromCommit(mergeCommit);
+    // Prefer the GitHub username from the submission directory the merge added
+    // (Kata enforces `<github-user>-YYYYMMDD-NN`), so this local-git fallback
+    // still shows the real login even when the committer used a plain email.
+    // Fall back to the commit's email/subject/name only if that path is gone.
+    const author =
+      submissionAuthorFromMergeCommit(resolvedRoot, mergeCommit.hash) ||
+      inferGitHubAuthorFromCommit(mergeCommit);
     const lane = inferLaneFromPromotionCommit(promotion, knownLanes);
     if (!author || !lane) {
       continue;
@@ -3665,6 +3690,35 @@ function inferGitHubAuthorFromCommit(commit) {
   }
   const authorName = String(commit.authorName || "").trim();
   return authorName ? authorName.replace(/\s+/g, "-").toLowerCase() : null;
+}
+
+// Best local source of a winner's GitHub login when GitHub is unreachable: the
+// submission directory the merge added. Kata requires that directory to be
+// `submissions/<pack>/<mode>/<github-user>-YYYYMMDD-NN`, so the leading segment
+// is the author's real GitHub username. Returns null if the path isn't found.
+function submissionAuthorFromMergeCommit(kataRoot, commitHash) {
+  if (!kataRoot || !commitHash) {
+    return null;
+  }
+  try {
+    const output = execFileSync(
+      "git",
+      ["-C", kataRoot, "show", "--name-only", "--pretty=format:", commitHash],
+      { encoding: "utf8", timeout: 5_000, stdio: ["ignore", "pipe", "ignore"] }
+    );
+    for (const line of output.split("\n")) {
+      const match = line.trim().match(/^submissions\/[^/]+\/[^/]+\/([^/]+)\//);
+      if (match?.[1]) {
+        const author = inferSubmissionAuthorFromId(match[1]);
+        if (author) {
+          return author;
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function normalizeIsoDate(value) {

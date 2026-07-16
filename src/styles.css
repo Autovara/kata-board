@@ -7420,3 +7420,26 @@ html {
     grid-template-columns: 1fr;
   }
 }
+
+/* Provisional-data banner shown when GitHub is unreachable and the board is
+   reconstructing the leaderboard/king from local history. */
+.data-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(1180px, 100%);
+  margin: 0 auto 10px;
+  padding: 11px 16px;
+  border: 1px solid rgba(240, 190, 90, 0.4);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(240, 190, 90, 0.12), rgba(240, 190, 90, 0.04));
+  color: #f2e3c2;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.data-notice-icon {
+  flex: none;
+  font-size: 15px;
+  color: #f0be5a;
+}

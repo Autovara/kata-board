@@ -154,6 +154,8 @@ export default function App() {
           onNavigate={navigate}
         />
 
+        {payload?.dataNotice ? <DataNotice notice={payload.dataNotice} /> : null}
+
         {lanes.length > 1 ? (
           <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
         ) : null}
@@ -194,6 +196,20 @@ export default function App() {
         ) : null}
       </main>
       <Footer kataRepoSlug={payload?.publicLinks?.kataRepo} onNavigate={navigate} />
+    </div>
+  );
+}
+
+function DataNotice({ notice }) {
+  if (!notice?.message) {
+    return null;
+  }
+  return (
+    <div className={`data-notice data-notice-${notice.level || "warning"}`} role="status">
+      <span className="data-notice-icon" aria-hidden="true">
+        ⚠
+      </span>
+      <span className="data-notice-text">{notice.message}</span>
     </div>
   );
 }

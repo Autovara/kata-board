@@ -2818,7 +2818,7 @@ function DocMiner({ links, selectedLane }) {
         SN60 runs your agent inside an attested sealed room where it pays for its own model calls. You
         never hand a raw API key to the platform: you encrypt a provider credential to the room and
         commit only the ciphertext. Get the room URL, accepted providers, and measurement from the
-        target's repo, then run the sealing tool from{" "}
+        target&rsquo;s repo, then run the sealing tool from{" "}
         <a href="https://github.com/Autovara/kata-tee-runner" target="_blank" rel="noreferrer">
           kata-tee-runner
         </a>

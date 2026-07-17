@@ -52,6 +52,40 @@ test("githubRequest rotates configured read tokens", async (t) => {
   assert.equal(new Set(authorizations).size, 2);
 });
 
+test("githubRequest fails over to another token when one is rate-limited", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const authorizations = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, options = {}) => {
+    const auth = options.headers?.Authorization || null;
+    authorizations.push(auth);
+    // Whichever token is tried first is exhausted (rate-limited); the failover
+    // attempt (a different token) still has quota.
+    if (authorizations.length === 1) {
+      return new Response(JSON.stringify({ message: "API rate limit exceeded" }), {
+        status: 403,
+        statusText: "Forbidden",
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify([{ number: 99 }]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const payload = await githubRequest("/repos/Autovara/kata/pulls", ["read-a", "read-b"]);
+
+  // Failed over to the OTHER token, not down to an unauthenticated read.
+  assert.deepEqual(payload, [{ number: 99 }]);
+  assert.equal(authorizations.length, 2);
+  assert.ok(!authorizations.includes(null));
+  assert.notEqual(authorizations[0], authorizations[1]);
+  assert.ok(authorizations.every((value) => ["Bearer read-a", "Bearer read-b"].includes(value)));
+});
+
 test("parseGithubTokenList trims comma-separated read tokens", () => {
   assert.deepEqual(parseGithubTokenList(" read-a,read-b, , read-c "), [
     "read-a",

@@ -318,20 +318,41 @@ async function fetchSubmissionFiles(repoSlug, pullNumber, githubToken) {
 }
 
 export async function githubRequest(path, githubToken) {
-  let response;
-  const selectedToken = selectGithubToken(githubToken);
+  const pool = orderedTokenPool(githubToken);
+  const attempts = pool.length ? pool : [""];
+  let lastFailure = null;
   try {
-    response = await fetchGithubResponse(path, selectedToken);
-    if (selectedToken && (response.status === 401 || response.status === 403)) {
+    for (const token of attempts) {
+      const response = await fetchGithubResponse(path, token);
+      if (response.ok) {
+        return response.json();
+      }
+      // A rate-limited or unauthorized token must NOT fail the whole scan: fail
+      // over to the next token in the pool. One exhausted token (403 rate limit)
+      // was previously poisoning every refresh even when other tokens had quota.
+      if (
+        token &&
+        (response.status === 401 || response.status === 403 || response.status === 429)
+      ) {
+        lastFailure = response;
+        continue;
+      }
+      throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`);
+    }
+    // Every configured token failed (typically all rate-limited). Last resort:
+    // an unauthenticated read, but only if we were actually using tokens.
+    if (attempts[0] !== "") {
       const publicResponse = await fetchGithubResponse(path, "");
       if (publicResponse.ok) {
         return publicResponse.json();
       }
+      lastFailure = publicResponse;
     }
-    if (!response.ok) {
-      throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+    throw new Error(
+      `GitHub API request failed: ${lastFailure?.status ?? 0} ${
+        lastFailure?.statusText ?? "all read tokens rate-limited"
+      }`
+    );
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error(`GitHub API request timed out after ${GITHUB_REQUEST_TIMEOUT_MS}ms`);
@@ -368,16 +389,19 @@ export function parseGithubTokenList(raw) {
     .filter(Boolean);
 }
 
-function selectGithubToken(githubToken) {
+function orderedTokenPool(githubToken) {
   const tokens = Array.isArray(githubToken)
     ? githubToken.filter(Boolean)
     : githubToken
       ? [githubToken]
       : [];
   if (!tokens.length) {
-    return "";
+    return [];
   }
-  const token = tokens[githubReadTokenIndex % tokens.length];
+  // Start at the rotating index to keep load spread across tokens, but return
+  // the whole pool (in rotation order) so a rate-limited token can fail over to
+  // the next one instead of aborting the request.
+  const start = githubReadTokenIndex % tokens.length;
   githubReadTokenIndex += 1;
-  return token;
+  return [...tokens.slice(start), ...tokens.slice(0, start)];
 }

@@ -204,3 +204,29 @@ test("loadGithubCliLeaderboard counts a subnet-qualified defeat as a historical 
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].author, "Daedalus-Icarus");
   assert.equal(leaderboard.latestLaneWinners["sn60__bitsec::miner"].pullNumber, 124);
 });
+
+test("githubRequest does not fall back to an unauthenticated read on a 429", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const authorizations = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, options = {}) => {
+    authorizations.push(options.headers?.Authorization || null);
+    // Every token hits the secondary rate limit (429). An unauthenticated read
+    // shares the same per-IP secondary limit, so it must NOT be attempted.
+    return new Response(JSON.stringify({ message: "too many requests" }), {
+      status: 429,
+      statusText: "too many requests",
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await assert.rejects(
+    () => githubRequest("/repos/Autovara/kata/pulls", ["read-a", "read-b"]),
+    /429/
+  );
+  // Both tokens were tried; no unauthenticated (null Authorization) attempt.
+  assert.deepEqual(authorizations, ["Bearer read-a", "Bearer read-b"]);
+  assert.ok(!authorizations.includes(null));
+});

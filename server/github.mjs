@@ -10,6 +10,30 @@ const SUBMISSION_PATH_PATTERN = /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
 const pullFilesCache = new Map();
 const PULL_FILES_CACHE_MAX_ENTRIES = 2000;
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
+// Space out GitHub calls so the leaderboard's per-PR fan-out does not trip
+// GitHub's *secondary* rate limit (HTTP 429 "too many requests"), which is
+// keyed to request *rate*, not the hourly budget -- so swapping tokens can't
+// dodge it. This gate reserves a slot per request, pacing even concurrent
+// callers. It only slows the background leaderboard build; the real-time
+// round/king status is served from local files and is never gated here.
+let githubNextRequestAt = 0;
+function githubMinRequestIntervalMs() {
+  const raw = Number(process.env.KATA_GITHUB_MIN_REQUEST_INTERVAL_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 120;
+}
+async function paceGithubRequest() {
+  const interval = githubMinRequestIntervalMs();
+  if (interval <= 0) {
+    return;
+  }
+  const now = Date.now();
+  const slot = Math.max(now, githubNextRequestAt);
+  githubNextRequestAt = slot + interval;
+  const wait = slot - now;
+  if (wait > 0) {
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+}
 let githubReadTokenIndex = 0;
 
 export async function loadGithubLeaderboard({ repoSlug, githubToken, githubTokens }) {
@@ -340,8 +364,10 @@ export async function githubRequest(path, githubToken) {
       throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`);
     }
     // Every configured token failed (typically all rate-limited). Last resort:
-    // an unauthenticated read, but only if we were actually using tokens.
-    if (attempts[0] !== "") {
+    // an unauthenticated read, but only if we were actually using tokens. Skip
+    // it on a secondary rate limit (429): unauthenticated reads share the same
+    // per-IP secondary limit and a lower hourly cap, so they only deepen it.
+    if (attempts[0] !== "" && lastFailure?.status !== 429) {
       const publicResponse = await fetchGithubResponse(path, "");
       if (publicResponse.ok) {
         return publicResponse.json();
@@ -370,6 +396,7 @@ async function fetchGithubResponse(path, githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
 
+  await paceGithubRequest();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
   try {

@@ -688,16 +688,13 @@ async function loadLiveKataPulls(env) {
   if (!repoSlug) {
     return [];
   }
-  const timeoutMs = readTtlMs(
-    env.KATA_LEADERBOARD_BUILD_TIMEOUT_MS,
-    DEFAULT_LEADERBOARD_BUILD_TIMEOUT_MS
-  );
-  if (timeoutMs >= 100) {
-    const cliPulls = loadLiveKataPullsFromGhCli(repoSlug);
-    if (cliPulls.length) {
-      return cliPulls;
-    }
-  }
+  // Use the authenticated (async, non-blocking) GitHub API. The `gh` CLI path is
+  // SYNCHRONOUS (execFileSync) -- it blocks Node's single event loop for up to its
+  // timeout on every status build, and `gh` is not authenticated for the board's
+  // service user, so it only ever hangs and piles up, freezing the whole board.
+  // Gate it behind the explicit opt-in flag; otherwise degrade gracefully to an
+  // empty live overlay when the API read fails.
+  const allowGhCli = env.KATA_BOARD_ALLOW_GH_CLI_FALLBACK === "true";
   try {
     const pulls = await githubRequest(
       `/repos/${repoSlug}/pulls?state=all&per_page=100&sort=updated&direction=desc`,
@@ -705,7 +702,7 @@ async function loadLiveKataPulls(env) {
     );
     return normalizeLiveKataPulls(pulls);
   } catch {
-    return loadLiveKataPullsFromGhCli(repoSlug);
+    return allowGhCli ? loadLiveKataPullsFromGhCli(repoSlug) : [];
   }
 }
 

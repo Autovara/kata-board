@@ -126,6 +126,7 @@ export async function loadBoardStatus(env) {
     // animates smoothly every stream frame without re-hitting GitHub.
     if (cachedStatus.round) {
       cachedStatus.round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
+      cachedStatus.round = applyRoundStalenessGuard(cachedStatus.round, env);
     }
     refreshByLaneRoundProgress(cachedStatus, roots);
     return cachedStatus;
@@ -134,6 +135,7 @@ export async function loadBoardStatus(env) {
   let round = loadRoundStatus(roots.roundStatusPath);
   if (round) {
     round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
+    round = applyRoundStalenessGuard(round, env);
   }
   let roundHistory = loadRoundHistory(roots.roundHistoryPath);
   ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
@@ -1035,6 +1037,35 @@ function assignRoundSequence(round, roundHistory) {
       : round.liveProgress,
   };
   return { round: numberedRound, roundHistory: numberedHistory };
+}
+
+const DEFAULT_ROUND_STALE_MS = 30 * 60 * 1000; // 30 min without a progress write => dead
+
+function readRoundStaleMs(env) {
+  const raw = Number.parseInt(env?.KATA_BOARD_ROUND_STALE_MS ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_ROUND_STALE_MS;
+}
+
+function applyRoundStalenessGuard(round, env) {
+  // A round writes round-progress.json as it runs; if it was crashed/killed without
+  // the bot writing a terminal state, round-status.json stays "executing" forever and
+  // the dashboard animates a phantom running round. Present a round whose freshest
+  // timestamp is older than the stale window as "stale" (and drop liveProgress) so the
+  // client -- which gates the animation on state === "executing" -- stops animating.
+  if (!round || round.state !== "executing") {
+    return round;
+  }
+  const stamps = [round.liveProgress?.updatedAt, round.generatedAt]
+    .map((value) => (value ? Date.parse(value) : Number.NaN))
+    .filter((value) => Number.isFinite(value));
+  if (!stamps.length) {
+    return round;
+  }
+  const freshest = Math.max(...stamps);
+  if (Date.now() - freshest > readRoundStaleMs(env)) {
+    return { ...round, state: "stale", stale: true, liveProgress: null };
+  }
+  return round;
 }
 
 function loadRoundStatus(roundStatusPath) {

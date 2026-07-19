@@ -296,20 +296,35 @@ function emptyLeaderboard(source) {
   };
 }
 
+const FETCH_PULLS_MAX_PAGES = 20; // safety bound: 100/page => up to 2000 PRs
+
 async function fetchPulls(repoSlug, githubToken) {
   const pulls = [];
-  for (let page = 1; page <= 4; page += 1) {
+  let truncated = false;
+  for (let page = 1; page <= FETCH_PULLS_MAX_PAGES; page += 1) {
     const response = await githubRequest(
-      `/repos/${repoSlug}/pulls?state=all&per_page=50&page=${page}&sort=updated&direction=desc`,
+      `/repos/${repoSlug}/pulls?state=all&per_page=100&page=${page}&sort=updated&direction=desc`,
       githubToken
     );
     if (!response.length) {
       break;
     }
     pulls.push(...response);
-    if (response.length < 50) {
+    if (response.length < 100) {
       break;
     }
+    if (page === FETCH_PULLS_MAX_PAGES) {
+      // A full last page means there may be more; we stop at the safety bound. Log it
+      // so a silently-truncated leaderboard (a winner/defeat PR older than the bound
+      // dropping off) is observable instead of invisible.
+      truncated = true;
+    }
+  }
+  if (truncated) {
+    console.warn(
+      `[kata-board] fetchPulls hit the ${FETCH_PULLS_MAX_PAGES}-page cap for ${repoSlug} ` +
+        `(${pulls.length} PRs fetched); older PRs are omitted from the leaderboard.`
+    );
   }
   return pulls;
 }

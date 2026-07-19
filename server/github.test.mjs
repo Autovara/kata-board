@@ -292,3 +292,68 @@ test("loadGithubLeaderboard builds from labels without per-PR file fetches", asy
   const winner = leaderboard.rows.find((r) => r.author === "bohdansolovie");
   assert.ok(winner && winner.wins >= 1, "winner-labelled PR counts as a win");
 });
+
+test("loadGithubLeaderboard paginates past a full first page (no silent 200-PR cap)", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const requested = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/pulls?")) {
+      const params = new URL(u, "http://x").searchParams;
+      requested.push({ page: Number(params.get("page")), perPage: params.get("per_page") });
+      if (Number(params.get("page")) === 1) {
+        // A full page of 100 -> fetchPulls MUST request page 2 (old code stopped at 200).
+        const rows = Array.from({ length: 100 }, (_, i) => ({
+          number: 1000 + i,
+          title: "m",
+          state: "closed",
+          merged_at: "2026-07-01T00:00:00Z",
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:00Z",
+          html_url: `https://github.com/Autovara/kata/pull/${1000 + i}`,
+          user: { login: `miner${i}` },
+          labels: [{ name: "kata:winner:sn60__bitsec" }],
+        }));
+        return new Response(JSON.stringify(rows), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (Number(params.get("page")) === 2) {
+        return new Response(
+          JSON.stringify([
+            {
+              number: 2,
+              title: "old winner",
+              state: "closed",
+              merged_at: "2026-06-01T00:00:00Z",
+              created_at: "2026-06-01T00:00:00Z",
+              updated_at: "2026-06-01T00:00:00Z",
+              html_url: "https://github.com/Autovara/kata/pull/2",
+              user: { login: "oldwinner" },
+              labels: [{ name: "kata:winner:sn60__bitsec" }],
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const leaderboard = await loadGithubLeaderboard({
+    repoSlug: "Autovara/kata",
+    githubTokens: ["read-a"],
+  });
+
+  assert.ok(requested.some((r) => r.page === 2), "must request page 2 after a full page 1");
+  assert.equal(requested[0].perPage, "100"); // 100/page, not the old 50
+  // The winner PR that would fall past a 200-PR cap is still included.
+  assert.ok(leaderboard.rows.some((row) => row.author === "oldwinner"));
+});

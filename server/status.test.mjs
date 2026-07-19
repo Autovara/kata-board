@@ -2143,3 +2143,35 @@ test("loadLocalArtifactLeaderboard memoizes its result per root", () => {
   const second = loadLocalArtifactLeaderboard(root);
   assert.equal(first, second); // same reference => served from cache, not recomputed
 });
+
+test("a crashed executing round with only stale timestamps is presented as stale, not animated", async () => {
+  // BUG-11: round-status.json stuck at "executing" (round crashed/killed without a
+  // terminal write) and no fresh progress must NOT animate a phantom running round.
+  const root = makeKataRoot();
+  writeJson(root, "round-status.json", {
+    schema_version: 1,
+    state: "executing",
+    generated_at: "2026-07-06T12:00:00Z",
+    entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
+  });
+  writeJson(root, "round-progress.json", {
+    schema_version: 1,
+    state: "executing",
+    run_id: "sn60-round-dead",
+    updated_at: "2026-07-06T12:00:05Z",
+    candidates: [],
+  });
+
+  const status = await loadBoardStatus({
+    KATA_ROOT: root,
+    KATA_BOT_ROOT: path.join(root, "no-bot"),
+    KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
+    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_STATUS_CACHE_TTL_MS: "0",
+  });
+
+  assert.equal(status.round.state, "stale");
+  assert.equal(status.round.stale, true);
+  assert.equal(status.round.liveProgress, null);
+});

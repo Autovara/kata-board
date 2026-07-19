@@ -46,22 +46,17 @@ export async function loadGithubLeaderboard({ repoSlug, githubToken, githubToken
   const relevantPulls = [];
 
   for (const pull of pulls) {
-    const touchedSubmissions = await fetchSubmissionFilesCached(repoSlug, pull, auth);
-    if (!touchedSubmissions.length) {
+    const labels = normalizeLabelNames(pull.labels);
+    // A kata submission PR is identifiable by its kata:* labels (the bot labels
+    // every submission), so relevance and lane are derived from labels rather
+    // than fetching per-PR files. That per-PR file fetch was an N+1 that tripped
+    // GitHub's secondary rate limit -- especially while a round runs and hits
+    // the same GitHub source -- degrading the board to a stale "GitHub
+    // unavailable" fallback. The PR list already carries labels, so one cheap
+    // paginated query yields a complete, real-time leaderboard.
+    if (!labels.some((label) => label.startsWith("kata:"))) {
       continue;
     }
-
-    const laneKeys = [
-      ...new Set(
-        touchedSubmissions.map((path) => {
-          const match = path.match(SUBMISSION_PATH_PATTERN);
-          if (!match) {
-            return null;
-          }
-          return `${match[1]}::${match[2]}`;
-        })
-      ),
-    ].filter(Boolean);
 
     relevantPulls.push({
       number: pull.number,
@@ -72,10 +67,10 @@ export async function loadGithubLeaderboard({ repoSlug, githubToken, githubToken
       updatedAt: pull.updated_at,
       htmlUrl: pull.html_url,
       author: pull.user?.login || "unknown",
-      labels: normalizeLabelNames(pull.labels),
+      labels,
       winnerEligible: isKataWinnerPull(pull),
-      laneKeys,
-      submissionPaths: touchedSubmissions,
+      laneKeys: kataWinLaneKeysFromLabels(labels),
+      submissionPaths: [],
     });
   }
 
@@ -224,6 +219,21 @@ function isKataDefeatedPull(pull) {
 
 function hasKataWinHistory(pull) {
   return isKataWinnerPull(pull) || isKataDefeatedPull(pull);
+}
+
+// Lane key(s) a PR won, derived from its kata:winner:<pack> / kata:defeat:<pack>
+// labels. Kata submissions are miner-mode (the only supported mode), so the lane
+// key is `<pack>::miner` -- matching the `<pack>::<mode>` shape the file-path
+// scan used to produce. Non-winning PRs have no lane, so this returns [].
+function kataWinLaneKeysFromLabels(labels) {
+  const packs = new Set();
+  for (const label of Array.isArray(labels) ? labels : []) {
+    const match = String(label).match(/^kata:(?:winner|defeat):(.+)$/);
+    if (match) {
+      packs.add(match[1]);
+    }
+  }
+  return [...packs].map((pack) => `${pack}::miner`);
 }
 
 function normalizeLabelNames(labels) {

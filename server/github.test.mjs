@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { githubRequest, loadGithubCliLeaderboard, parseGithubTokenList } from "./github.mjs";
+import {
+  githubRequest,
+  loadGithubCliLeaderboard,
+  loadGithubLeaderboard,
+  parseGithubTokenList,
+} from "./github.mjs";
 
 test("githubRequest retries public reads without a rejected token", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -229,4 +234,61 @@ test("githubRequest does not fall back to an unauthenticated read on a 429", asy
   // Both tokens were tried; no unauthenticated (null Authorization) attempt.
   assert.deepEqual(authorizations, ["Bearer read-a", "Bearer read-b"]);
   assert.ok(!authorizations.includes(null));
+});
+
+test("loadGithubLeaderboard builds from labels without per-PR file fetches", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const fetchedPaths = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (url) => {
+    const path = String(url);
+    fetchedPaths.push(path);
+    if (path.includes("/pulls?") && path.includes("page=1")) {
+      return new Response(
+        JSON.stringify([
+          {
+            number: 156, title: "add miner", state: "closed",
+            merged_at: "2026-07-18T09:58:00Z", created_at: "2026-07-17T14:00:00Z",
+            updated_at: "2026-07-18T09:58:00Z",
+            html_url: "https://github.com/Autovara/kata/pull/156",
+            user: { login: "bohdansolovie" },
+            labels: [{ name: "kata:winner:sn60__bitsec" }],
+          },
+          {
+            number: 160, title: "another miner", state: "open", merged_at: null,
+            created_at: "2026-07-19T02:00:00Z", updated_at: "2026-07-19T02:49:00Z",
+            html_url: "https://github.com/Autovara/kata/pull/160",
+            user: { login: "someminer" },
+            labels: [{ name: "kata:executing" }],
+          },
+          {
+            number: 3, title: "engine fix (not a submission)", state: "closed",
+            merged_at: "2026-07-10T00:00:00Z", created_at: "2026-07-09T00:00:00Z",
+            updated_at: "2026-07-10T00:00:00Z",
+            html_url: "https://github.com/Autovara/kata/pull/3",
+            user: { login: "maintainer" }, labels: [],
+          },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(JSON.stringify([]), {
+      status: 200, headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const leaderboard = await loadGithubLeaderboard({
+    repoSlug: "Autovara/kata", githubTokens: ["read-a"],
+  });
+
+  // The N+1 per-PR /files fetch (what tripped GitHub's secondary rate limit) is gone.
+  assert.ok(!fetchedPaths.some((p) => p.includes("/files")), "must not fetch per-PR files");
+  assert.equal(leaderboard.source, "github");
+  // Label-based relevance: only the two kata-labelled PRs; the unlabelled engine PR is excluded.
+  const authors = leaderboard.rows.map((r) => r.author).sort();
+  assert.deepEqual(authors, ["bohdansolovie", "someminer"]);
+  const winner = leaderboard.rows.find((r) => r.author === "bohdansolovie");
+  assert.ok(winner && winner.wins >= 1, "winner-labelled PR counts as a win");
 });

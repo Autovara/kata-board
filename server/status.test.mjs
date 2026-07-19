@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   buildByLane,
   loadBoardStatus,
+  loadLocalArtifactLeaderboard,
   loadPublicProof,
   refreshByLaneRoundProgress,
 } from "./status.mjs";
@@ -2131,4 +2132,14 @@ test("exposes the round-history feed from round-history.json", async () => {
   assert.equal(status.roundHistory[0].bestDetection, 0.5);
   assert.deepEqual(status.roundHistory[0].achievements, ["👑 New king", "🥇 First true positive"]);
   assert.equal(status.roundHistory[1].roundNumber, 1);
+});
+
+test("loadLocalArtifactLeaderboard memoizes its result per root", () => {
+  // BUG-7: the local artifact leaderboard runs synchronous git + a recursive runs/
+  // walk. It is now only reached on the GitHub-failure fallback, and memoized so a
+  // GitHub outage cannot re-run that blocking work on every leaderboard refresh.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "kata-memo-"));
+  const first = loadLocalArtifactLeaderboard(root);
+  const second = loadLocalArtifactLeaderboard(root);
+  assert.equal(first, second); // same reference => served from cache, not recomputed
 });

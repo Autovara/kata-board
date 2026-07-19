@@ -1937,12 +1937,15 @@ async function computeLeaderboard(env) {
       githubToken: env.KATA_GITHUB_TOKEN,
       githubTokens: githubReadTokens(env),
     });
-    const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
-    if (
-      localLeaderboard.rows.length &&
-      (leaderboard.source === "github-not-configured" || !leaderboard.rows.length)
-    ) {
-      return localLeaderboard;
+    // Only compute the local artifact leaderboard when GitHub gave us nothing to
+    // show. It runs SYNCHRONOUS git commands + a recursive runs/ walk, so doing it on
+    // the normal success path -- then discarding it -- needlessly blocks the event
+    // loop for the whole build (and gets slower as runs/ grows).
+    if (leaderboard.source === "github-not-configured" || !leaderboard.rows.length) {
+      const localLeaderboard = loadLocalArtifactLeaderboard(env.KATA_ROOT);
+      if (localLeaderboard.rows.length) {
+        return localLeaderboard;
+      }
     }
     return leaderboard;
   } catch (error) {
@@ -3385,8 +3388,28 @@ function loadEventLeaderboard(eventLogPath) {
   };
 }
 
-function loadLocalArtifactLeaderboard(kataRoot) {
-  return augmentLeaderboardWithRoundSummaries(loadLocalGitWinnerLeaderboard(kataRoot), kataRoot);
+const LOCAL_ARTIFACT_LEADERBOARD_TTL_MS = 60_000;
+let localArtifactLeaderboardCache = null;
+
+export function loadLocalArtifactLeaderboard(kataRoot) {
+  // Memoize the synchronous git + runs/ walk. A GitHub outage routes every
+  // leaderboard refresh through here, so without this it would re-run the blocking
+  // work on each refresh; the cache bounds it to at most once per TTL per root.
+  const key = kataRoot ? path.resolve(kataRoot) : "";
+  const now = Date.now();
+  if (
+    localArtifactLeaderboardCache &&
+    localArtifactLeaderboardCache.key === key &&
+    now - localArtifactLeaderboardCache.at <= LOCAL_ARTIFACT_LEADERBOARD_TTL_MS
+  ) {
+    return localArtifactLeaderboardCache.value;
+  }
+  const value = augmentLeaderboardWithRoundSummaries(
+    loadLocalGitWinnerLeaderboard(kataRoot),
+    kataRoot,
+  );
+  localArtifactLeaderboardCache = { key, at: now, value };
+  return value;
 }
 
 function loadLocalGitWinnerLeaderboard(kataRoot) {

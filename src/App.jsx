@@ -1161,7 +1161,15 @@ function ProblemBreakdown({
                   <small>tp / expected / found</small>
                 </div>
                 {single ? null : (
-                  <div className="live-task-side">
+                  <div
+                    className={`live-task-side ${
+                      !secondaryProject
+                        ? ""
+                        : secondaryProject.passed
+                          ? "live-task-side-ok"
+                          : "live-task-side-bad"
+                    }`}
+                  >
                     <span>{secondaryLabel || "secondary"}</span>
                     <strong>{formatTpExpectedFound(secondaryProject, replicasPerProject)}</strong>
                     <small>tp / expected / found</small>

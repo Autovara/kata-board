@@ -6,7 +6,6 @@ import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js
 import { Docs } from "./pages/Docs.jsx";
 import {
   buildDashboardLatestStatus,
-  challengeExtras,
   compareEntrantsByRank,
   decisionWinner,
   entrantPassCount,
@@ -41,7 +40,6 @@ import {
 } from "./lib/format.js";
 import {
   Avatar,
-  BeatsKingBadge,
   ChallengeMeta,
   ChallengeStatusPill,
   DiscordIcon,
@@ -55,8 +53,6 @@ import {
   ProofFact,
   Reveal,
   ScreeningCount,
-  ScreeningFailureBadge,
-  ScreeningStatusBadge,
   SectionTitle,
   StatTile,
   Status,
@@ -809,18 +805,25 @@ function ChallengeRuleCard({ passThreshold, replicasPerProject }) {
     <div className="challenge-rule-card">
       <div>
         <span>promotion rule</span>
-        <strong>Beat the king&apos;s running-average score by the margin</strong>
+        <strong>Outrank the king on SN60&apos;s promotion order</strong>
         <p>
-          A project passes on a two-thirds majority of its <em>successful</em> replicas —{" "}
-          {passThreshold} when all {replicasPerProject} run
-          {replicasPerProject === 1 ? "" : "s"} succeed. Invalid (infra-failed) runs are excluded
-          from the count, so a flaked replica never turns a pass into a fail.
+          The challenger and the king are scored on the same secret projects, then compared
+          top-to-bottom on the signals on the right. The <em>first</em> signal where they differ
+          decides it — a lower signal only matters when everything above it ties. There is no
+          margin: the challenger just has to rank strictly higher.
+        </p>
+        <p>
+          How the score is built: each project is scored <em>best of {replicasPerProject}</em> run
+          {replicasPerProject === 1 ? "" : "s"} — its single strongest run, never the sum — then
+          added up across projects. A project &ldquo;passes&rdquo; when a two-thirds majority of its{" "}
+          <em>successful</em> runs find every bug ({passThreshold}); infra-failed runs are excluded,
+          so a flaked run never turns a pass into a fail.
         </p>
       </div>
       <ol>
-        <li>Pass score</li>
+        <li>Pass score (projects fully solved)</li>
         <li>Projects passed</li>
-        <li>True positives</li>
+        <li>True positives (real bugs found)</li>
         <li>Fewer invalid runs</li>
         <li>Precision</li>
         <li>F1 score</li>
@@ -901,6 +904,8 @@ function ChallengePanel({
         true_positives: result.true_positives ?? entrant.true_positives,
         precision: result.precision ?? entrant.precision,
         f1_score: result.f1_score ?? entrant.f1_score,
+        total_found: result.total_found ?? entrant.total_found,
+        total_expected: result.total_expected ?? entrant.total_expected,
         invalid_runs: result.invalid_runs ?? entrant.invalid_runs,
         beats_king: result.beats_king ?? entrant.beats_king,
         codebase_pass_count: result.codebase_pass_count ?? entrant.codebase_pass_count,
@@ -966,192 +971,130 @@ function ChallengePanel({
     );
   }
 
+  // Challenge mode is a 1v1 king-of-the-hill: show the duel detail directly, no table.
+  const primaryEntrant = rankedEntrants[0] || null;
+  const primaryProgress = primaryEntrant
+    ? resultByPull[primaryEntrant.pull_number] || null
+    : null;
+
+  const arenaHead = (
+    <div className="challenge-block-head">
+      <span className="showcase-kicker">Arena</span>
+      <SectionTitle title={challengeTitle} />
+      <p className="section-lead challenge-lead">
+        The challenger and the current king are scored on the same secret evaluator-selected
+        projects, then compared by SN60&apos;s promotion order.
+      </p>
+    </div>
+  );
+
+  const banner = challenge ? (
+    <div className="challenge-banner">
+      <div className="challenge-banner-state">
+        <Status
+          label={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).label}
+          tone={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).tone}
+        />
+        <p>{(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).text}</p>
+      </div>
+      <div className="challenge-banner-meta">
+        {challenge.challengeNumber ? (
+          <ChallengeMeta label="challenge" value={`#${challenge.challengeNumber}`} />
+        ) : null}
+        {kingResult && kingResult.aggregated_score != null ? (
+          <ChallengeMeta
+            label="king detection"
+            value={formatDetection(kingResult.aggregated_score)}
+          />
+        ) : null}
+        <ChallengeMeta label="project pass" value={`${passThreshold} replicas`} />
+        {challenge.generatedAt ? (
+          <ChallengeMeta
+            label={state === "executing" ? "started" : "finished"}
+            value={formatDateTime(challenge.generatedAt)}
+          />
+        ) : null}
+      </div>
+    </div>
+  ) : null;
+
+  const note = challenge?.note ? (
+    <div
+      className={`challenge-note challenge-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}
+    >
+      {challenge.note}
+    </div>
+  ) : null;
+
+  const verdict = challenge?.winnerSubmissionId ? (
+    <div className="challenge-verdict challenge-verdict-win">
+      <span className="challenge-verdict-crown" aria-hidden="true">
+        ♔
+      </span>
+      <div>
+        <strong>New king: {challenge.winnerSubmissionId}</strong>
+        <p>Outranked the king on SN60&apos;s promotion order and is being promoted.</p>
+      </div>
+    </div>
+  ) : state === "completed" ? (
+    <div className="challenge-verdict challenge-verdict-hold">
+      <span className="challenge-verdict-crown" aria-hidden="true">
+        ♔
+      </span>
+      <div>
+        <strong>King held the crown</strong>
+        <p>The challenger did not outrank the king on SN60&apos;s promotion order.</p>
+      </div>
+    </div>
+  ) : null;
+
+  const arenaIntro = (
+    <>
+      {arenaHead}
+      {banner}
+      {note}
+      {verdict}
+      <ChallengeRuleCard passThreshold={passThreshold} replicasPerProject={replicasPerProject} />
+      {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
+    </>
+  );
+
+  if (hasChallenge && primaryEntrant) {
+    return (
+      <DuelDetail
+        entrant={primaryEntrant}
+        king={kingResult}
+        kingAuthor={challengeKingAuthor}
+        progress={primaryProgress}
+        projectKeys={projectKeys}
+        replicasPerProject={replicasPerProject}
+        passThreshold={passThreshold}
+        kataRepoSlug={kataRepoSlug}
+        onBack={null}
+        intro={arenaIntro}
+      />
+    );
+  }
+
   return (
     <div className="challenge-block">
-      <div className="challenge-block-head">
-        <span className="showcase-kicker">Arena</span>
-        <SectionTitle title={challengeTitle} />
-        <p className="section-lead challenge-lead">
-          Live challenge: the challenger is scored against the current king on the same secret
-          evaluator-selected projects.
-        </p>
-      </div>
-
+      {arenaHead}
       {!hasChallenge ? (
         <div className="challenge-empty">
           <Status label="no challenge running" tone="neutral" />
           <p>
-            No challenge is running. Once started, live candidate scores and results will appear
-            here.
+            No challenge is running. Once a challenger opens a PR, the live duel — king vs
+            challenger — appears here.
           </p>
         </div>
       ) : (
-        <section className="table-section challenge-table">
-          <div className="challenge-banner">
-            <div className="challenge-banner-state">
-              <Status
-                label={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).label}
-                tone={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).tone}
-              />
-              <p>{(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).text}</p>
-            </div>
-            <div className="challenge-banner-meta">
-              {challenge.challengeNumber ? (
-                <ChallengeMeta label="challenge" value={`#${challenge.challengeNumber}`} />
-              ) : null}
-              {kingResult && kingResult.aggregated_score != null ? (
-                <ChallengeMeta
-                  label="king detection"
-                  value={formatDetection(kingResult.aggregated_score)}
-                />
-              ) : null}
-              <ChallengeMeta label="project pass" value={`${passThreshold} replicas`} />
-              <ChallengeMeta label="candidates" value={entrants.length} />
-              {challenge.generatedAt ? (
-                <ChallengeMeta
-                  label={state === "executing" ? "started" : "finished"}
-                  value={formatDateTime(challenge.generatedAt)}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          {challenge.note ? (
-            <div
-              className={`challenge-note challenge-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}
-            >
-              {challenge.note}
-            </div>
-          ) : null}
-
-          {challenge.winnerSubmissionId ? (
-            <div className="challenge-verdict challenge-verdict-win">
-              <span className="challenge-verdict-crown" aria-hidden="true">
-                ♔
-              </span>
-              <div>
-                <strong>New king: {challenge.winnerSubmissionId}</strong>
-                <p>Beat the king and is being promoted.</p>
-              </div>
-            </div>
-          ) : state === "completed" ? (
-            <div className="challenge-verdict challenge-verdict-hold">
-              <span className="challenge-verdict-crown" aria-hidden="true">
-                ♔
-              </span>
-              <div>
-                <strong>King held the crown</strong>
-                <p>
-                  The challenger did not beat the king&apos;s running-average score by the margin.
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          <ChallengeRuleCard
-            passThreshold={passThreshold}
-            replicasPerProject={replicasPerProject}
-          />
-
-          {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
-
-          <div className="table-head challenge-grid">
-            <span>PR</span>
-            <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
-            <span>pass score</span>
-            <span>projects passed</span>
-            <span>TP</span>
-            <span>beats king</span>
-            <span>status</span>
-          </div>
-
-          {kingResult || (live && live.king) ? (
-            <div
-              className="table-row challenge-grid challenge-row-king challenge-row-clickable"
-              role="button"
-              tabIndex={0}
-              title="Open the king's scoring detail"
-              onClick={() => setSelectedPull("king")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setSelectedPull("king");
-                }
-              }}
-            >
-              <span aria-hidden="true">♔</span>
-              <span className="entrant-cell">
-                <EntrantIdentity
-                  author={challengeKingAuthor}
-                  submissionId={challengeKingSubmissionId || "current king"}
-                />
-              </span>
-              <span>{formatPassScore(kingResult, selectedProjectCount)}</span>
-              <span>{formatProjectsPassed(kingResult)}</span>
-              <span>{formatSideTruePositives(kingResult, replicasPerProject)}</span>
-              <span>—</span>
-              <span>
-                {live && live.king && live.king.state === "scoring" ? (
-                  <ProgressBar done={live.king.done} total={live.king.total} tone="king" />
-                ) : (
-                  <span className="rstat rstat-king">king</span>
-                )}
-              </span>
-            </div>
-          ) : null}
-
-          {rankedEntrants.length ? (
-            rankedEntrants.map((entrant, index) => (
-              <div
-                className="table-row challenge-grid challenge-row-clickable"
-                key={entrant.pull_number}
-                role="button"
-                tabIndex={0}
-                title="Open the detailed duel for this PR"
-                onClick={() => setSelectedPull(entrant.pull_number)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    setSelectedPull(entrant.pull_number);
-                  }
-                }}
-              >
-                <span>{prLabel(kataRepoSlug, entrant.pull_number)}</span>
-                <span className="entrant-cell">
-                  {entrant.aggregated_score != null ? (
-                    <span className={`entrant-rank ${index === 0 ? "entrant-rank-top" : ""}`}>
-                      #{index + 1}
-                    </span>
-                  ) : null}
-                  <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
-                </span>
-                <span>{formatPassScore(entrant, selectedProjectCount)}</span>
-                <span>{formatProjectsPassed(entrant)}</span>
-                <span>{formatSideTruePositives(entrant, replicasPerProject)}</span>
-                <span>
-                  <BeatsKingBadge beats={entrant.beats_king} />
-                </span>
-                <span>
-                  {renderEntrantStatus(
-                    entrant,
-                    progressByPull[entrant.pull_number],
-                    screeningByPull[entrant.pull_number]
-                  )}
-                </span>
-              </div>
-            ))
-          ) : (
-            <Empty text="No challenger entered this challenge." />
-          )}
-
-          {challengeExtras(challenge).length ? (
-            <div className="challenge-extras">
-              {challengeExtras(challenge).map((text) => (
-                <span key={text}>{text}</span>
-              ))}
-            </div>
-          ) : null}
-        </section>
+        <>
+          {banner}
+          {note}
+          {verdict}
+          <ChallengeRuleCard passThreshold={passThreshold} replicasPerProject={replicasPerProject} />
+          <Empty text="No challenger has entered yet — the king holds the crown until one does." />
+        </>
       )}
     </div>
   );
@@ -1490,6 +1433,7 @@ function DuelDetail({
   replicasPerProject,
   passThreshold,
   onBack,
+  intro = null,
 }) {
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
@@ -1523,11 +1467,18 @@ function DuelDetail({
 
   return (
     <div className="challenge-block duel-page">
+      {intro}
       <div className="duel-detail-topbar">
-        <button type="button" className="button" onClick={onBack}>
-          ← Back to challenge
-        </button>
+        {onBack ? (
+          <button type="button" className="button" onClick={onBack}>
+            ← Back to challenge
+          </button>
+        ) : null}
         <div className="duel-detail-title">
+          <span className="rstat rstat-king" aria-hidden="true">
+            ♔ king
+          </span>
+          <span className="vs vs-inline">vs</span>
           <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
           {prLabel(kataRepoSlug, entrant.pull_number)}
           <ChallengeStatusPill status={entrant.status} />
@@ -1934,41 +1885,6 @@ function ScreeningGatePanel({ screening }) {
       </div>
     </div>
   );
-}
-
-function renderEntrantStatus(entrant, progress, screening) {
-  const failure =
-    screeningFailureDetails(screening) ||
-    screeningFailureDetails(progress) ||
-    screeningFailureDetails(entrant);
-  if (failure) {
-    return <ScreeningFailureBadge failure={failure} />;
-  }
-  const hasScoringProgress =
-    progress &&
-    (progress.state !== "queued" ||
-      Number(progress.done || 0) > 0 ||
-      (Array.isArray(progress.projects) && progress.projects.length > 0));
-  if (progress) {
-    if (!hasScoringProgress && screening) {
-      return <ScreeningStatusBadge screening={screening} />;
-    }
-    if (progress.state === "queued") {
-      return <span className="rstat rstat-pending">queued</span>;
-    }
-    if (progress.state === "failed") {
-      return <span className="rstat rstat-invalid">failed</span>;
-    }
-    const label =
-      progress.state === "done"
-        ? `${progress.done}/${progress.total}`
-        : `scoring ${progress.done}/${progress.total}`;
-    return <ProgressBar done={progress.done} total={progress.total} label={label} />;
-  }
-  if (screening) {
-    return <ScreeningStatusBadge screening={screening} />;
-  }
-  return <ChallengeStatusPill status={entrant.status} />;
 }
 
 function prLabel(kataRepoSlug, pullNumber) {

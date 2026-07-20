@@ -1,7 +1,7 @@
 # kata-board
 
 `kata-board` is the dashboard for Kata. It shows the current king, the live
-competition round, past winners, and an optional miner leaderboard.
+continuous challenge, past kings, and an optional miner leaderboard.
 
 It is read-only. The board does not run the competition and does not decide
 anything. It reads state that the other Kata repos already wrote to disk, and
@@ -61,7 +61,7 @@ The frontend has five pages (see `src/constants.js` for the routes):
 
 - Dashboard (`/`) — the home page. A summary of the current king, the latest
   round, the active lane, and queue/screening status.
-- Arena (`/arena`, also `/live`) — the current round in detail. Every candidate
+- Arena (`/arena`, also `/live`) — the current challenge in detail. The challenger
   PR, its status, its score, and a per-problem breakdown. Click a row for the
   full duel view.
 - Winners (`/winners`, also `/champions`) — past champions and the public proof

@@ -445,7 +445,7 @@ function DashboardStats({ payload, lanes }) {
   const overview = payload.overview || {};
   const laneList = Array.isArray(lanes) ? lanes : [];
   const activeSubnets = overview.activeLanes ?? laneList.length;
-  const roundsRun = laneList.reduce(
+  const challengesRun = laneList.reduce(
     (sum, lane) => sum + (byLane[lane.id]?.roundHistory?.length || 0),
     0
   );
@@ -455,7 +455,7 @@ function DashboardStats({ payload, lanes }) {
   return (
     <section className="dash-stats" aria-label="Network at a glance">
       <StatTile label="Active subnets" value={activeSubnets} live={live} />
-      <StatTile label="Rounds run" value={roundsRun} />
+      <StatTile label="Challenges run" value={challengesRun} />
       <StatTile label="Challengers" value={challengers} />
       <StatTile label="Agents submitted" value={submissions} />
     </section>
@@ -483,7 +483,10 @@ function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLa
       <div className="dash-section-head">
         <span className="showcase-kicker">Subnets</span>
         <h2>One engine, every target.</h2>
-        <p>Each subnet keeps its own king and runs its own rounds. Pick one to watch it live.</p>
+        <p>
+          Each subnet keeps its own king and runs its own continuous challenges. Pick one to watch
+          it live.
+        </p>
       </div>
       <div className="dash-subnet-grid">
         {laneList.map((lane) => (
@@ -505,7 +508,8 @@ function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLa
             </div>
           </div>
           <p className="subnet-ghost-text">
-            The same engine, rounds, and sealed room extend to new subnets as they come online.
+            The same engine, challenge ladder, and sealed room extend to new subnets as they come
+            online.
           </p>
         </article>
       </div>
@@ -519,7 +523,7 @@ function SubnetCard({ lane, data, active, onEnter }) {
   const kingName = lane.king?.seeded
     ? "seed king"
     : lane.currentHolder || lane.king?.author || "—";
-  const rounds = data.roundHistory?.length ?? round.roundNumber ?? "—";
+  const challenges = data.roundHistory?.length ?? round.roundNumber ?? "—";
   const challengers = data.leaderboard?.rows?.length ?? "—";
   return (
     <article
@@ -548,7 +552,7 @@ function SubnetCard({ lane, data, active, onEnter }) {
         <strong>{kingName}</strong>
       </div>
       <div className="subnet-metrics">
-        <SubnetMetric label="Rounds run" value={rounds} />
+        <SubnetMetric label="Challenges run" value={challenges} />
         <SubnetMetric label="Challengers" value={challengers} />
       </div>
       <span className="subnet-enter">Enter arena →</span>
@@ -601,8 +605,8 @@ function DashboardWorkflow() {
   const spine = [
     { id: "c", x: 18, y: 76, w: 150, h: 74, t: "Contributor", s: "opens one PR" },
     { id: "in", x: 190, y: 76, w: 156, h: 74, t: "Intake", s: "screen → pending", tag: "kata-bot" },
-    { id: "rd", x: 368, y: 76, w: 148, h: 74, t: "Round", s: "→ executing", tag: "kata-bot" },
-    { id: "eng", x: 538, y: 76, w: 158, h: 74, t: "kata engine", s: "king vs candidates" },
+    { id: "rd", x: 368, y: 76, w: 148, h: 74, t: "Challenge", s: "→ executing", tag: "kata-bot" },
+    { id: "eng", x: 538, y: 76, w: 158, h: 74, t: "kata engine", s: "king vs challenger" },
     { id: "prm", x: 912, y: 76, w: 150, h: 74, t: "Promote", s: "merge → king", tag: "kata-bot" },
     { id: "king", x: 1082, y: 76, w: 140, h: 74, t: "New King", s: "→ kings/", king: true },
     { id: "board", x: 1082, y: 300, w: 140, h: 54, t: "kata-board", s: "shows it live", svc: true },
@@ -613,7 +617,7 @@ function DashboardWorkflow() {
     { x: 538, y: 314, w: 158, h: 42, t: "+ more targets" },
   ];
   const tee = { x: 726, y: 262, w: 158, h: 42, t: "kata-tee-runner", s: "sealed room · miner-paid" };
-  const rank = { x: 914, y: 262, w: 148, h: 42, t: "beats the king?" };
+  const rank = { x: 914, y: 262, w: 148, h: 42, t: "beats king's average?" };
   const edges = [
     "M 168 113 L 190 113",
     "M 346 113 L 368 113",
@@ -635,14 +639,14 @@ function DashboardWorkflow() {
         <span className="showcase-kicker">How it works</span>
         <h2>One PR in, one verified king out.</h2>
         <p>
-          A contributor opens a PR; kata-bot screens it and runs scheduled rounds; the kata engine
-          scores the king against every candidate across all subnets in parallel, inside a sealed
-          room. The one agent that strictly beats the king is promoted — and becomes the bar to beat
-          next round.
+          A contributor opens a PR; kata-bot screens it and, one challenge at a time, has it fight
+          the reigning king; the kata engine re-solves the king fresh on a secret sample inside a
+          sealed room. A challenger that beats the king&apos;s running-average score by a clear
+          margin is promoted — and the last four kings share the reward.
         </p>
       </div>
       <div className="wf-diagram">
-        <svg viewBox="0 0 1240 380" role="img" aria-label="Kata workflow: a contributor opens a PR; kata-bot screens it at intake to pending, then runs a scheduled round marking entrants executing; the kata engine scores the king against candidates across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room with miner-paid inference; the ranking checks whether a candidate strictly beats the king; kata-bot promotes the winner to a new king in kings and kata-board shows it live. The new king becomes the bar to beat next round.">
+        <svg viewBox="0 0 1240 380" role="img" aria-label="Kata workflow: a contributor opens a PR; kata-bot screens it at intake to pending, then runs one continuous challenge marking the challenger executing; the kata engine re-solves the king fresh and scores it against the single challenger across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room with miner-paid inference; the ranking checks whether the challenger beats the king's running-average score by the margin; kata-bot promotes the winner to a new king in kings and kata-board shows it live. The new king becomes the bar to beat, and the last four kings share the reward.">
           <defs>
             <marker id="wfArrow" markerWidth="8" markerHeight="8" refX="5.5" refY="3" orient="auto">
               <path d="M0 0 L6 3 L0 6 z" className="wf-arrowhead" />
@@ -654,7 +658,7 @@ function DashboardWorkflow() {
           </text>
           <path className="wf-loop" d="M 1152 76 C 1152 26, 442 26, 442 76" markerEnd="url(#wfArrow)" />
           <text className="wf-loop-label" x="797" y="20" textAnchor="middle">
-            the new king becomes next round&apos;s bar to beat
+            the new king becomes the next challenger&apos;s bar to beat
           </text>
           {edges.map((d, i) => (
             <path key={i} className="wf-edge" d={d} markerEnd="url(#wfArrow)" />
@@ -957,10 +961,10 @@ function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
         <strong>
           {candidateOnly
             ? "Top candidate with at least one true positive"
-            : "Strictly beat the king"}
+            : "Beat the king's running-average score by the margin"}
         </strong>
         <p>
-          A project passes when enough replicas pass. This round uses {replicasPerProject} run
+          A project passes when enough replicas pass. This challenge uses {replicasPerProject} run
           {replicasPerProject === 1 ? "" : "s"} per project, so the pass threshold is{" "}
           {passThreshold}.
         </p>
@@ -989,15 +993,15 @@ function RoundPanel({
   const state = round?.state || "idle";
   const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
   const roundTitle = round?.roundNumber
-    ? `Current round · Round ${round.roundNumber}`
-    : "Current round";
+    ? `Current challenge · Challenge ${round.roundNumber}`
+    : "Current challenge";
   const candidateOnly =
     round?.competitionMode === "candidate_only" ||
     round?.liveProgress?.competitionMode === "candidate_only";
   const kingSkippedReason =
     round?.kingSkippedReason ||
     round?.liveProgress?.kingSkippedReason ||
-    "Candidate-only recovery mode is enabled. The current king was not evaluated in this round.";
+    "Candidate-only recovery mode is enabled. The current king was not evaluated in this challenge.";
   const roundKingAuthor = round?.kingAuthor || kingAuthor;
   const roundKingSubmissionId = round?.kingSubmissionId || kingSubmissionId;
   const selectedEntrant = entrants.find((entrant) => entrant.pull_number === selectedPull) || null;
@@ -1124,14 +1128,14 @@ function RoundPanel({
         <SectionTitle title={roundTitle} />
         <p className="section-lead round-lead">
           {candidateOnly
-            ? "Recovery round: the current king is skipped, and candidates are scored against each other on the same secret evaluator-selected projects."
-            : "Live round status: candidates are scored against the current king on the same secret evaluator-selected projects."}
+            ? "Recovery challenge: the current king is skipped, and candidates are scored against each other on the same secret evaluator-selected projects."
+            : "Live challenge: the challenger is scored against the current king on the same secret evaluator-selected projects."}
         </p>
       </div>
 
       {!hasRound ? (
         <div className="round-empty">
-          <Status label="no round running" tone="neutral" />
+          <Status label="no challenge running" tone="neutral" />
           <p>
             No round is running. Once started, live candidate scores and results will appear here.
           </p>
@@ -1190,7 +1194,7 @@ function RoundPanel({
                 <p>
                   {candidateOnly
                     ? "Won the candidate-only recovery round and is being promoted."
-                    : "Beat the king this round and is being promoted."}
+                    : "Beat the king and is being promoted."}
                 </p>
               </div>
             </div>
@@ -1204,7 +1208,7 @@ function RoundPanel({
                 <p>
                   {candidateOnly
                     ? "No candidate-only winner was selected."
-                    : "No candidate strictly beat the king this round."}
+                    : "The challenger did not beat the king's running-average score by the margin."}
                 </p>
               </div>
             </div>
@@ -1312,7 +1316,7 @@ function RoundPanel({
               </div>
             ))
           ) : (
-            <Empty text="No candidates entered this round." />
+            <Empty text="No challenger entered this challenge." />
           )}
 
           {roundExtras(round).length ? (
@@ -1638,7 +1642,7 @@ function KingDetail({
           {scoring ? (
             <Status label="scoring now" tone="warn" />
           ) : (
-            <Status label="cached for this round" tone="ok" />
+            <Status label="fresh this challenge" tone="ok" />
           )}
         </div>
       </div>
@@ -1673,7 +1677,7 @@ function KingDetail({
             </strong>
             <small>
               {scoring
-                ? "Scoring the king on all problems — then cached for the whole round."
+                ? "Re-solving the king fresh on this challenge's problems."
                 : "King scored and cached; candidates are compared to this."}
             </small>
           </div>
@@ -1709,7 +1713,7 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
           <span>cached king baseline</span>
           <strong>King scoring snapshot</strong>
         </div>
-        <p>Every candidate in this round is compared against this cached king result.</p>
+        <p>The challenger is scored against this freshly re-solved king.</p>
       </div>
       <div className="king-metric-primary">
         <KingMetricCard
@@ -1841,7 +1845,7 @@ function DuelDetail({
         <div className="duel-live-banner">
           <Status label="scoring now" tone="warn" />
           <span>
-            {progress.done}/{progress.total} problems scored — live metrics fill in as the round
+            {progress.done}/{progress.total} problems scored — live metrics fill in as the challenge
             completes.
           </span>
         </div>
@@ -2436,8 +2440,8 @@ function RoundHistory({ rounds }) {
   return (
     <div className="round-block">
       <div className="round-block-head">
-        <SectionTitle title="Recent rounds" />
-        <p className="section-lead">Highlights from completed competition rounds.</p>
+        <SectionTitle title="Recent challenges" />
+        <p className="section-lead">Highlights from completed challenges.</p>
       </div>
       <section className="table-section leaderboard-table">
         <div className="table-head round-hist-grid">
@@ -2450,7 +2454,7 @@ function RoundHistory({ rounds }) {
           <div className="table-row round-hist-grid" key={round.runId || index}>
             <span className="round-hist-title">
               <strong>{round.roundNumber ? `Round ${round.roundNumber}` : "Round"}</strong>
-              <small>{round.headline || "Competition round"}</small>
+              <small>{round.headline || "Challenge"}</small>
             </span>
             <span className="round-hist-badges">
               {round.achievements?.length ? (
@@ -2632,7 +2636,7 @@ function Docs({ selectedLane, kataRepoSlug }) {
   const tabs = [
     { id: "overview", label: "Start", description: "What Kata is and how to compete." },
     { id: "miner", label: "Submit", description: "Build one valid agent PR." },
-    { id: "validator", label: "Round", description: "What happens after pending." },
+    { id: "validator", label: "Challenge", description: "What happens after pending." },
     { id: "scoring", label: "Scoring", description: "How your agent is ranked." },
     { id: "milestones", label: "Results", description: "What progress is visible." },
     { id: "privacy", label: "Rules", description: "What is allowed and blocked." },
@@ -2699,12 +2703,12 @@ function DocOverview({ selectedLane, links }) {
           text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king."
         />
         <DocCard
-          title="Fair round"
-          text="All candidates face the same evaluator-selected benchmark set, sealed execution boundary, and scoring rules for that round."
+          title="Fair challenge"
+          text="Every challenger faces the same evaluator-selected benchmark set, sealed execution boundary, and scoring rules for its challenge."
         />
         <DocCard
           title="Public proof"
-          text="Round summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome."
+          text="Challenge summaries, current king metadata, labels, and leaderboard results are published so contributors can inspect the outcome."
         />
       </DocGrid>
       <DocCallout
@@ -2714,7 +2718,7 @@ function DocOverview({ selectedLane, links }) {
       <div className="doc-metrics">
         <KeyValue label="current target" value={selectedLane?.repoName || "Bitsec / SN60"} />
         <KeyValue label="agent type" value={selectedLane?.mode || "miner"} />
-        <KeyValue label="round format" value={docsRoundFormat(selectedLane)} />
+        <KeyValue label="challenge format" value={docsRoundFormat(selectedLane)} />
         <KeyValue
           label="promotion rule"
           value={selectedLane ? promotionGate(selectedLane) : "project pass score first"}
@@ -2741,7 +2745,7 @@ function DocMiner({ links, selectedLane }) {
       <h1>Submit one honest agent and beat the king</h1>
       <p>
         A competition PR is one agent bundle under <code>submissions/</code>. If it passes
-        screening, it waits as <code>kata:pending</code> until the next round. In the round, it
+        screening, it waits as <code>kata:pending</code> until it enters a challenge. In the challenge, it
         competes against the current king on the same evaluator-selected benchmark set. Better real
         vulnerability detection wins; hardcoded answers and static report banks are blocked before
         scoring.
@@ -2775,7 +2779,7 @@ function DocMiner({ links, selectedLane }) {
             "Valid PRs become kata:pending. Hard failures close kata:invalid. Suspicious but non-conclusive PRs pause as kata:review.",
           ],
           [
-            "Compete in a round",
+            "Compete in a challenge",
             "Pending PRs are locked at the current commit, checked against the screened commit, smoke-tested on one real project, labeled kata:executing, and scored on the same sampled problems as the king.",
           ],
           [
@@ -2798,7 +2802,7 @@ function DocMiner({ links, selectedLane }) {
       />
       <DocCallout
         title="Identity must match your GitHub account"
-        text="The <github-user> prefix in the directory name, submission_id, and submission.json author must match the GitHub account that opens the PR. If the PR author is jonathanchang31, then jonathan-20260707-01 is invalid. kata-bot closes mismatches as kata:invalid before adding kata:pending, so they never enter a round."
+        text="The <github-user> prefix in the directory name, submission_id, and submission.json author must match the GitHub account that opens the PR. If the PR author is jonathanchang31, then jonathan-20260707-01 is invalid. kata-bot closes mismatches as kata:invalid before adding kata:pending, so they never enter a challenge."
       />
 
       <h2>2. Your agent (agent.py)</h2>
@@ -2876,7 +2880,7 @@ function DocMiner({ links, selectedLane }) {
       />
       <DocCallout
         title="Review is not a score"
-        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a round until it is cleared or updated. kata:hold is reserved for a merge or promotion safety problem. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
+        text="kata:review means screening found suspicious but non-conclusive evidence. The PR cannot enter a challenge until it is cleared or updated. kata:hold is reserved for a merge or promotion safety problem. Hard failures such as identity mismatch, invalid PR shape, concrete benchmark replay, and exact king copy cannot be approved around."
       />
       <RequirementList
         title="Validation rules"
@@ -2913,7 +2917,7 @@ function DocMiner({ links, selectedLane }) {
 }
 
 function DocScoring({ selectedLane }) {
-  const benchmarkText = `${docsRoundFormat(selectedLane)} pinned by the evaluator for the round.`;
+  const benchmarkText = `${docsRoundFormat(selectedLane)} pinned by the evaluator for the challenge.`;
   const promotionOrder = [
     [
       "1",
@@ -2921,7 +2925,7 @@ function DocScoring({ selectedLane }) {
       "Passed projects divided by selected projects. This is the first ranking signal.",
     ],
     ["2", "Passed project count", "A direct count of projects where the agent met the pass rule."],
-    ["3", "True positives", "Confirmed benchmark vulnerabilities found across the round."],
+    ["3", "True positives", "Confirmed benchmark vulnerabilities found in the challenge."],
     [
       "4",
       "Fewer invalid runs",
@@ -2948,7 +2952,7 @@ function DocScoring({ selectedLane }) {
         <DocCard title="Benchmark" text={benchmarkText} />
         <DocCard
           title="Replica rule"
-          text="The evaluator defines replica count and its pass threshold. The Arena and round proof show the values used."
+          text="The evaluator defines replica count and its pass threshold. The Arena and challenge proof show the values used."
         />
         <DocCard
           title="Strict promotion"
@@ -2998,7 +3002,7 @@ function DocScoring({ selectedLane }) {
         />
       </DocGrid>
       <h2>Result labels</h2>
-      <p>After a round, your PR gets a clear label so you can understand what happened.</p>
+      <p>After a challenge, your PR gets a clear label so you can understand what happened.</p>
       <DocGrid>
         <DocCard
           title="kata:pending"

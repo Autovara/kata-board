@@ -1661,7 +1661,7 @@ test("exposes public proof from kata public-results/current.json", async () => {
     latest_round: {
       round_id: "sn60-round-x",
       round_number: 2,
-      competition_mode: "candidate_only",
+      competition_mode: "king_duel",
       started_at: "2026-07-09T14:51:04Z",
       finished_at: "2026-07-09T16:14:08Z",
       duration_seconds: 4984,

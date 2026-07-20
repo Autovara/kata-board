@@ -953,16 +953,12 @@ function roundExtras(round) {
   return extras;
 }
 
-function RoundRuleCard({ candidateOnly, passThreshold, replicasPerProject }) {
+function RoundRuleCard({ passThreshold, replicasPerProject }) {
   return (
     <div className="round-rule-card">
       <div>
         <span>promotion rule</span>
-        <strong>
-          {candidateOnly
-            ? "Top candidate with at least one true positive"
-            : "Beat the king's running-average score by the margin"}
-        </strong>
+        <strong>Beat the king&apos;s running-average score by the margin</strong>
         <p>
           A project passes when enough replicas pass. This challenge uses {replicasPerProject} run
           {replicasPerProject === 1 ? "" : "s"} per project, so the pass threshold is{" "}
@@ -995,13 +991,6 @@ function RoundPanel({
   const roundTitle = round?.roundNumber
     ? `Current challenge · Challenge ${round.roundNumber}`
     : "Current challenge";
-  const candidateOnly =
-    round?.competitionMode === "candidate_only" ||
-    round?.liveProgress?.competitionMode === "candidate_only";
-  const kingSkippedReason =
-    round?.kingSkippedReason ||
-    round?.liveProgress?.kingSkippedReason ||
-    "Candidate-only recovery mode is enabled. The current king was not evaluated in this challenge.";
   const roundKingAuthor = round?.kingAuthor || kingAuthor;
   const roundKingSubmissionId = round?.kingSubmissionId || kingSubmissionId;
   const selectedEntrant = entrants.find((entrant) => entrant.pull_number === selectedPull) || null;
@@ -1036,7 +1025,7 @@ function RoundPanel({
       resultByPull[Number(match[1])] = candidate;
     }
   });
-  const kingResult = candidateOnly ? null : round?.liveProgress?.king || round?.king || null;
+  const kingResult = round?.liveProgress?.king || round?.king || null;
   const projectKeys = selectedProjectKeysFromRound(round);
   const selectedProjectCount = projectKeys.length;
   const replicasPerProject = inferReplicasPerProject(round);
@@ -1068,7 +1057,7 @@ function RoundPanel({
 
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
-  if (hasRound && selectedPull === "king" && !candidateOnly) {
+  if (hasRound && selectedPull === "king") {
     return (
       <KingDetail
         king={kingResult}
@@ -1127,9 +1116,8 @@ function RoundPanel({
         <span className="showcase-kicker">Arena</span>
         <SectionTitle title={roundTitle} />
         <p className="section-lead round-lead">
-          {candidateOnly
-            ? "Recovery challenge: the current king is skipped, and candidates are scored against each other on the same secret evaluator-selected projects."
-            : "Live challenge: the challenger is scored against the current king on the same secret evaluator-selected projects."}
+          Live challenge: the challenger is scored against the current king on the same secret
+          evaluator-selected projects.
         </p>
       </div>
 
@@ -1160,7 +1148,6 @@ function RoundPanel({
                   value={formatDetection(kingResult.aggregated_score)}
                 />
               ) : null}
-              {candidateOnly ? <RoundMeta label="mode" value="candidate-only recovery" /> : null}
               <RoundMeta label="project pass" value={`${passThreshold} replicas`} />
               <RoundMeta label="candidates" value={entrants.length} />
               {round.generatedAt ? (
@@ -1180,10 +1167,6 @@ function RoundPanel({
             </div>
           ) : null}
 
-          {candidateOnly ? (
-            <div className="round-note round-note-warn">King skipped: {kingSkippedReason}</div>
-          ) : null}
-
           {round.winnerSubmissionId ? (
             <div className="round-verdict round-verdict-win">
               <span className="round-verdict-crown" aria-hidden="true">
@@ -1191,11 +1174,7 @@ function RoundPanel({
               </span>
               <div>
                 <strong>New king: {round.winnerSubmissionId}</strong>
-                <p>
-                  {candidateOnly
-                    ? "Won the candidate-only recovery round and is being promoted."
-                    : "Beat the king and is being promoted."}
-                </p>
+                <p>Beat the king and is being promoted.</p>
               </div>
             </div>
           ) : state === "completed" ? (
@@ -1206,16 +1185,13 @@ function RoundPanel({
               <div>
                 <strong>King held the crown</strong>
                 <p>
-                  {candidateOnly
-                    ? "No candidate-only winner was selected."
-                    : "The challenger did not beat the king's running-average score by the margin."}
+                  The challenger did not beat the king&apos;s running-average score by the margin.
                 </p>
               </div>
             </div>
           ) : null}
 
           <RoundRuleCard
-            candidateOnly={candidateOnly}
             passThreshold={passThreshold}
             replicasPerProject={replicasPerProject}
           />
@@ -1228,11 +1204,11 @@ function RoundPanel({
             <span>pass score</span>
             <span>projects passed</span>
             <span>TP</span>
-            <span>{candidateOnly ? "round result" : "beats king"}</span>
+            <span>beats king</span>
             <span>status</span>
           </div>
 
-          {!candidateOnly && (kingResult || (live && live.king)) ? (
+          {kingResult || (live && live.king) ? (
             <div
               className="table-row round-grid round-row-king round-row-clickable"
               role="button"
@@ -1296,15 +1272,7 @@ function RoundPanel({
                 <span>{formatProjectsPassed(entrant)}</span>
                 <span>{entrant.true_positives ?? "—"}</span>
                 <span>
-                  {candidateOnly ? (
-                    entrant.status === "winner" || entrant.selected_winner ? (
-                      <span className="beat-badge beat-yes">top candidate</span>
-                    ) : (
-                      <span className="beat-badge beat-no">not selected</span>
-                    )
-                  ) : (
-                    <BeatsKingBadge beats={entrant.beats_king} />
-                  )}
+                  <BeatsKingBadge beats={entrant.beats_king} />
                 </span>
                 <span>
                   {renderEntrantStatus(

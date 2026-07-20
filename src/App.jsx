@@ -85,7 +85,14 @@ export default function App() {
     let cancelled = false;
     let source = null;
     let pollId = null;
+    let watchdogId = null;
     let receivedAny = false;
+    // A proxy (ngrok/CDN) can leave an EventSource open but silently stop
+    // delivering frames. The server pushes at least a keep-alive/data frame every
+    // few seconds, so if we go this long with nothing the connection is a zombie
+    // and we reconnect it — the dashboard self-heals without a manual refresh.
+    const STREAM_STALE_MS = 15000;
+    let lastFrameAt = Date.now();
 
     function applyPayload(payload) {
       if (cancelled) {
@@ -130,27 +137,50 @@ export default function App() {
       pollId = window.setInterval(fetchOnce, POLL_INTERVAL_MS);
     }
 
+    function connectStream() {
+      source = new EventSource(streamUrl());
+      source.onmessage = (event) => {
+        lastFrameAt = Date.now();
+        receivedAny = true;
+        try {
+          applyPayload(JSON.parse(event.data));
+        } catch {
+          // ignore a malformed frame; the next one will refresh state
+        }
+      };
+      source.onerror = () => {
+        if (!receivedAny && source) {
+          // Never got a frame: the stream is unusable here, fall back to polling.
+          source.close();
+          source = null;
+          startPolling();
+        }
+        // otherwise let EventSource auto-reconnect (and the watchdog backstops it).
+      };
+    }
+
     // Prefer a live server-push stream; fall back to polling if EventSource is
     // unavailable or the stream never delivers a frame.
     if (typeof window !== "undefined" && "EventSource" in window) {
       try {
-        source = new EventSource(streamUrl());
-        source.onmessage = (event) => {
-          try {
-            receivedAny = true;
-            applyPayload(JSON.parse(event.data));
-          } catch {
-            // ignore a malformed frame; the next one will refresh state
+        connectStream();
+        // Backstop the browser's own reconnect: if a proxy silently wedges the
+        // connection (open but no frames), force a fresh EventSource so live
+        // updates resume on their own.
+        watchdogId = window.setInterval(() => {
+          if (cancelled || !source) {
+            return;
           }
-        };
-        source.onerror = () => {
-          if (!receivedAny && source) {
-            source.close();
-            source = null;
-            startPolling();
+          if (Date.now() - lastFrameAt > STREAM_STALE_MS) {
+            lastFrameAt = Date.now(); // reset so we reconnect at most once per window
+            try {
+              source.close();
+            } catch {
+              // already closing
+            }
+            connectStream();
           }
-          // otherwise let EventSource auto-reconnect
-        };
+        }, 5000);
       } catch {
         startPolling();
       }
@@ -165,6 +195,9 @@ export default function App() {
       }
       if (pollId) {
         window.clearInterval(pollId);
+      }
+      if (watchdogId) {
+        window.clearInterval(watchdogId);
       }
     };
   }, []);

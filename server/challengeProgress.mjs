@@ -47,12 +47,17 @@ export function assignChallengeSequence(challenge, challengeHistory) {
     return { challenge, challengeHistory: numberedHistory };
   }
 
+  // challenge-status.json is written before the scorer generates the run_id, so during a
+  // live challenge its run_id is null while the progress file already carries it. Fall
+  // back to the progress run_id so the challenge is identified (and numbered) correctly.
+  const runId = challenge.runId || challenge.liveProgress?.runId || null;
   const matchingHistoryChallenge = numberedHistory.find(
-    (entry) => entry.runId && entry.runId === challenge.runId
+    (entry) => entry.runId && entry.runId === runId
   );
   const challengeNumber = matchingHistoryChallenge?.challengeNumber || numberedHistory.length + 1;
   const numberedChallenge = {
     ...challenge,
+    runId,
     challengeNumber,
     liveProgress: challenge.liveProgress
       ? {

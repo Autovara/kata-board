@@ -1405,9 +1405,6 @@ function DuelDetail({
     kingProjects[project.project_key] = project;
   });
   const projects = entrant.projects || [];
-  const taskDone = progress?.done ?? projects.length;
-  const taskTotal = progress?.total ?? projects.length;
-  const taskPct = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
   // Show ALL sampled problems up front; scored ones fill in, the rest stay "scoring".
   const candidateByKey = {};
   projects.forEach((project) => {
@@ -1509,6 +1506,9 @@ function DuelDetail({
                 score={kingPassScore}
                 scoreLabel="project pass score"
                 won={decided && !won}
+                progress={
+                  king ? { done: king.done, total: king.total, state: king.state } : null
+                }
               />
               <div className="battle-mid">
                 <div className="vs">VS</div>
@@ -1547,30 +1547,16 @@ function DuelDetail({
                 score={candidatePassScore}
                 scoreLabel="project pass score"
                 won={won}
+                progress={
+                  progress
+                    ? { done: progress.done, total: progress.total, state: progress.state }
+                    : null
+                }
               />
             </div>
           </div>
         </section>
       )}
-
-      {!onlyScreeningFailure && taskTotal > 0 ? (
-        <div className="duel-task-bar">
-          <div className="duel-task-bar-head">
-            <span>problem progress</span>
-            <strong>
-              {taskDone}/{taskTotal} problems scored
-            </strong>
-            <small>
-              {scoring
-                ? "Scoring in progress — the bar fills as each problem finishes."
-                : "All sampled problems scored."}
-            </small>
-          </div>
-          <div className="progress-track duel-task-track" aria-hidden="true">
-            <i style={{ width: `${taskPct}%` }} />
-          </div>
-        </div>
-      ) : null}
 
       {onlyScreeningFailure ? null : (
         <DecisionLadder
@@ -1753,7 +1739,17 @@ function BattleSide({
   crown,
   won,
   pr = null,
+  progress = null,
 }) {
+  const hasProgress = progress && Number(progress.total) > 0;
+  const stateLabel =
+    progress?.state === "scoring"
+      ? "scoring…"
+      : progress?.state === "done"
+        ? "scored"
+        : progress?.state === "queued"
+          ? "waiting to score"
+          : progress?.state || "";
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -1770,6 +1766,22 @@ function BattleSide({
         <strong>{score}</strong>
         <small>{scoreLabel}</small>
       </div>
+      {hasProgress ? (
+        <div className="battle-progress">
+          <div className="battle-progress-head">
+            <span>problem progress</span>
+            <strong>
+              {Number(progress.done || 0)}/{Number(progress.total)}
+            </strong>
+          </div>
+          <ProgressBar
+            done={Number(progress.done || 0)}
+            total={Number(progress.total)}
+            tone={role}
+          />
+          {stateLabel ? <small>{stateLabel}</small> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

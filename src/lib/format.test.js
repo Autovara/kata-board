@@ -1,10 +1,14 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  formatSideTruePositives,
   formatTpExpectedFound,
   formatTruePositives,
   replicaAwareProblemTotals,
+  sideDetectionTotals,
 } from "./format.js";
+
+const ev = (tp) => ({ evaluated: true, true_positives: tp });
 
 // A project passing on multiple replicas must be scored BEST-OF, never summed:
 // three replicas each finding 1 TP is a 1-TP project, not a 3-TP project.
@@ -55,6 +59,82 @@ describe("replicaAwareProblemTotals (best-of, not summed)", () => {
 
   it("formatTpExpectedFound renders best-of tp/exp/found", () => {
     expect(formatTpExpectedFound(proj0, 3)).toBe("1/6/2");
+  });
+});
+
+// A project the scorer would emit: best-of true positives, per-project expected,
+// and one evaluated replica row per run.
+const proj = (key, exp, tps) => ({
+  project_key: key,
+  total_expected: exp,
+  true_positives: Math.max(0, ...tps),
+  replicas: tps.map((tp, i) => ({
+    replica_index: i + 1,
+    evaluated: true,
+    true_positives: tp,
+    total_expected: exp,
+  })),
+});
+
+describe("sideDetectionTotals (king and candidate aggregated identically)", () => {
+  const king = {
+    true_positives: 5,
+    total_expected: 25,
+    projects: [
+      proj("virtuals", 6, [1, 1, 1]),
+      proj("fenix", 1, [0, 0, 0]),
+      proj("axion", 4, [0, 1, 0]),
+      proj("pump", 2, [0, 0, 0]),
+      proj("generic", 2, [0, 1, 0]),
+      proj("perennial", 7, [2, 2, 2]),
+      proj("secondswap", 3, [0, 0, 0]),
+    ],
+  };
+  // The candidate header is the inflated raw per-replica SUM (8 / 72) the engine wrote
+  // mid-scoring; its real best-of score is 4 / 25.
+  const candidate = {
+    true_positives: 8,
+    total_expected: 72,
+    projects: [
+      proj("virtuals", 6, [0, 0, 0]),
+      proj("fenix", 1, [0, 0, 0]),
+      proj("axion", 4, [1, 1, 2]),
+      proj("pump", 2, [0, 0, 0]),
+      proj("generic", 2, [0, 1, 1]),
+      proj("perennial", 7, [0, 0, 0]),
+      proj("secondswap", 3, [1, 1, 0]),
+    ],
+  };
+
+  it("scores the king best-of = 5 / 25", () => {
+    const t = sideDetectionTotals(king, 3);
+    expect(t.truePositives).toBe(5);
+    expect(t.totalExpected).toBe(25);
+    expect(formatSideTruePositives(king, 3)).toBe("5 / 25");
+  });
+
+  it("ignores the candidate's inflated 8 / 72 header and scores it best-of = 4 / 25", () => {
+    const t = sideDetectionTotals(candidate, 3);
+    expect(t.truePositives).toBe(4); // NOT 8
+    expect(t.totalExpected).toBe(25); // NOT 72
+    expect(formatSideTruePositives(candidate, 3)).toBe("4 / 25");
+  });
+
+  it("collapses per-replica duplicate project entries to one best-of score", () => {
+    const flattened = {
+      true_positives: 4, // per-replica sum
+      projects: [
+        { project_key: "axion", total_expected: 4, true_positives: 1, replicas: [ev(1)] },
+        { project_key: "axion", total_expected: 4, true_positives: 1, replicas: [ev(1)] },
+        { project_key: "axion", total_expected: 4, true_positives: 2, replicas: [ev(2)] },
+      ],
+    };
+    expect(sideDetectionTotals(flattened, 3).truePositives).toBe(2); // best-of, once
+  });
+
+  it("falls back to the side header when there are no projects", () => {
+    expect(sideDetectionTotals({ true_positives: 16, total_expected: 84 }).truePositives).toBe(16);
+    expect(formatSideTruePositives({ true_positives: 16, total_expected: 84 })).toBe("16 / 84");
   });
 });
 

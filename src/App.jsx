@@ -18,7 +18,7 @@ import {
   formatNumber,
   formatPackLabel,
   formatPassScore,
-  formatTruePositives,
+  formatSideTruePositives,
   formatProjectName,
   formatProjectsPassed,
   formatReplicaFindings,
@@ -1088,7 +1088,7 @@ function ChallengePanel({
               </span>
               <span>{formatPassScore(kingResult, selectedProjectCount)}</span>
               <span>{formatProjectsPassed(kingResult)}</span>
-              <span>{formatTruePositives(kingResult)}</span>
+              <span>{formatSideTruePositives(kingResult, replicasPerProject)}</span>
               <span>—</span>
               <span>
                 {live && live.king && live.king.state === "scoring" ? (
@@ -1127,7 +1127,7 @@ function ChallengePanel({
                 </span>
                 <span>{formatPassScore(entrant, selectedProjectCount)}</span>
                 <span>{formatProjectsPassed(entrant)}</span>
-                <span>{formatTruePositives(entrant)}</span>
+                <span>{formatSideTruePositives(entrant, replicasPerProject)}</span>
                 <span>
                   <BeatsKingBadge beats={entrant.beats_king} />
                 </span>
@@ -1405,6 +1405,7 @@ function KingDetail({
       <KingMetricPanel
         king={king}
         projectCount={problemKeys.length}
+        replicasPerProject={replicasPerProject}
         passThreshold={passThreshold || projectPassThresholdLabel(replicasPerProject)}
       />
 
@@ -1420,7 +1421,7 @@ function KingDetail({
   );
 }
 
-function KingMetricPanel({ king, projectCount, passThreshold }) {
+function KingMetricPanel({ king, projectCount, replicasPerProject, passThreshold }) {
   return (
     <section className="king-metric-panel">
       <div className="king-metric-head">
@@ -1445,7 +1446,10 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
         />
       </div>
       <div className="king-metric-support">
-        <MetricChip label="true positives" value={formatTruePositives(king)} />
+        <MetricChip
+          label="true positives"
+          value={formatSideTruePositives(king, replicasPerProject)}
+        />
         <MetricChip label="fewer invalid runs" value={String(Number(king?.invalid_runs || 0))} />
         <MetricChip
           label="precision"

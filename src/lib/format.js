@@ -187,38 +187,68 @@ export function replicaAwareProblemTotals(project, replicasPerProject = 0) {
   const expectedPerReplica = Number(
     project.total_expected ?? actualReplicas[0]?.total_expected ?? 0
   );
-  if (!actualReplicas.length) {
+  // A project is scored BEST-OF its replicas -- the single strongest run, never a sum.
+  // When replica rows exist, take the best evaluated replica by true positives; only
+  // when none has been evaluated yet do we fall back to the scorer's project value.
+  // (This matters because a live candidate's replicas are not yet collapsed to best-of,
+  // so trusting a raw per-replica total would over-count.)
+  const bestReplicaTp = normalizeReplicaRows(project, replicasPerProject)
+    .filter((replica) => replica.evaluated)
+    .reduce((max, replica) => Math.max(max, Number(replica.true_positives ?? 0)), -1);
+  return {
+    truePositives: bestReplicaTp >= 0 ? bestReplicaTp : Number(project.true_positives ?? 0),
+    totalExpected: Number(project.total_expected ?? expectedPerReplica),
+    totalFound: Number(project.total_found ?? 0),
+  };
+}
+
+export function sideDetectionTotals(side, replicasPerProject = 0) {
+  // A side's (king or candidate) headline totals must equal the sum of its per-project
+  // BEST-OF scores, so both sides are aggregated identically and the header always
+  // matches the breakdown below it. The raw progress file writes a live candidate as
+  // one entry per replica with a per-replica SUMMED header -- never trust that header.
+  const projects = Array.isArray(side?.projects) ? side.projects : [];
+  if (!projects.length) {
     return {
-      truePositives: Number(project.true_positives ?? 0),
-      totalExpected: expectedPerReplica,
-      totalFound: Number(project.total_found ?? 0),
+      truePositives: side?.true_positives == null ? null : Number(side.true_positives),
+      totalExpected: Number(side?.total_expected ?? 0),
+      totalFound: Number(side?.total_found ?? 0),
     };
   }
-  // A project is scored BEST-OF across its successful replicas -- never summed. The
-  // scorer's project-level fields already hold that best-of result, so prefer them.
-  // Only when a project summary hasn't been written yet (mid-progress) do we fall
-  // back to the single strongest replica (by true positives), still best-of.
-  const bestReplica = normalizeReplicaRows(project, replicasPerProject).reduce(
-    (best, replica) => {
-      const tp = Number(replica.true_positives ?? 0);
-      if (best === null || tp > best.truePositives) {
-        return {
-          truePositives: tp,
-          totalExpected: Number(replica.total_expected ?? expectedPerReplica),
-          totalFound: Number(replica.total_found ?? 0),
-        };
-      }
-      return best;
-    },
-    null
+  // Score each DISTINCT project once, best-of. If a live candidate arrives as one entry
+  // per replica, several entries share a project_key -- keep the strongest so the total
+  // is a best-of sum, never a per-replica sum.
+  const bestByKey = new Map();
+  projects.forEach((project, index) => {
+    const key = project?.project_key || project?.projectKey || `#${index}`;
+    const totals = replicaAwareProblemTotals(project, replicasPerProject) || {
+      truePositives: 0,
+      totalExpected: 0,
+      totalFound: 0,
+    };
+    const prev = bestByKey.get(key);
+    if (!prev || Number(totals.truePositives || 0) > Number(prev.truePositives || 0)) {
+      bestByKey.set(key, totals);
+    }
+  });
+  return [...bestByKey.values()].reduce(
+    (acc, totals) => ({
+      truePositives: acc.truePositives + Number(totals.truePositives || 0),
+      totalExpected: acc.totalExpected + Number(totals.totalExpected || 0),
+      totalFound: acc.totalFound + Number(totals.totalFound || 0),
+    }),
+    { truePositives: 0, totalExpected: 0, totalFound: 0 }
   );
-  return {
-    truePositives: Number(project.true_positives ?? bestReplica?.truePositives ?? 0),
-    totalExpected: Number(
-      project.total_expected ?? bestReplica?.totalExpected ?? expectedPerReplica
-    ),
-    totalFound: Number(project.total_found ?? bestReplica?.totalFound ?? 0),
-  };
+}
+
+export function formatSideTruePositives(side, replicasPerProject = 0) {
+  const totals = sideDetectionTotals(side, replicasPerProject);
+  if (totals.truePositives == null) {
+    return "—";
+  }
+  return totals.totalExpected > 0
+    ? `${totals.truePositives} / ${totals.totalExpected}`
+    : String(totals.truePositives);
 }
 
 export function formatTpExpectedFound(project, replicasPerProject = 0) {

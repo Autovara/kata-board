@@ -1902,7 +1902,15 @@ function prLabel(kataRepoSlug, pullNumber) {
   );
 }
 
-function ChallengeHistory({ challenges }) {
+function winnerPullFromSubmission(winnerSubmissionId) {
+  if (!winnerSubmissionId) {
+    return null;
+  }
+  const match = String(winnerSubmissionId).match(/pr-?(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function ChallengeHistory({ challenges, kataRepoSlug }) {
   if (!challenges || !challenges.length) {
     return null;
   }
@@ -1910,39 +1918,78 @@ function ChallengeHistory({ challenges }) {
     <div className="challenge-block">
       <div className="challenge-block-head">
         <SectionTitle title="Recent challenges" />
-        <p className="section-lead">Highlights from completed challenges.</p>
+        <p className="section-lead">How the last few king-of-the-hill matches finished.</p>
       </div>
-      <section className="table-section leaderboard-table">
-        <div className="table-head challenge-hist-grid">
-          <span>challenge</span>
-          <span>highlights</span>
-          <span>best detection</span>
-          <span>finished</span>
-        </div>
-        {challenges.slice(0, 12).map((challenge, index) => (
-          <div className="table-row challenge-hist-grid" key={challenge.runId || index}>
-            <span className="challenge-hist-title">
-              <strong>
-                {challenge.challengeNumber ? `Challenge ${challenge.challengeNumber}` : "Challenge"}
-              </strong>
-              <small>{challenge.headline || "Challenge"}</small>
-            </span>
-            <span className="challenge-hist-badges">
-              {challenge.achievements?.length ? (
-                challenge.achievements.map((item) => (
-                  <span className="rstat rstat-winner" key={item}>
-                    {item}
+      <ul className="challenge-feed">
+        {challenges.slice(0, 12).map((challenge, index) => {
+          const promoted = Boolean(challenge.winnerSubmissionId);
+          const winnerPull = winnerPullFromSubmission(challenge.winnerSubmissionId);
+          // "New king" is already covered by the outcome badge; keep the rest.
+          const highlights = (challenge.achievements || []).filter(
+            (item) => !/new king/i.test(item)
+          );
+          return (
+            <li
+              className={`challenge-card ${promoted ? "is-promoted" : "is-defended"}`}
+              key={challenge.runId || index}
+            >
+              <div className="challenge-card-main">
+                <div className="challenge-card-top">
+                  <span className="challenge-card-num">
+                    {challenge.challengeNumber
+                      ? `Challenge ${challenge.challengeNumber}`
+                      : "Challenge"}
                   </span>
-                ))
-              ) : (
-                <span className="challenge-hist-quiet">no new king</span>
-              )}
-            </span>
-            <span>{formatDetection(challenge.bestDetection)}</span>
-            <span>{formatDateTime(challenge.generatedAt)}</span>
-          </div>
-        ))}
-      </section>
+                  <span
+                    className={`challenge-outcome ${
+                      promoted ? "challenge-outcome-new" : "challenge-outcome-held"
+                    }`}
+                  >
+                    {promoted ? "👑 New king" : "🛡️ King defended"}
+                  </span>
+                </div>
+                <p className="challenge-card-summary">
+                  {promoted ? (
+                    <>
+                      A challenger beat the king and took the crown
+                      {winnerPull ? <> — {prLabel(kataRepoSlug, winnerPull)}</> : null}.
+                    </>
+                  ) : (
+                    <>No challenger beat the king — the crown stayed put.</>
+                  )}
+                </p>
+                {highlights.length ? (
+                  <div className="challenge-card-chips">
+                    {highlights.map((item) => (
+                      <span className="rstat rstat-winner" key={item}>
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <dl className="challenge-card-stats">
+                <div>
+                  <dt>Best detection</dt>
+                  <dd>{formatDetection(challenge.bestDetection)}</dd>
+                </div>
+                <div>
+                  <dt>Bugs found</dt>
+                  <dd>{challenge.bestTruePositives ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Challengers</dt>
+                  <dd>{challenge.candidateCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Finished</dt>
+                  <dd>{formatDateTime(challenge.generatedAt)}</dd>
+                </div>
+              </dl>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -1967,7 +2014,9 @@ function Arena({ selectedLane, challenge, challengeHistory, kataRepoSlug }) {
         setSelectedPull={setSelectedPull}
       />
 
-      {!detailOpen ? <ChallengeHistory challenges={challengeHistory} /> : null}
+      {!detailOpen ? (
+        <ChallengeHistory challenges={challengeHistory} kataRepoSlug={kataRepoSlug} />
+      ) : null}
     </div>
   );
 }

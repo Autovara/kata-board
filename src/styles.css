@@ -6072,6 +6072,132 @@ html {
   color: var(--green);
   border-color: rgba(185, 255, 93, 0.45);
 }
+
+/* Recent challenges feed (Arena) */
+.challenge-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.challenge-block-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.challenge-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.challenge-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel-2);
+}
+.challenge-card.is-promoted {
+  border-left-color: var(--green);
+}
+.challenge-card.is-defended {
+  border-left-color: var(--muted);
+}
+.challenge-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 320px;
+  min-width: 240px;
+}
+.challenge-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.challenge-card-num {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+}
+.challenge-outcome {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+}
+.challenge-outcome-new {
+  color: var(--green);
+  border-color: rgba(185, 255, 93, 0.45);
+  background: rgba(185, 255, 93, 0.08);
+}
+.challenge-outcome-held {
+  color: var(--muted);
+  background: var(--panel-3);
+}
+.challenge-card-summary {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.challenge-card-summary a {
+  color: var(--green);
+  font-weight: 600;
+  text-decoration: none;
+}
+.challenge-card-summary a:hover {
+  text-decoration: underline;
+}
+.challenge-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.challenge-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(84px, auto));
+  gap: 12px 22px;
+  margin: 0;
+  align-content: center;
+}
+.challenge-card-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.challenge-card-stats dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.challenge-card-stats dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+@media (max-width: 620px) {
+  .challenge-card-stats {
+    grid-template-columns: repeat(4, auto);
+    width: 100%;
+  }
+}
+
 .rstat-losing {
   color: var(--muted);
 }

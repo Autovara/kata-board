@@ -1526,9 +1526,9 @@ function DuelDetail({
                           : ""
                     }
                   >
-                    {candidatePassScore} vs {kingPassScore}
+                    {kingPassScore} vs {candidatePassScore}
                   </strong>
-                  <small>project pass score</small>
+                  <small>king vs challenger · project pass score</small>
                 </div>
               </div>
               <BattleSide

@@ -971,8 +971,8 @@ function ChallengePanel({
   ) : null;
 
   const verdict = challenge?.winnerSubmissionId ? (
-    <div className="challenge-verdict challenge-verdict-win">
-      <span className="challenge-verdict-crown" aria-hidden="true">
+    <div className="round-verdict round-verdict-win">
+      <span className="round-verdict-crown" aria-hidden="true">
         ♔
       </span>
       <div>
@@ -981,8 +981,8 @@ function ChallengePanel({
       </div>
     </div>
   ) : state === "completed" ? (
-    <div className="challenge-verdict challenge-verdict-hold">
-      <span className="challenge-verdict-crown" aria-hidden="true">
+    <div className="round-verdict round-verdict-hold">
+      <span className="round-verdict-crown" aria-hidden="true">
         ♔
       </span>
       <div>
@@ -994,8 +994,8 @@ function ChallengePanel({
 
   const pausedNote =
     state === "paused" || (challenge?.stale && state !== "completed") ? (
-      <div className="challenge-verdict challenge-verdict-hold">
-        <span className="challenge-verdict-crown" aria-hidden="true">
+      <div className="round-verdict round-verdict-hold">
+        <span className="round-verdict-crown" aria-hidden="true">
           ⏸
         </span>
         <div>

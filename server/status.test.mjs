@@ -2144,9 +2144,11 @@ test("loadLocalArtifactLeaderboard memoizes its result per root", () => {
   assert.equal(first, second); // same reference => served from cache, not recomputed
 });
 
-test("a crashed executing challenge with only stale timestamps is presented as stale, not animated", async () => {
-  // BUG-11: challenge-status.json stuck at "executing" (challenge crashed/killed without a
-  // terminal write) and no fresh progress must NOT animate a phantom running challenge.
+test("a stalled executing challenge is presented as paused (not animated) but keeps its last status", async () => {
+  // A challenge stuck at "executing" (crashed/killed/paused without a terminal write) and no
+  // fresh progress must NOT animate a phantom running challenge -- the client gates animation
+  // on state === "executing", so marking it "paused" stops the animation -- BUT its last
+  // recorded status is kept, never deleted just because time passed.
   const root = makeKataRoot();
   writeJson(root, "challenge-status.json", {
     schema_version: 1,
@@ -2171,7 +2173,7 @@ test("a crashed executing challenge with only stale timestamps is presented as s
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.equal(status.challenge.state, "stale");
+  assert.equal(status.challenge.state, "paused");
   assert.equal(status.challenge.stale, true);
-  assert.equal(status.challenge.liveProgress, null);
+  assert.notEqual(status.challenge.liveProgress, null); // last status is kept, not deleted
 });

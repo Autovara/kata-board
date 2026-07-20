@@ -72,11 +72,13 @@ function readChallengeStaleMs(env) {
 }
 
 export function applyChallengeStalenessGuard(challenge, env) {
-  // A challenge writes challenge-progress.json as it runs; if it was crashed/killed without
-  // the bot writing a terminal state, challenge-status.json stays "executing" forever and
-  // the dashboard animates a phantom running challenge. Present a challenge whose freshest
-  // timestamp is older than the stale window as "stale" (and drop liveProgress) so the
-  // client -- which gates the animation on state === "executing" -- stops animating.
+  // A challenge writes challenge-progress.json as it runs. If it was paused/killed
+  // without a terminal write, challenge-status.json stays "executing" forever and the
+  // dashboard would animate a phantom running challenge. Mark a challenge whose freshest
+  // timestamp is older than the window as "paused" -- the client gates its animation on
+  // state === "executing", so it stops animating -- but KEEP its live progress so the
+  // last recorded status stays visible. The status is never deleted just because time
+  // passed; it is replaced only when a new challenge starts.
   if (!challenge || challenge.state !== "executing") {
     return challenge;
   }
@@ -88,7 +90,7 @@ export function applyChallengeStalenessGuard(challenge, env) {
   }
   const freshest = Math.max(...stamps);
   if (Date.now() - freshest > readChallengeStaleMs(env)) {
-    return { ...challenge, state: "stale", stale: true, liveProgress: null };
+    return { ...challenge, state: "paused", stale: true };
   }
   return challenge;
 }

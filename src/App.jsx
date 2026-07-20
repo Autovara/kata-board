@@ -815,13 +815,10 @@ function ChallengePanel({
 }) {
   const entrants = challenge?.entrants || [];
   const state = challenge?.state || "idle";
-  // A stale challenge (finished/stopped and aged out) is not "current" — show the clean
-  // waiting state instead of leftover challenge metadata.
+  // Show the challenge for every non-idle state, including "paused" — the last recorded
+  // status must stay visible until a new challenge replaces it.
   const hasChallenge = Boolean(
-    challenge &&
-      !challenge.stale &&
-      state !== "stale" &&
-      (state !== "idle" || entrants.length || challenge.runId)
+    challenge && (state !== "idle" || entrants.length || challenge.runId)
   );
   const challengeTitle = challenge?.challengeNumber
     ? `Current challenge · Challenge ${challenge.challengeNumber}`
@@ -996,10 +993,27 @@ function ChallengePanel({
     </div>
   ) : null;
 
+  const pausedNote =
+    state === "paused" || (challenge?.stale && state !== "completed") ? (
+      <div className="challenge-verdict challenge-verdict-hold">
+        <span className="challenge-verdict-crown" aria-hidden="true">
+          ⏸
+        </span>
+        <div>
+          <strong>Round paused — last recorded status</strong>
+          <p>
+            This challenge stopped updating. Its last scores are shown below. Resume the round to
+            continue the competition from here.
+          </p>
+        </div>
+      </div>
+    ) : null;
+
   const arenaIntro = (
     <>
       {arenaHead}
       {note}
+      {pausedNote}
       {verdict}
       {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
     </>
@@ -1038,6 +1052,7 @@ function ChallengePanel({
       ) : (
         <>
           {note}
+          {pausedNote}
           {verdict}
           <Empty text="No challenger has entered yet — the king holds the crown until one does." />
         </>

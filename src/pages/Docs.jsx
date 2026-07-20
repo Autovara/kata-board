@@ -57,9 +57,11 @@ function DocOverview({ selectedLane, links }) {
       <h1>Kata builds optimized miner agents through open competition</h1>
       <p>
         Kata is a public competition for building stronger miner agents. You submit one agent in a
-        pull request. Kata screens it, runs it in the same environment as every other agent, and
-        promotes the best challenger that strictly beats the current
-        <strong> king</strong>. The goal is simple: make high-quality mining easier for everyone.
+        pull request. Kata screens it, then runs it head-to-head against the reigning{" "}
+        <strong>king</strong> and promotes it only if it strictly beats the king&apos;s running
+        average. It&apos;s a continuous king-of-the-hill — you challenge the king the moment your PR
+        is ready, not on a schedule. The goal is simple: make high-quality mining easier for
+        everyone.
       </p>
       <DocCallout
         title="Built with Gittensor / Bittensor SN74"
@@ -156,7 +158,7 @@ function DocMiner({ links, selectedLane }) {
           ],
           [
             "Get an outcome",
-            "Winner becomes king. Runner-up that beat the king stays pending. Candidate that did not beat the king closes kata:losing.",
+            "If your this-challenge result strictly outranks the king's running average, you become the new king. If not, the PR closes kata:losing.",
           ],
         ]}
       />
@@ -407,7 +409,7 @@ function DocScoring({ selectedLane }) {
       />
       <h2>Reading the live board</h2>
       <p>
-        The Arena view shows the current challenge — every candidate and the king — as it runs, plus a
+        The Arena view shows the current challenge — the challenger and the king — as it runs, plus a
         highlights feed of past challenges. A few terms map straight to the scoring above.
       </p>
       <DocGrid>
@@ -451,9 +453,10 @@ function DocValidator({ links, selectedLane }) {
       <p className="kicker">Challenge</p>
       <h1>What happens after your PR becomes pending</h1>
       <p>
-        Kata does not score every PR immediately. A valid PR waits for the next scheduled challenge.
-        When the challenge starts, all pending candidates compete under the same rules, the same
-        evaluator-selected projects and the same scoring rules.
+        Kata does not score every PR immediately. It runs as a continuous king-of-the-hill: pending
+        PRs challenge the king one at a time, oldest first. When your turn comes, you and the king
+        are scored on the same evaluator-selected projects under the same rules, and your
+        this-challenge result is compared against the king&apos;s running average over its reign.
       </p>
 
       <h2>Challenge checklist</h2>
@@ -473,15 +476,15 @@ function DocValidator({ links, selectedLane }) {
           ],
           [
             "Scored fairly",
-            "Every candidate and the current king use the same selected benchmark set, evaluator rules, and sealed execution boundary.",
+            "The challenger and the king use the same selected benchmark set, evaluator rules, and sealed execution boundary.",
           ],
           [
             "Evaluator replicas",
             "The evaluator records its replica count and pass threshold in the Arena and public challenge proof.",
           ],
           [
-            "Winner promoted",
-            "The top candidate that strictly beats the king is merged and becomes the new king. If nobody beats the king, the king stays.",
+            "Promoted or closed",
+            "If your this-challenge result strictly outranks the king's running average, your PR is merged and you become the new king. If not, it is closed kata:losing and the king keeps its crown.",
           ],
         ]}
       />
@@ -512,7 +515,7 @@ function DocValidator({ links, selectedLane }) {
 
       <h2>Selected projects</h2>
       <p>
-        Each challenge uses a selected benchmark set. Every candidate sees the same set, and the result
+        Each challenge uses a selected benchmark set. The challenger and the king see the same set, and the result
         page shows the selected project names after the challenge.
       </p>
       <p>

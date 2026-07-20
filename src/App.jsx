@@ -777,9 +777,10 @@ function ChallengeRuleCard({ passThreshold, replicasPerProject }) {
         <span>promotion rule</span>
         <strong>Beat the king&apos;s running-average score by the margin</strong>
         <p>
-          A project passes when enough replicas pass. This challenge uses {replicasPerProject} run
-          {replicasPerProject === 1 ? "" : "s"} per project, so the pass threshold is{" "}
-          {passThreshold}.
+          A project passes on a two-thirds majority of its <em>successful</em> replicas —{" "}
+          {passThreshold} when all {replicasPerProject} run
+          {replicasPerProject === 1 ? "" : "s"} succeed. Invalid (infra-failed) runs are excluded
+          from the count, so a flaked replica never turns a pass into a fail.
         </p>
       </div>
       <ol>

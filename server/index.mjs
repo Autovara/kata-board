@@ -73,12 +73,13 @@ app.get("/api/stream", async (_request, response) => {
         lastStamp = stamp;
         response.write(`data: ${JSON.stringify(payload)}\n\n`);
       } else {
-        // Liveness frame: a real `data:` frame (so it fires the client's onmessage and
-        // keeps its stream-freshness watchdog satisfied) that the client ignores for
-        // rendering. A bare `:` comment does NOT fire onmessage, so during idle the
-        // watchdog would wrongly think the stream was dead and reconnect every window,
-        // flashing the UI.
-        response.write(`data: ${JSON.stringify({ __heartbeat: 1 })}\n\n`);
+        // Liveness as a NAMED event: the client listens for "heartbeat" to keep its
+        // stream-freshness watchdog satisfied, but a named event does NOT fire the
+        // default `onmessage`, so it never disturbs the rendered state — and older
+        // cached clients (which only handle onmessage) simply ignore it. A bare `:`
+        // comment would not fire any handler, so the watchdog would wrongly think the
+        // stream was dead and reconnect every window, flashing the UI.
+        response.write("event: heartbeat\ndata: 1\n\n");
       }
     } catch (error) {
       if (closed) {
@@ -116,10 +117,21 @@ if (fs.existsSync(kataAssetsRoot)) {
 }
 
 if (fs.existsSync(distRoot)) {
-  app.use(express.static(distRoot));
+  // Hashed asset files (index-<hash>.js/.css) are safe to cache forever; the HTML
+  // shell must never be cached, or a refresh keeps loading a stale bundle reference.
+  app.use(express.static(distRoot, { setHeaders: setAssetCacheHeaders }));
   app.get("*", (_request, response) => {
+    response.set("Cache-Control", "no-cache, no-store, must-revalidate");
     response.sendFile(path.join(distRoot, "index.html"));
   });
+}
+
+function setAssetCacheHeaders(response, filePath) {
+  if (filePath.endsWith("index.html")) {
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  } else if (/\/assets\//.test(filePath)) {
+    response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  }
 }
 
 // Only bind the port when run directly (node server/index.mjs); importing this

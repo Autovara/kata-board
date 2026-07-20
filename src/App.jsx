@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import GridBackground from "./GridBackground.jsx";
 import heroImage from "../assets/hero.png";
-import { PAGES, POLL_INTERVAL_MS, CHALLENGE_STATE_BANNER } from "./constants.js";
+import { PAGES, POLL_INTERVAL_MS } from "./constants.js";
 import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js";
 import { Docs } from "./pages/Docs.jsx";
 import {
@@ -40,7 +40,6 @@ import {
 } from "./lib/format.js";
 import {
   Avatar,
-  ChallengeMeta,
   ChallengeStatusPill,
   DiscordIcon,
   Empty,
@@ -139,17 +138,18 @@ export default function App() {
       source.onmessage = (event) => {
         lastFrameAt = Date.now();
         receivedAny = true;
-        let parsed;
         try {
-          parsed = JSON.parse(event.data);
+          applyPayload(JSON.parse(event.data));
         } catch {
-          return; // ignore a malformed frame; the next one will refresh state
+          // ignore a malformed frame; the next one will refresh state
         }
-        if (parsed && parsed.__heartbeat) {
-          return; // liveness only — do not replace state (avoids idle re-render flashes)
-        }
-        applyPayload(parsed);
       };
+      // Named liveness event: keeps the freshness watchdog satisfied during idle
+      // WITHOUT firing onmessage, so the rendered state is never disturbed.
+      source.addEventListener("heartbeat", () => {
+        lastFrameAt = Date.now();
+        receivedAny = true;
+      });
       source.onerror = () => {
         if (!receivedAny && source) {
           // Never got a frame: the stream is unusable here, fall back to polling.
@@ -815,8 +815,13 @@ function ChallengePanel({
 }) {
   const entrants = challenge?.entrants || [];
   const state = challenge?.state || "idle";
+  // A stale challenge (finished/stopped and aged out) is not "current" — show the clean
+  // waiting state instead of leftover challenge metadata.
   const hasChallenge = Boolean(
-    challenge && (state !== "idle" || entrants.length || challenge.runId)
+    challenge &&
+      !challenge.stale &&
+      state !== "stale" &&
+      (state !== "idle" || entrants.length || challenge.runId)
   );
   const challengeTitle = challenge?.challengeNumber
     ? `Current challenge · Challenge ${challenge.challengeNumber}`
@@ -961,36 +966,6 @@ function ChallengePanel({
     </div>
   );
 
-  const banner = challenge ? (
-    <div className="challenge-banner">
-      <div className="challenge-banner-state">
-        <Status
-          label={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).label}
-          tone={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).tone}
-        />
-        <p>{(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).text}</p>
-      </div>
-      <div className="challenge-banner-meta">
-        {challenge.challengeNumber ? (
-          <ChallengeMeta label="challenge" value={`#${challenge.challengeNumber}`} />
-        ) : null}
-        {kingResult && kingResult.aggregated_score != null ? (
-          <ChallengeMeta
-            label="king detection"
-            value={formatDetection(kingResult.aggregated_score)}
-          />
-        ) : null}
-        <ChallengeMeta label="project pass" value={`${passThreshold} replicas`} />
-        {challenge.generatedAt ? (
-          <ChallengeMeta
-            label={state === "executing" ? "started" : "finished"}
-            value={formatDateTime(challenge.generatedAt)}
-          />
-        ) : null}
-      </div>
-    </div>
-  ) : null;
-
   const note = challenge?.note ? (
     <div
       className={`challenge-note challenge-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}
@@ -1024,7 +999,6 @@ function ChallengePanel({
   const arenaIntro = (
     <>
       {arenaHead}
-      {banner}
       {note}
       {verdict}
       {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
@@ -1063,7 +1037,6 @@ function ChallengePanel({
         </div>
       ) : (
         <>
-          {banner}
           {note}
           {verdict}
           <Empty text="No challenger has entered yet — the king holds the crown until one does." />

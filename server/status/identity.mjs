@@ -30,7 +30,7 @@ export function buildIdentityAliases({ validator, round }) {
   return aliases;
 }
 
-export function addIdentityAlias(aliases, from, to) {
+function addIdentityAlias(aliases, from, to) {
   const source = String(from || "").trim();
   const target = String(to || "").trim();
   if (!source || !target || source === target) {

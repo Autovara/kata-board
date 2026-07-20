@@ -50,7 +50,7 @@ export function walk(rootPath, visitor) {
   }
 }
 
-export function readJson(filePath) {
+function readJson(filePath) {
   if (!filePath) {
     return null;
   }
@@ -68,7 +68,7 @@ export function readJsonSafe(filePath) {
   }
 }
 
-export function readText(filePath) {
+function readText(filePath) {
   if (!fs.existsSync(filePath)) {
     return "";
   }

@@ -660,6 +660,22 @@ button {
   overflow-wrap: anywhere;
 }
 
+.battle-pr {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.battle-pr a {
+  font-weight: 600;
+  color: var(--accent, #2f6feb);
+  text-decoration: none;
+}
+
+.battle-pr a:hover {
+  text-decoration: underline;
+}
+
 .agent-score-strip {
   width: fit-content;
   margin-top: 8px;

@@ -241,6 +241,34 @@ export function sideDetectionTotals(side, replicasPerProject = 0) {
   );
 }
 
+export function sideLadderSignals(side, replicasPerProject = 0, projectCount = 0) {
+  // The six rank signals for one side, all from BEST-OF per-project scores so the king
+  // and candidate are computed identically. Precision and F1 are recomputed from the
+  // best-of totals -- never trust the raw fields, which for a live candidate are summed
+  // across replicas (inflated found -> wrong precision/F1).
+  const totals = sideDetectionTotals(side, replicasPerProject);
+  const truePositives = Number(totals.truePositives || 0);
+  const totalFound = Number(totals.totalFound || 0);
+  const totalExpected = Number(totals.totalExpected || 0);
+  const precision = totalFound > 0 ? truePositives / totalFound : 0;
+  const recall = totalExpected > 0 ? truePositives / totalExpected : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+  const passCount = entrantPassCount(side);
+  const total = entrantProjectTotal(side, projectCount);
+  const hasPass = passCount >= 0 && total > 0;
+  return {
+    passRatio: hasPass ? passCount / total : -1,
+    passScore: hasPass ? `${passCount}/${total}` : "—",
+    projectsPassed: passCount < 0 ? 0 : passCount,
+    truePositives,
+    totalExpected,
+    totalFound,
+    invalidRuns: Number(side?.invalid_runs || 0),
+    precision,
+    f1,
+  };
+}
+
 export function formatSideTruePositives(side, replicasPerProject = 0) {
   const totals = sideDetectionTotals(side, replicasPerProject);
   if (totals.truePositives == null) {

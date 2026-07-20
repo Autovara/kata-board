@@ -8,7 +8,6 @@ import {
   buildDashboardLatestStatus,
   compareEntrantsByRank,
   decisionWinner,
-  entrantPassCount,
   entrantPassScore,
   formatDate,
   formatDateTime,
@@ -18,6 +17,7 @@ import {
   formatPackLabel,
   formatPassScore,
   formatSideTruePositives,
+  sideLadderSignals,
   formatProjectName,
   formatProjectsPassed,
   formatReplicaFindings,
@@ -40,10 +40,8 @@ import {
 } from "./lib/format.js";
 import {
   Avatar,
-  ChallengeStatusPill,
   DiscordIcon,
   Empty,
-  EntrantIdentity,
   GitHubIcon,
   MetricChip,
   MinerIdentity,
@@ -957,8 +955,9 @@ function ChallengePanel({
       <span className="showcase-kicker">Arena</span>
       <SectionTitle title={challengeTitle} />
       <p className="section-lead challenge-lead">
-        The challenger and the current king are scored on the same secret evaluator-selected
-        projects, then compared by SN60&apos;s promotion order.
+        A challenger is taking on the reigning king. Both agents hunt for bugs in the same set
+        of secret projects, and the challenger only takes the crown if it beats the king&apos;s
+        typical performance across the six ranked signals below.
       </p>
     </div>
   );
@@ -1406,7 +1405,6 @@ function DuelDetail({
     kingProjects[project.project_key] = project;
   });
   const projects = entrant.projects || [];
-  const candidateInvalid = Number(entrant.invalid_runs || 0);
   const taskDone = progress?.done ?? projects.length;
   const taskTotal = progress?.total ?? projects.length;
   const taskPct = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
@@ -1423,12 +1421,14 @@ function DuelDetail({
   const kingPassScore = formatPassScore(king, problemKeys.length);
   const candidatePassRatio = entrantPassScore(entrant, problemKeys.length);
   const kingPassRatio = entrantPassScore(king, problemKeys.length);
-  const candidatePassedProjects = entrantPassCount(entrant);
-  const kingPassedProjects = entrantPassCount(king);
   // The gate compares the candidate against the king's AVERAGE over its reign, so show
   // that average in the decision ladder when we have it (a fresh king with no reign
   // history falls back to its this-challenge scores).
   const kingIsAverage = Boolean(kingRankAverage);
+  // Every ladder value is computed BEST-OF and identically for both sides. The candidate
+  // uses its this-challenge best-of; the king uses its reign average when available, else
+  // its this-challenge best-of (a freshly promoted king has no reign history yet).
+  const candidateLadder = sideLadderSignals(entrant, replicasPerProject, problemKeys.length);
   const kingLadder = kingIsAverage
     ? {
         passRatio: Number(kingRankAverage.pass_score || 0),
@@ -1441,39 +1441,20 @@ function DuelDetail({
         precision: Number(kingRankAverage.precision || 0),
         f1: Number(kingRankAverage.f1_score || 0),
       }
-    : {
-        passRatio: kingPassRatio,
-        passScore: kingPassScore,
-        projectsPassed: kingPassedProjects,
-        truePositives: king?.true_positives,
-        totalExpected: king?.total_expected,
-        totalFound: king?.total_found,
-        invalidRuns: king ? Number(king.invalid_runs || 0) : null,
-        precision: king?.precision,
-        f1: king?.f1_score,
-      };
+    : sideLadderSignals(king, replicasPerProject, problemKeys.length);
   const screeningFailure = screeningFailureDetails(entrant) || screeningFailureDetails(progress);
   const onlyScreeningFailure = Boolean(screeningFailure && !projects.length);
 
   return (
     <div className="challenge-block duel-page">
       {intro}
-      <div className="duel-detail-topbar">
-        {onBack ? (
+      {onBack ? (
+        <div className="duel-detail-topbar">
           <button type="button" className="button" onClick={onBack}>
             ← Back to challenge
           </button>
-        ) : null}
-        <div className="duel-detail-title">
-          <span className="rstat rstat-king" aria-hidden="true">
-            ♔ king
-          </span>
-          <span className="vs vs-inline">vs</span>
-          <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
-          {prLabel(kataRepoSlug, entrant.pull_number)}
-          <ChallengeStatusPill status={entrant.status} />
         </div>
-      </div>
+      ) : null}
 
       {screeningFailure ? (
         <div className="screening-failure-panel">
@@ -1556,7 +1537,8 @@ function DuelDetail({
               <BattleSide
                 role="candidate"
                 name={entrant.author || entrant.submission_id}
-                sub={`PR #${entrant.pull_number}`}
+                sub="challenger"
+                pr={prLabel(kataRepoSlug, entrant.pull_number)}
                 avatarUrl={
                   entrant.author
                     ? `https://github.com/${encodeURIComponent(entrant.author)}.png?size=96`
@@ -1592,20 +1574,10 @@ function DuelDetail({
 
       {onlyScreeningFailure ? null : (
         <DecisionLadder
-          candidate={{
-            passRatio: candidatePassRatio,
-            passScore: candidatePassScore,
-            projectsPassed: candidatePassedProjects,
-            truePositives: entrant.true_positives,
-            totalExpected: entrant.total_expected,
-            totalFound: entrant.total_found,
-            invalidRuns: candidateInvalid,
-            precision: entrant.precision,
-            f1: entrant.f1_score,
-          }}
+          candidate={candidateLadder}
           king={kingLadder}
           kingIsAverage={kingIsAverage}
-          kingLabel={kingIsAverage ? `king · avg of ${kingRankSamples}` : "king"}
+          kingLabel={kingIsAverage ? `king · avg of ${kingRankSamples}` : "king (this challenge)"}
         />
       )}
 
@@ -1780,6 +1752,7 @@ function BattleSide({
   avatarUrl,
   crown,
   won,
+  pr = null,
 }) {
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
@@ -1792,6 +1765,7 @@ function BattleSide({
       <span className="battle-role">{won ? `${role} · winner` : role}</span>
       <h2>{name}</h2>
       <p>{sub}</p>
+      {pr ? <div className="battle-pr">PR&nbsp;{pr}</div> : null}
       <div className="battle-score">
         <strong>{score}</strong>
         <small>{scoreLabel}</small>

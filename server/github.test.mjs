@@ -202,7 +202,7 @@ test("loadGithubCliLeaderboard counts a subnet-qualified defeat as a historical 
 
   const kianni = leaderboard.rows.find((row) => row.author === "kiannidev");
   const daedalus = leaderboard.rows.find((row) => row.author === "Daedalus-Icarus");
-  // Both won a round, so each keeps one historical win.
+  // Both won a challenge, so each keeps one historical win.
   assert.equal(kianni.wins, 1, "dethroned king should still have 1 win");
   assert.equal(daedalus.wins, 1);
   // But the current king is the winner PR, not the dethroned one.

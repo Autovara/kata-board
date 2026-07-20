@@ -10,11 +10,11 @@ export const PAGES = [
   { path: "/docs", label: "Docs" },
 ];
 
-export const ROUND_STATE_BANNER = {
+export const CHALLENGE_STATE_BANNER = {
   idle: {
     label: "idle",
     tone: "neutral",
-    text: "Waiting for the next round to start.",
+    text: "Waiting for the next challenge to start.",
   },
   executing: {
     label: "scoring now",
@@ -22,23 +22,23 @@ export const ROUND_STATE_BANNER = {
     text: "Every candidate is being scored against the king right now.",
   },
   completed: {
-    label: "round complete",
+    label: "challenge complete",
     tone: "ok",
     text: "Scoring finished — see the result below.",
   },
   skipped: {
-    label: "round skipped",
+    label: "challenge skipped",
     tone: "warn",
-    text: "The round did not run. See the reason below.",
+    text: "The challenge did not run. See the reason below.",
   },
   failed: {
-    label: "round failed",
+    label: "challenge failed",
     tone: "bad",
-    text: "The round stopped before validation. See the reason below.",
+    text: "The challenge stopped before validation. See the reason below.",
   },
 };
 
-export const ROUND_STATUS_LABEL = {
+export const CHALLENGE_STATUS_LABEL = {
   pending: "pending",
   executing: "scoring",
   winner: "winner",

@@ -9,12 +9,12 @@ draws it. If a value is not in that state, the board does not show it and never
 makes one up.
 
 This README only covers the board: what it is, how it reads data, and how to
-run it. For how scoring, the engine, and the round rules actually work, read the
+run it. For how scoring, the engine, and the challenge rules actually work, read the
 sibling repos instead:
 
 - `../kata` — the evaluation engine
 - `../kata-sn60` — the SN60 subnet pack (the first live lane)
-- `../kata-bot` — the GitHub PR automation that writes the round state files
+- `../kata-bot` — the GitHub PR automation that writes the challenge state files
 
 ## What it reads
 
@@ -23,12 +23,12 @@ server reads:
 
 - from `../kata`: the lane registry, the published king artifact, and recent run
   summaries under `kata/runs/`
-- from `../kata-bot`: the state files it writes as a round runs — `round-status.json`,
-  `round-progress.json`, `round-history.json`, `live-status.json`, and the queue
+- from `../kata-bot`: the state files it writes as a challenge runs — `challenge-status.json`,
+  `challenge-progress.json`, `challenge-history.json`, `live-status.json`, and the queue
 - optionally, GitHub PR history (needs a repo slug and a read token) to build the
   leaderboard
 
-Live king and round status work from the local files alone. The leaderboard is
+Live king and challenge status work from the local files alone. The leaderboard is
 empty until you point the board at a data source (GitHub PR history or an event
 log). See [Leaderboard sources](#leaderboard-sources).
 
@@ -44,8 +44,8 @@ Two parts:
    production.
 
 The server keeps short-lived caches so it does not re-read everything (or re-hit
-GitHub) on every request. Live round progress refreshes on every frame even on a
-cache hit, so the round animates smoothly.
+GitHub) on every request. Live challenge progress refreshes on every frame even on a
+cache hit, so the challenge animates smoothly.
 
 Server endpoints:
 
@@ -60,7 +60,7 @@ Server endpoints:
 The frontend has five pages (see `src/constants.js` for the routes):
 
 - Dashboard (`/`) — the home page. A summary of the current king, the latest
-  round, the active lane, and queue/screening status.
+  challenge, the active lane, and queue/screening status.
 - Arena (`/arena`, also `/live`) — the current challenge in detail. The challenger
   PR, its status, its score, and a per-problem breakdown. Click a row for the
   full duel view.
@@ -171,9 +171,9 @@ each path from the directory of `KATA_QUEUE_STATE_PATH`.
 
 - `KATA_QUEUE_STATE_PATH` — the queue file. Default `<kata-bot>/state/queue.json`.
 - `KATA_LIVE_STATUS_PATH` — live status.
-- `KATA_ROUND_STATUS_PATH` — the current round.
-- `KATA_ROUND_PROGRESS_PATH` — live per-candidate progress during a round.
-- `KATA_ROUND_HISTORY_PATH` — completed rounds.
+- `KATA_CHALLENGE_STATUS_PATH` — the current challenge.
+- `KATA_CHALLENGE_PROGRESS_PATH` — live per-candidate progress during a challenge.
+- `KATA_CHALLENGE_HISTORY_PATH` — completed challenges.
 - `KATA_REVIEW_APPROVALS_PATH` — recorded review approvals.
 - `KATA_PUBLIC_RESULTS_CURRENT_PATH` — the published king proof. Default
   `<kata>/public-results/current.json`.

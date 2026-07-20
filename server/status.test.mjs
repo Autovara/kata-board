@@ -11,7 +11,7 @@ import {
   loadBoardStatus,
   loadLocalArtifactLeaderboard,
   loadPublicProof,
-  refreshByLaneRoundProgress,
+  refreshByLaneChallengeProgress,
 } from "./status.mjs";
 
 function writeJson(dir, name, payload) {
@@ -193,76 +193,76 @@ test("discovers the active SN60 lane from the central pack registry", async () =
   assert.equal(lane.king.submissionId, "alice-20260701-01");
 });
 
-test("public proof resolves the round proof relative to kataRoot, incl. a per-lane subdir", () => {
+test("public proof resolves the challenge proof relative to kataRoot, incl. a per-lane subdir", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-proof-"));
   const laneDir = path.join(root, "public-results", "sn22__desearch");
   // The bot writes `proof` relative to KATA_ROOT, prefixed with the lane subdir.
   writeJson(laneDir, "current.json", {
     current_king: {},
     benchmark: {},
-    latest_round: { proof: "public-results/sn22__desearch/rounds/r1.json" },
+    latest_challenge: { proof: "public-results/sn22__desearch/challenges/r1.json" },
   });
-  writeJson(path.join(laneDir, "rounds"), "r1.json", { project_keys: ["p1", "p2"] });
+  writeJson(path.join(laneDir, "challenges"), "r1.json", { project_keys: ["p1", "p2"] });
 
   const proof = loadPublicProof(path.join(laneDir, "current.json"), root);
   assert.equal(proof.selectedProjectCount, 2);
   assert.deepEqual(proof.selectedProjects, ["p1", "p2"]);
 });
 
-test("refreshByLaneRoundProgress reloads each lane's progress from its lane-scoped state", () => {
+test("refreshByLaneChallengeProgress reloads each lane's progress from its lane-scoped state", () => {
   const kataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-laneprog-"));
   const stateDir = path.join(kataRoot, "state");
-  writeJson(path.join(stateDir, "b__y"), "round-progress.json", {
+  writeJson(path.join(stateDir, "b__y"), "challenge-progress.json", {
     state: "executing",
-    run_id: "b-round-1",
+    run_id: "b-challenge-1",
   });
   const status = {
-    round: null, // multi-lane: no top-level round
+    challenge: null, // multi-lane: no top-level challenge
     lanes: [{ id: "b__y:miner", laneId: "b__y" }],
-    byLane: { "b__y:miner": { round: { liveProgress: { runId: "STALE" } } } },
+    byLane: { "b__y:miner": { challenge: { liveProgress: { runId: "STALE" } } } },
   };
-  refreshByLaneRoundProgress(status, {
-    roundStatusPath: path.join(stateDir, "round-status.json"),
+  refreshByLaneChallengeProgress(status, {
+    challengeStatusPath: path.join(stateDir, "challenge-status.json"),
     kataRoot,
   });
-  assert.equal(status.byLane["b__y:miner"].round.liveProgress.runId, "b-round-1");
+  assert.equal(status.byLane["b__y:miner"].challenge.liveProgress.runId, "b-challenge-1");
 });
 
-test("refreshByLaneRoundProgress skips the sole lane that shares the top-level round object", () => {
-  const sharedRound = { liveProgress: { runId: "top" } };
+test("refreshByLaneChallengeProgress skips the sole lane that shares the top-level challenge object", () => {
+  const sharedChallenge = { liveProgress: { runId: "top" } };
   const status = {
-    round: sharedRound,
+    challenge: sharedChallenge,
     lanes: [{ id: "a:miner", laneId: "a" }],
-    byLane: { "a:miner": { round: sharedRound } },
+    byLane: { "a:miner": { challenge: sharedChallenge } },
   };
-  // Nonexistent paths: it must skip (entry.round === status.round) and not read anything.
-  refreshByLaneRoundProgress(status, {
-    roundStatusPath: "/nonexistent/round-status.json",
+  // Nonexistent paths: it must skip (entry.challenge === status.challenge) and not read anything.
+  refreshByLaneChallengeProgress(status, {
+    challengeStatusPath: "/nonexistent/challenge-status.json",
     kataRoot: "/nonexistent",
   });
-  assert.equal(status.byLane["a:miner"].round.liveProgress.runId, "top");
+  assert.equal(status.byLane["a:miner"].challenge.liveProgress.runId, "top");
 });
 
-test("byLane reads each lane's own round and proof when there are multiple lanes", () => {
+test("byLane reads each lane's own challenge and proof when there are multiple lanes", () => {
   const kataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-bylane-"));
   const stateDir = path.join(kataRoot, "state");
-  // Lane a__x: its own round-status + published king.
-  writeJson(path.join(stateDir, "a__x"), "round-status.json", {
+  // Lane a__x: its own challenge-status + published king.
+  writeJson(path.join(stateDir, "a__x"), "challenge-status.json", {
     state: "executing",
-    run_id: "a-round-1",
+    run_id: "a-challenge-1",
     competition_mode: "king_duel",
     entrants: [],
   });
   writeJson(path.join(kataRoot, "public-results", "a__x"), "current.json", {
     current_king: { submission_id: "alice-1" },
     benchmark: {},
-    latest_round: {},
+    latest_challenge: {},
   });
-  // Lane b__y: a published king but no active round.
+  // Lane b__y: a published king but no active challenge.
   writeJson(path.join(kataRoot, "public-results", "b__y"), "current.json", {
     current_king: { submission_id: "bob-1" },
     benchmark: {},
-    latest_round: {},
+    latest_challenge: {},
   });
 
   const lanes = [
@@ -273,8 +273,8 @@ test("byLane reads each lane's own round and proof when there are multiple lanes
   const byLane = buildByLane(
     lanes,
     {
-      round: null,
-      roundHistory: [],
+      challenge: null,
+      challengeHistory: [],
       publicProof: null,
       leaderboard: sharedLeaderboard,
       activity: { hits: 1 },
@@ -282,9 +282,9 @@ test("byLane reads each lane's own round and proof when there are multiple lanes
     { kataRoot, stateDir }
   );
 
-  assert.equal(byLane["a__x:miner"].round?.runId, "a-round-1");
+  assert.equal(byLane["a__x:miner"].challenge?.runId, "a-challenge-1");
   assert.equal(byLane["a__x:miner"].publicProof.currentKing.submissionId, "alice-1");
-  assert.equal(byLane["b__y:miner"].round, null); // no round-status for b__y
+  assert.equal(byLane["b__y:miner"].challenge, null); // no challenge-status for b__y
   assert.equal(byLane["b__y:miner"].publicProof.currentKing.submissionId, "bob-1");
   // Leaderboard + activity stay the shared cross-lane view.
   assert.equal(byLane["a__x:miner"].leaderboard, sharedLeaderboard);
@@ -301,8 +301,8 @@ test("byLane mirrors the single-lane globals keyed by lane id", async () => {
   // fields remain the byte-identical single-lane alias.
   const entry = status.byLane[laneId];
   assert.ok(entry, "byLane has the active lane");
-  assert.equal(entry.round, status.round);
-  assert.equal(entry.roundHistory, status.roundHistory);
+  assert.equal(entry.challenge, status.challenge);
+  assert.equal(entry.challengeHistory, status.challengeHistory);
   assert.equal(entry.publicProof, status.publicProof);
   assert.equal(entry.leaderboard, status.leaderboard);
   assert.equal(entry.activity, status.activity);
@@ -364,7 +364,7 @@ test("falls back to directory discovery when no registry exists", async () => {
   );
 });
 
-test("uses the completed round's configured lane instead of an SN60 fallback", async () => {
+test("uses the completed challenge's configured lane instead of an SN60 fallback", async () => {
   const root = makeKataRoot();
   const oldLaneRoot = path.join(root, "lanes", "sn60__bitsec");
   const laneId = "sn22__desearch";
@@ -383,7 +383,7 @@ test("uses the completed round's configured lane instead of an SN60 fallback", a
     schema_version: 1,
     packs: [{ lane_id: laneId, repo_pack: laneId, mode: "miner", active: true }],
   });
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     lane_id: laneId,
@@ -401,7 +401,7 @@ test("uses the completed round's configured lane instead of an SN60 fallback", a
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
   });
 
   assert.equal(status.publicProof.activePack, laneId);
@@ -971,11 +971,11 @@ test("leaderboard timeout falls back to local artifacts for live status", async 
   await new Promise((resolve) => setTimeout(resolve, 130));
 });
 
-test("leaderboard fallback includes non-winner round-summary contributors without score", async () => {
+test("leaderboard fallback includes non-winner challenge-summary contributors without score", async () => {
   const root = makeKataRoot();
-  const roundRoot = path.join(root, "runs", "sn60-round-all");
-  writeJson(roundRoot, "round_summary.json", {
-    run_id: "sn60-round-all",
+  const challengeRoot = path.join(root, "runs", "sn60-challenge-all");
+  writeJson(challengeRoot, "challenge_result.json", {
+    run_id: "sn60-challenge-all",
     created_at: "2026-07-07T12:00:00Z",
     winner_submission_id: null,
     entries: [
@@ -1294,7 +1294,7 @@ test("leaderboard uses completed validator identity when github history is unava
   const botStateRoot = path.join(root, "bot", "state");
   const queuePath = path.join(botStateRoot, "queue.json");
   const liveStatusPath = path.join(botStateRoot, "live-status.json");
-  const roundStatusPath = path.join(botStateRoot, "round-status.json");
+  const challengeStatusPath = path.join(botStateRoot, "challenge-status.json");
   writeJson(botStateRoot, "queue.json", {
     schema_version: 1,
     jobs: [
@@ -1333,7 +1333,7 @@ test("leaderboard uses completed validator identity when github history is unava
       finished_at: "2026-07-02T01:03:00Z",
     },
   });
-  writeJson(botStateRoot, "round-status.json", {
+  writeJson(botStateRoot, "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     winner_submission_id: "bob-20260702-01",
@@ -1358,7 +1358,7 @@ test("leaderboard uses completed validator identity when github history is unava
     ...boardEnv(root),
     KATA_QUEUE_STATE_PATH: queuePath,
     KATA_LIVE_STATUS_PATH: liveStatusPath,
-    KATA_ROUND_STATUS_PATH: roundStatusPath,
+    KATA_CHALLENGE_STATUS_PATH: challengeStatusPath,
     KATA_REPO_SLUG: "",
     KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
@@ -1371,13 +1371,13 @@ test("leaderboard uses completed validator identity when github history is unava
   assert.ok(row);
   assert.equal(row.wins, 1);
   assert.equal(status.lanes[0].king.author, "bob-github");
-  assert.equal(status.round.entrants[0].author, "bob-github");
+  assert.equal(status.challenge.entrants[0].author, "bob-github");
 });
 
-test("leaderboard falls back to round entrants when github history is unavailable", async () => {
+test("leaderboard falls back to challenge entrants when github history is unavailable", async () => {
   const root = makeKataRoot();
-  const roundStatusPath = path.join(root, "round-status.json");
-  writeJson(root, "round-status.json", {
+  const challengeStatusPath = path.join(root, "challenge-status.json");
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     generated_at: "2026-07-02T02:00:00Z",
@@ -1400,7 +1400,7 @@ test("leaderboard falls back to round entrants when github history is unavailabl
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
-    KATA_ROUND_STATUS_PATH: roundStatusPath,
+    KATA_CHALLENGE_STATUS_PATH: challengeStatusPath,
     KATA_REPO_SLUG: "",
     KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
@@ -1479,7 +1479,7 @@ test("leaderboard reconstructs promoted winners from local git history", async (
   );
 });
 
-test("completed round keeps the king identity from before promotion", async () => {
+test("completed challenge keeps the king identity from before promotion", async () => {
   const root = makeKataRoot();
   git(root, ["init", "-q"]);
   git(root, ["config", "user.name", "kata-bot"]);
@@ -1522,11 +1522,11 @@ test("completed round keeps the king identity from before promotion", async () =
     promotion_timestamp: "2026-07-07T16:46:38Z",
     updated_at: "2026-07-07T16:46:38Z",
   });
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     generated_at: "2026-07-07T16:36:32Z",
-    run_id: "sn60-round-promoted",
+    run_id: "sn60-challenge-promoted",
     repo: "Owner/kata",
     king: { aggregated_score: 0.05, true_positives: 2 },
     winner_submission_id: "pr-76",
@@ -1546,23 +1546,23 @@ test("completed round keeps the king identity from before promotion", async () =
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_REPO_SLUG: "",
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
     KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
   assert.equal(status.lanes[0].currentHolder, "jonathanchang31");
-  assert.equal(status.round.kingAuthor, "nickmopen");
-  assert.equal(status.round.kingSubmissionId, "nickmopen-20260705-01");
-  assert.equal(status.round.entrants[0].author, "jonathanchang31");
+  assert.equal(status.challenge.kingAuthor, "nickmopen");
+  assert.equal(status.challenge.kingSubmissionId, "nickmopen-20260705-01");
+  assert.equal(status.challenge.entrants[0].author, "jonathanchang31");
 });
 
-test("exposes the current competition round from round-status.json", async () => {
+test("exposes the current competition challenge from challenge-status.json", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     generated_at: "2026-07-06T12:00:00Z",
-    run_id: "sn60-round-x",
+    run_id: "sn60-challenge-x",
     repo: "Owner/kata",
     king: { aggregated_score: 0.2, true_positives: 1 },
     winner_submission_id: "m-1",
@@ -1600,17 +1600,17 @@ test("exposes the current competition round from round-status.json", async () =>
       },
     },
   });
-  writeJson(root, "round-history.json", {
+  writeJson(root, "challenge-history.json", {
     schema_version: 1,
-    rounds: [
+    challenges: [
       {
-        run_id: "sn60-round-old",
+        run_id: "sn60-challenge-old",
         generated_at: "2026-07-05T12:00:00Z",
         candidate_count: 1,
         winner_submission_id: null,
       },
       {
-        run_id: "sn60-round-x",
+        run_id: "sn60-challenge-x",
         generated_at: "2026-07-06T12:00:00Z",
         candidate_count: 2,
         winner_submission_id: "m-1",
@@ -1622,24 +1622,24 @@ test("exposes the current competition round from round-status.json", async () =>
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
+    KATA_CHALLENGE_HISTORY_PATH: path.join(root, "challenge-history.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.equal(status.round.state, "completed");
-  assert.equal(status.round.generatedAt, "2026-07-06T12:00:00Z");
-  assert.equal(status.round.runId, "sn60-round-x");
-  assert.equal(status.round.roundNumber, 2);
-  assert.equal(status.round.winnerSubmissionId, "m-1");
-  assert.equal(status.round.king.aggregated_score, 0.2);
-  assert.equal(status.round.entrants.length, 2);
-  assert.equal(status.round.entrants[0].status, "winner");
-  assert.equal(status.round.externalBaseline.artifact_manifest.agent_id, 1611);
-  assert.equal(status.round.externalBaseline.entry.beats_king, true);
-  assert.equal(status.round.screenedOut[0].pull_number, 6);
-  assert.equal(status.roundHistory[0].roundNumber, 2);
-  assert.equal(status.roundHistory[1].roundNumber, 1);
+  assert.equal(status.challenge.state, "completed");
+  assert.equal(status.challenge.generatedAt, "2026-07-06T12:00:00Z");
+  assert.equal(status.challenge.runId, "sn60-challenge-x");
+  assert.equal(status.challenge.challengeNumber, 2);
+  assert.equal(status.challenge.winnerSubmissionId, "m-1");
+  assert.equal(status.challenge.king.aggregated_score, 0.2);
+  assert.equal(status.challenge.entrants.length, 2);
+  assert.equal(status.challenge.entrants[0].status, "winner");
+  assert.equal(status.challenge.externalBaseline.artifact_manifest.agent_id, 1611);
+  assert.equal(status.challenge.externalBaseline.entry.beats_king, true);
+  assert.equal(status.challenge.screenedOut[0].pull_number, 6);
+  assert.equal(status.challengeHistory[0].challengeNumber, 2);
+  assert.equal(status.challengeHistory[1].challengeNumber, 1);
 });
 
 test("exposes public proof from kata public-results/current.json", async () => {
@@ -1658,9 +1658,9 @@ test("exposes public proof from kata public-results/current.json", async () => {
       artifact_hash: "king-hash",
       promoted_at: "2026-07-01T16:14:37Z",
     },
-    latest_round: {
-      round_id: "sn60-round-x",
-      round_number: 2,
+    latest_challenge: {
+      challenge_id: "sn60-challenge-x",
+      challenge_number: 2,
       competition_mode: "king_duel",
       started_at: "2026-07-09T14:51:04Z",
       finished_at: "2026-07-09T16:14:08Z",
@@ -1672,11 +1672,11 @@ test("exposes public proof from kata public-results/current.json", async () => {
       winner_submission_id: "kiannidev-20260708-01",
       best_true_positives: 4,
       best_detection_score: 0.14814814814814814,
-      proof: "public-results/rounds/sn60-round-x.json",
+      proof: "public-results/challenges/sn60-challenge-x.json",
     },
     benchmark: {
       name: "curated-highs-only-2025-08-08.json",
-      round_sha256: "benchmark-sha",
+      challenge_sha256: "benchmark-sha",
       sandbox_commit: "sandbox-commit",
       scorer_version: "ScaBenchScorerV2",
     },
@@ -1687,20 +1687,20 @@ test("exposes public proof from kata public-results/current.json", async () => {
   assert.equal(status.publicProof.currentKing.author, "bob");
   assert.equal(status.publicProof.currentKing.submissionId, "bob-20260702-01");
   assert.equal(status.publicProof.currentKing.sourcePullRequest, null);
-  assert.equal(status.publicProof.latestRound.roundNumber, 2);
-  assert.equal(status.publicProof.latestRound.durationSeconds, 4984);
-  assert.equal(status.publicProof.latestRound.winnerAuthor, "kiannidev");
-  assert.equal(status.publicProof.latestRound.winnerSubmissionId, "kiannidev-20260708-01");
-  assert.equal(status.publicProof.latestRound.bestTruePositives, 4);
-  assert.equal(status.publicProof.benchmark.roundSha256, "benchmark-sha");
+  assert.equal(status.publicProof.latestChallenge.challengeNumber, 2);
+  assert.equal(status.publicProof.latestChallenge.durationSeconds, 4984);
+  assert.equal(status.publicProof.latestChallenge.winnerAuthor, "kiannidev");
+  assert.equal(status.publicProof.latestChallenge.winnerSubmissionId, "kiannidev-20260708-01");
+  assert.equal(status.publicProof.latestChallenge.bestTruePositives, 4);
+  assert.equal(status.publicProof.benchmark.challengeSha256, "benchmark-sha");
 });
 
-test("exposes a failed preflight round and its note for the dashboard", async () => {
+test("exposes a failed preflight challenge and its note for the dashboard", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "failed",
-    note: "Round failed preflight: chutes_scoring unavailable.",
+    note: "Challenge failed preflight: chutes_scoring unavailable.",
     preflight: {
       ok: false,
       checks: [{ name: "chutes_scoring", ok: false, status: 503 }],
@@ -1709,12 +1709,12 @@ test("exposes a failed preflight round and its note for the dashboard", async ()
   });
   const status = await loadBoardStatus({
     ...boardEnv(root),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
   });
-  assert.equal(status.round.state, "failed");
-  assert.equal(status.round.note, "Round failed preflight: chutes_scoring unavailable.");
-  assert.equal(status.round.preflight.checks[0].status, 503);
-  assert.equal(status.round.entrants.length, 0);
+  assert.equal(status.challenge.state, "failed");
+  assert.equal(status.challenge.note, "Challenge failed preflight: chutes_scoring unavailable.");
+  assert.equal(status.challenge.preflight.checks[0].status, 503);
+  assert.equal(status.challenge.entrants.length, 0);
 });
 
 test("exposes submission label counts and review approvals without internal fields", async () => {
@@ -1770,15 +1770,15 @@ test("exposes submission label counts and review approvals without internal fiel
   assert.equal(status.submissionStatus.reviewApprovals.recent[0].reason_fingerprint, undefined);
 });
 
-test("round is null when no round-status file exists", async () => {
+test("challenge is null when no challenge-status file exists", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));
-  assert.equal(status.round, null);
+  assert.equal(status.challenge, null);
 });
 
-test("attaches live per-candidate progress while a round is executing", async () => {
+test("attaches live per-candidate progress while a challenge is executing", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [
@@ -1786,10 +1786,10 @@ test("attaches live per-candidate progress while a round is executing", async ()
       { pull_number: 6, submission_id: "m-6", status: "executing" },
     ],
   });
-  writeJson(root, "round-progress.json", {
+  writeJson(root, "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
-    run_id: "sn60-round-live",
+    run_id: "sn60-challenge-live",
     replicas_per_project: 2,
     updated_at: "2026-07-06T12:00:05Z",
     project_keys: ["project-alpha"],
@@ -1831,7 +1831,7 @@ test("attaches live per-candidate progress while a round is executing", async ()
       },
     ],
   });
-  const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
+  const runRoot = path.join(root, "runs", "sn60-challenge-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "king", "project-alpha", "replica-01", {
     status: "success",
     result: { result: "FAIL", true_positives: 1, total_expected: 3, total_found: 2 },
@@ -1849,7 +1849,7 @@ test("attaches live per-candidate progress while a round is executing", async ()
     result: { result: "PASS", true_positives: 2, total_expected: 3, total_found: 3 },
   });
   writeJson(
-    path.join(root, "runs", "sn60-round-live", "pr-5", "screening", "sn60-screening-pr-5"),
+    path.join(root, "runs", "sn60-challenge-live", "pr-5", "screening", "sn60-screening-pr-5"),
     "screening_result.json",
     {
       schema_version: 1,
@@ -1865,7 +1865,7 @@ test("attaches live per-candidate progress while a round is executing", async ()
     path.join(
       root,
       "runs",
-      "sn60-round-live",
+      "sn60-challenge-live",
       "pr-6",
       "screening",
       "sn60-screening-pr-6",
@@ -1874,11 +1874,11 @@ test("attaches live per-candidate progress while a round is executing", async ()
     ),
     { recursive: true }
   );
-  writeJson(root, "round-history.json", {
+  writeJson(root, "challenge-history.json", {
     schema_version: 1,
-    rounds: [
+    challenges: [
       {
-        run_id: "sn60-round-finished",
+        run_id: "sn60-challenge-finished",
         generated_at: "2026-07-06T12:00:00Z",
         candidate_count: 2,
         winner_submission_id: "pr-1",
@@ -1890,46 +1890,46 @@ test("attaches live per-candidate progress while a round is executing", async ()
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
-    KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
+    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
+    KATA_CHALLENGE_HISTORY_PATH: path.join(root, "challenge-history.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.equal(status.round.state, "executing");
-  assert.equal(status.round.roundNumber, 2);
-  assert.equal(status.round.liveProgress.state, "executing");
-  assert.equal(status.round.liveProgress.roundNumber, 2);
-  assert.equal(status.round.liveProgress.king.done, 4);
-  assert.equal(status.round.liveProgress.king.projects[0].replicas.length, 2);
-  assert.equal(status.round.liveProgress.king.projects[0].replicas[0].status, "fail");
-  assert.equal(status.round.liveProgress.candidates[0].submission_id, "pr-5");
-  assert.equal(status.round.liveProgress.candidates[0].done, 2);
-  assert.equal(status.round.liveProgress.candidates[0].projects[0].pass_count, 2);
-  assert.equal(status.round.liveProgress.candidates[0].projects[0].replicas[0].status, "pass");
-  assert.equal(status.round.liveProgress.candidates[1].submission_id, "pr-6");
-  assert.deepEqual(status.round.liveProgress.candidates[1].projects, []);
-  assert.equal(status.round.liveProgress.screening.state, "screening");
-  assert.equal(status.round.liveProgress.screening.total, 2);
-  assert.equal(status.round.liveProgress.screening.passed, 1);
-  assert.equal(status.round.liveProgress.screening.running, 1);
-  assert.equal(status.round.liveProgress.screening.entries[0].pullNumber, 5);
-  assert.equal(status.round.liveProgress.screening.entries[0].state, "passed");
-  assert.equal(status.round.liveProgress.screening.entries[1].pullNumber, 6);
-  assert.equal(status.round.liveProgress.screening.entries[1].state, "running");
+  assert.equal(status.challenge.state, "executing");
+  assert.equal(status.challenge.challengeNumber, 2);
+  assert.equal(status.challenge.liveProgress.state, "executing");
+  assert.equal(status.challenge.liveProgress.challengeNumber, 2);
+  assert.equal(status.challenge.liveProgress.king.done, 4);
+  assert.equal(status.challenge.liveProgress.king.projects[0].replicas.length, 2);
+  assert.equal(status.challenge.liveProgress.king.projects[0].replicas[0].status, "fail");
+  assert.equal(status.challenge.liveProgress.candidates[0].submission_id, "pr-5");
+  assert.equal(status.challenge.liveProgress.candidates[0].done, 2);
+  assert.equal(status.challenge.liveProgress.candidates[0].projects[0].pass_count, 2);
+  assert.equal(status.challenge.liveProgress.candidates[0].projects[0].replicas[0].status, "pass");
+  assert.equal(status.challenge.liveProgress.candidates[1].submission_id, "pr-6");
+  assert.deepEqual(status.challenge.liveProgress.candidates[1].projects, []);
+  assert.equal(status.challenge.liveProgress.screening.state, "screening");
+  assert.equal(status.challenge.liveProgress.screening.total, 2);
+  assert.equal(status.challenge.liveProgress.screening.passed, 1);
+  assert.equal(status.challenge.liveProgress.screening.running, 1);
+  assert.equal(status.challenge.liveProgress.screening.entries[0].pullNumber, 5);
+  assert.equal(status.challenge.liveProgress.screening.entries[0].state, "passed");
+  assert.equal(status.challenge.liveProgress.screening.entries[1].pullNumber, 6);
+  assert.equal(status.challenge.liveProgress.screening.entries[1].state, "running");
 });
 
 test("live project pass uses replica threshold instead of last replica row", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "round-progress.json", {
+  writeJson(root, "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
-    run_id: "sn60-round-live",
+    run_id: "sn60-challenge-live",
     replicas_per_project: 3,
     project_keys: ["project-alpha"],
     candidates: [
@@ -1964,7 +1964,7 @@ test("live project pass uses replica threshold instead of last replica row", asy
       },
     ],
   });
-  const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
+  const runRoot = path.join(root, "runs", "sn60-challenge-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
     result: { result: "FAIL", true_positives: 0, total_expected: 1, total_found: 8 },
@@ -1982,28 +1982,28 @@ test("live project pass uses replica threshold instead of last replica row", asy
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
+    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  const project = status.round.liveProgress.candidates[0].projects[0];
+  const project = status.challenge.liveProgress.candidates[0].projects[0];
   assert.equal(project.pass_count, 1);
   assert.equal(project.total_replicas, 3);
   assert.equal(project.passed, false);
 });
 
-test("live project replica denominator uses configured round replicas before all artifacts exist", async () => {
+test("live project replica denominator uses configured challenge replicas before all artifacts exist", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "round-progress.json", {
+  writeJson(root, "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
-    run_id: "sn60-round-live",
+    run_id: "sn60-challenge-live",
     replicas_per_project: 3,
     project_keys: ["project-alpha"],
     candidates: [
@@ -2024,7 +2024,7 @@ test("live project replica denominator uses configured round replicas before all
       },
     ],
   });
-  const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
+  const runRoot = path.join(root, "runs", "sn60-challenge-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "running",
     result: {},
@@ -2037,13 +2037,13 @@ test("live project replica denominator uses configured round replicas before all
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
+    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.equal(status.round.liveProgress.replicasPerProject, 3);
-  const project = status.round.liveProgress.candidates[0].projects[0];
+  assert.equal(status.challenge.liveProgress.replicasPerProject, 3);
+  const project = status.challenge.liveProgress.candidates[0].projects[0];
   assert.equal(project.pass_count, 0);
   assert.equal(project.total_replicas, 3);
   assert.equal(project.completed_replicas, 1);
@@ -2051,15 +2051,15 @@ test("live project replica denominator uses configured round replicas before all
 
 test("candidate progress does not invent projects from generic duel artifacts", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "round-progress.json", {
+  writeJson(root, "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
-    run_id: "sn60-round-live",
+    run_id: "sn60-challenge-live",
     replicas_per_project: 3,
     project_keys: ["project-alpha"],
     candidates: [
@@ -2072,7 +2072,7 @@ test("candidate progress does not invent projects from generic duel artifacts", 
       },
     ],
   });
-  const runRoot = path.join(root, "runs", "sn60-round-live", "sn60-duel-live");
+  const runRoot = path.join(root, "runs", "sn60-challenge-live", "sn60-duel-live");
   writeSn60Evaluation(runRoot, "candidate", "project-alpha", "replica-01", {
     status: "success",
     result: { result: "PASS", true_positives: 1, total_expected: 1, total_found: 1 },
@@ -2082,19 +2082,19 @@ test("candidate progress does not invent projects from generic duel artifacts", 
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
+    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.deepEqual(status.round.liveProgress.candidates[0].projects, []);
+  assert.deepEqual(status.challenge.liveProgress.candidates[0].projects, []);
 });
 
-test("exposes the round-history feed from round-history.json", async () => {
+test("exposes the challenge-history feed from challenge-history.json", async () => {
   const root = makeKataRoot();
-  writeJson(root, "round-history.json", {
+  writeJson(root, "challenge-history.json", {
     schema_version: 1,
-    rounds: [
+    challenges: [
       {
         run_id: "r0",
         generated_at: "2026-07-05T00:00:00Z",
@@ -2103,7 +2103,7 @@ test("exposes the round-history feed from round-history.json", async () => {
         best_detection: 0.0,
         best_true_positives: 0,
         achievements: [],
-        headline: "Round — no promotion",
+        headline: "Challenge — no promotion",
       },
       {
         run_id: "r1",
@@ -2113,7 +2113,7 @@ test("exposes the round-history feed from round-history.json", async () => {
         best_detection: 0.5,
         best_true_positives: 2,
         achievements: ["👑 New king", "🥇 First true positive"],
-        headline: "🏆 Round — new king, best detection 50%, 2 candidates",
+        headline: "🏆 Challenge — new king, best detection 50%, 2 candidates",
       },
     ],
   });
@@ -2122,16 +2122,16 @@ test("exposes the round-history feed from round-history.json", async () => {
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_HISTORY_PATH: path.join(root, "round-history.json"),
+    KATA_CHALLENGE_HISTORY_PATH: path.join(root, "challenge-history.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.equal(status.roundHistory.length, 2);
-  assert.equal(status.roundHistory[0].roundNumber, 2);
-  assert.equal(status.roundHistory[0].winnerSubmissionId, "m-1");
-  assert.equal(status.roundHistory[0].bestDetection, 0.5);
-  assert.deepEqual(status.roundHistory[0].achievements, ["👑 New king", "🥇 First true positive"]);
-  assert.equal(status.roundHistory[1].roundNumber, 1);
+  assert.equal(status.challengeHistory.length, 2);
+  assert.equal(status.challengeHistory[0].challengeNumber, 2);
+  assert.equal(status.challengeHistory[0].winnerSubmissionId, "m-1");
+  assert.equal(status.challengeHistory[0].bestDetection, 0.5);
+  assert.deepEqual(status.challengeHistory[0].achievements, ["👑 New king", "🥇 First true positive"]);
+  assert.equal(status.challengeHistory[1].challengeNumber, 1);
 });
 
 test("loadLocalArtifactLeaderboard memoizes its result per root", () => {
@@ -2144,20 +2144,20 @@ test("loadLocalArtifactLeaderboard memoizes its result per root", () => {
   assert.equal(first, second); // same reference => served from cache, not recomputed
 });
 
-test("a crashed executing round with only stale timestamps is presented as stale, not animated", async () => {
-  // BUG-11: round-status.json stuck at "executing" (round crashed/killed without a
-  // terminal write) and no fresh progress must NOT animate a phantom running round.
+test("a crashed executing challenge with only stale timestamps is presented as stale, not animated", async () => {
+  // BUG-11: challenge-status.json stuck at "executing" (challenge crashed/killed without a
+  // terminal write) and no fresh progress must NOT animate a phantom running challenge.
   const root = makeKataRoot();
-  writeJson(root, "round-status.json", {
+  writeJson(root, "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     generated_at: "2026-07-06T12:00:00Z",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "round-progress.json", {
+  writeJson(root, "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
-    run_id: "sn60-round-dead",
+    run_id: "sn60-challenge-dead",
     updated_at: "2026-07-06T12:00:05Z",
     candidates: [],
   });
@@ -2166,12 +2166,12 @@ test("a crashed executing round with only stale timestamps is presented as stale
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_ROUND_STATUS_PATH: path.join(root, "round-status.json"),
-    KATA_ROUND_PROGRESS_PATH: path.join(root, "round-progress.json"),
+    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
+    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
-  assert.equal(status.round.state, "stale");
-  assert.equal(status.round.stale, true);
-  assert.equal(status.round.liveProgress, null);
+  assert.equal(status.challenge.state, "stale");
+  assert.equal(status.challenge.stale, true);
+  assert.equal(status.challenge.liveProgress, null);
 });

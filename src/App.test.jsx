@@ -15,8 +15,8 @@ const FIXTURE = {
   lanes: [],
   validator: { queue: { available: false }, health: {} },
   publicProof: null,
-  round: null,
-  roundHistory: [],
+  challenge: null,
+  challengeHistory: [],
   leaderboard: { rows: [] },
   publicLinks: { kataRepo: "Autovara/kata" },
 };

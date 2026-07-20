@@ -19,7 +19,7 @@ import {
   statMtimeIso,
 } from "./status/fsUtil.mjs";
 import {
-  applyRoundIdentityAliases,
+  applyChallengeIdentityAliases,
   buildIdentityAliases,
   resolveAuthorAlias,
 } from "./status/identity.mjs";
@@ -48,20 +48,20 @@ function lanePublicResultsCurrentPath(kataRoot, laneId) {
 }
 
 // One lane's competition fields, read from its lane-scoped bot state (`state/<laneId>/…`) and its
-// published proof. The round/history are sequenced the same way the global flow does.
+// published proof. The challenge/history are sequenced the same way the global flow does.
 function loadLaneCompetition(kataRoot, stateDir, laneId) {
   const laneStateDir = path.join(stateDir, laneId);
-  let round = loadRoundStatus(path.join(laneStateDir, "round-status.json"));
-  if (round) {
-    round.liveProgress = loadRoundProgress(
-      path.join(laneStateDir, "round-progress.json"),
+  let challenge = loadChallengeStatus(path.join(laneStateDir, "challenge-status.json"));
+  if (challenge) {
+    challenge.liveProgress = loadChallengeProgress(
+      path.join(laneStateDir, "challenge-progress.json"),
       kataRoot
     );
   }
-  let roundHistory = loadRoundHistory(path.join(laneStateDir, "round-history.json"));
-  ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
+  let challengeHistory = loadChallengeHistory(path.join(laneStateDir, "challenge-history.json"));
+  ({ challenge, challengeHistory } = assignChallengeSequence(challenge, challengeHistory));
   const publicProof = loadPublicProof(lanePublicResultsCurrentPath(kataRoot, laneId), kataRoot);
-  return { round, roundHistory, publicProof };
+  return { challenge, challengeHistory, publicProof };
 }
 
 // Group the per-competition fields under the lane they belong to, keyed by `lane.id`
@@ -69,24 +69,24 @@ function loadLaneCompetition(kataRoot, stateDir, laneId) {
 //
 // One lane (the deployed case): that lane owns the already-computed single-global fields BY
 // REFERENCE, so the top-level fields stay the byte-identical single-lane alias and the cache-hit
-// liveProgress refresh propagates to both. Multiple lanes: each reads its own round + public proof
+// liveProgress refresh propagates to both. Multiple lanes: each reads its own challenge + public proof
 // from its lane-scoped bot state / public-results; the leaderboard and activity stay the shared
 // cross-lane view for now.
-// Refresh each lane's live round progress on a cache hit. The sole lane's byLane entry shares the
-// top-level round object (already refreshed by the caller); additional lanes read their own
-// lane-scoped state/<laneId>/round-progress.json so their live progress also advances every frame.
-export function refreshByLaneRoundProgress(status, roots) {
+// Refresh each lane's live challenge progress on a cache hit. The sole lane's byLane entry shares the
+// top-level challenge object (already refreshed by the caller); additional lanes read their own
+// lane-scoped state/<laneId>/challenge-progress.json so their live progress also advances every frame.
+export function refreshByLaneChallengeProgress(status, roots) {
   if (!status || !status.byLane) {
     return;
   }
-  const stateDir = path.dirname(roots.roundStatusPath);
+  const stateDir = path.dirname(roots.challengeStatusPath);
   for (const lane of status.lanes || []) {
     const entry = status.byLane[lane.id];
-    if (!entry || !entry.round || entry.round === status.round) {
+    if (!entry || !entry.challenge || entry.challenge === status.challenge) {
       continue;
     }
-    entry.round.liveProgress = loadRoundProgress(
-      path.join(stateDir, lane.laneId, "round-progress.json"),
+    entry.challenge.liveProgress = loadChallengeProgress(
+      path.join(stateDir, lane.laneId, "challenge-progress.json"),
       roots.kataRoot
     );
   }
@@ -105,8 +105,8 @@ export function buildByLane(lanes, fields, context = {}) {
     const laneId = lane.laneId || lane.subnetPack;
     const competition = loadLaneCompetition(kataRoot, stateDir, laneId);
     out[lane.id] = {
-      round: competition.round,
-      roundHistory: competition.roundHistory,
+      challenge: competition.challenge,
+      challengeHistory: competition.challengeHistory,
       publicProof: competition.publicProof,
       leaderboard: fields.leaderboard,
       activity: fields.activity,
@@ -120,51 +120,51 @@ export async function loadBoardStatus(env) {
   const roots = resolveRoots(env);
   const runtimeEnv = resolveRuntimeEnv(env, roots);
   if (cachedStatus && Date.now() - cachedAt < cacheTtlMs) {
-    // Live round progress is a cheap local-file read that moves fast during a
-    // round, while the rest of the payload (GitHub PRs, leaderboard) is slow and
+    // Live challenge progress is a cheap local-file read that moves fast during a
+    // challenge, while the rest of the payload (GitHub PRs, leaderboard) is slow and
     // rate-limited. Refresh just the progress on a cache hit so the dashboard
     // animates smoothly every stream frame without re-hitting GitHub.
-    if (cachedStatus.round) {
-      cachedStatus.round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
-      cachedStatus.round = applyRoundStalenessGuard(cachedStatus.round, env);
+    if (cachedStatus.challenge) {
+      cachedStatus.challenge.liveProgress = loadChallengeProgress(roots.challengeProgressPath, roots.kataRoot);
+      cachedStatus.challenge = applyChallengeStalenessGuard(cachedStatus.challenge, env);
     }
-    refreshByLaneRoundProgress(cachedStatus, roots);
+    refreshByLaneChallengeProgress(cachedStatus, roots);
     return cachedStatus;
   }
   const validator = await loadValidatorStatus(runtimeEnv, roots);
-  let round = loadRoundStatus(roots.roundStatusPath);
-  if (round) {
-    round.liveProgress = loadRoundProgress(roots.roundProgressPath, roots.kataRoot);
-    round = applyRoundStalenessGuard(round, env);
+  let challenge = loadChallengeStatus(roots.challengeStatusPath);
+  if (challenge) {
+    challenge.liveProgress = loadChallengeProgress(roots.challengeProgressPath, roots.kataRoot);
+    challenge = applyChallengeStalenessGuard(challenge, env);
   }
-  let roundHistory = loadRoundHistory(roots.roundHistoryPath);
-  ({ round, roundHistory } = assignRoundSequence(round, roundHistory));
+  let challengeHistory = loadChallengeHistory(roots.challengeHistoryPath);
+  ({ challenge, challengeHistory } = assignChallengeSequence(challenge, challengeHistory));
   let publicProof = loadPublicProof(roots.publicResultsCurrentPath, roots.kataRoot);
   const activity = loadRecentActivity(roots.kataRoot, runtimeEnv);
-  const identityAliases = buildIdentityAliases({ validator, round });
-  round = applyRoundIdentityAliases(round, identityAliases);
+  const identityAliases = buildIdentityAliases({ validator, challenge });
+  challenge = applyChallengeIdentityAliases(challenge, identityAliases);
   let lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
     latestLaneWinners: {},
     identityAliases,
   });
-  const roundLane = resolveRoundLane(round, lanes, publicProof);
-  const baseLeaderboard = augmentLeaderboardWithRound(
+  const challengeLane = resolveChallengeLane(challenge, lanes, publicProof);
+  const baseLeaderboard = augmentLeaderboardWithChallenge(
     await loadLeaderboard(runtimeEnv),
-    round,
+    challenge,
     identityAliases,
-    roundLane
+    challengeLane
   );
   let leaderboard = augmentLeaderboardWithActivity(baseLeaderboard, activity, identityAliases);
-  round = enrichRoundKingIdentity(round, leaderboard);
-  leaderboard = enrichLeaderboardLatestWinnerWithRound(leaderboard, round, roundLane);
+  challenge = enrichChallengeKingIdentity(challenge, leaderboard);
+  leaderboard = enrichLeaderboardLatestWinnerWithChallenge(leaderboard, challenge, challengeLane);
   leaderboard = await overlayLiveKataPulls(leaderboard, runtimeEnv);
   const submissionStatus = buildSubmissionStatus(leaderboard, validator);
   publicProof = enrichPublicProofWithLiveWinner(publicProof, {
-    round,
-    roundHistory,
+    challenge,
+    challengeHistory,
     leaderboard,
-    activeLane: roundLane,
+    activeLane: challengeLane,
   });
   lanes = loadEvaluatorLanes({
     kataRoot: roots.kataRoot,
@@ -179,13 +179,13 @@ export async function loadBoardStatus(env) {
   const byLane = buildByLane(
     lanes,
     {
-      round,
-      roundHistory,
+      challenge,
+      challengeHistory,
       publicProof,
       leaderboard,
       activity,
     },
-    { kataRoot: roots.kataRoot, stateDir: path.dirname(roots.roundStatusPath) }
+    { kataRoot: roots.kataRoot, stateDir: path.dirname(roots.challengeStatusPath) }
   );
 
   cachedStatus = {
@@ -202,14 +202,14 @@ export async function loadBoardStatus(env) {
       publicProof: Boolean(publicProof),
     },
     overview: buildOverview(lanes, activity, leaderboard, validator, submissionStatus, {
-      round,
+      challenge,
       publicProof,
     }),
     validator,
     publicProof,
     submissionStatus,
-    round,
-    roundHistory,
+    challenge,
+    challengeHistory,
     lanes,
     activity,
     leaderboard,
@@ -280,25 +280,25 @@ function resolveRoots(env) {
           "live-status.json"
         )
     ),
-    roundStatusPath: path.resolve(
-      env.KATA_ROUND_STATUS_PATH ||
+    challengeStatusPath: path.resolve(
+      env.KATA_CHALLENGE_STATUS_PATH ||
         path.join(
           path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
-          "round-status.json"
+          "challenge-status.json"
         )
     ),
-    roundHistoryPath: path.resolve(
-      env.KATA_ROUND_HISTORY_PATH ||
+    challengeHistoryPath: path.resolve(
+      env.KATA_CHALLENGE_HISTORY_PATH ||
         path.join(
           path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
-          "round-history.json"
+          "challenge-history.json"
         )
     ),
-    roundProgressPath: path.resolve(
-      env.KATA_ROUND_PROGRESS_PATH ||
+    challengeProgressPath: path.resolve(
+      env.KATA_CHALLENGE_PROGRESS_PATH ||
         path.join(
           path.dirname(env.KATA_QUEUE_STATE_PATH || path.join(kataBotRoot, "state", "queue.json")),
-          "round-progress.json"
+          "challenge-progress.json"
         )
     ),
     reviewApprovalsPath: path.resolve(
@@ -346,11 +346,11 @@ function inferGitHubRepoSlug(repoRoot) {
   }
 }
 
-function loadRoundHistory(roundHistoryPath) {
-  // Public feed of completed rounds + achievements (most recent first).
-  const data = readJsonSafe(roundHistoryPath);
-  const rounds = data && Array.isArray(data.rounds) ? data.rounds : [];
-  return rounds
+function loadChallengeHistory(challengeHistoryPath) {
+  // Public feed of completed challenges + achievements (most recent first).
+  const data = readJsonSafe(challengeHistoryPath);
+  const challenges = data && Array.isArray(data.challenges) ? data.challenges : [];
+  return challenges
     .filter((entry) => entry && typeof entry === "object")
     .map((entry) => ({
       runId: entry.run_id || null,
@@ -373,10 +373,10 @@ export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
   }
   const currentKing =
     data.current_king && typeof data.current_king === "object" ? data.current_king : {};
-  const latestRound =
-    data.latest_round && typeof data.latest_round === "object" ? data.latest_round : {};
+  const latestChallenge =
+    data.latest_challenge && typeof data.latest_challenge === "object" ? data.latest_challenge : {};
   const benchmark = data.benchmark && typeof data.benchmark === "object" ? data.benchmark : {};
-  const proofDetail = loadPublicProofRoundDetail(kataRoot, latestRound.proof);
+  const proofDetail = loadPublicProofChallengeDetail(kataRoot, latestChallenge.proof);
   return {
     schemaVersion: data.schema_version ?? null,
     updatedAt: data.updated_at || null,
@@ -391,25 +391,25 @@ export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
       artifactHash: currentKing.artifact_hash || null,
       promotedAt: currentKing.promoted_at || null,
     },
-    latestRound: {
-      roundId: latestRound.round_id || null,
-      roundNumber: latestRound.round_number ?? null,
-      competitionMode: latestRound.competition_mode || null,
-      startedAt: latestRound.started_at || null,
-      finishedAt: latestRound.finished_at || null,
-      durationSeconds: latestRound.duration_seconds ?? null,
-      candidateCount: latestRound.candidate_count ?? null,
-      outcome: latestRound.outcome || null,
-      winnerPullRequest: latestRound.winner_pull_request ?? null,
-      winnerAuthor: latestRound.winner_author || null,
-      winnerSubmissionId: latestRound.winner_submission_id || null,
-      bestTruePositives: latestRound.best_true_positives ?? null,
-      bestDetectionScore: latestRound.best_detection_score ?? null,
-      proof: latestRound.proof || null,
+    latestChallenge: {
+      challengeId: latestChallenge.challenge_id || null,
+      challengeNumber: latestChallenge.challenge_number ?? null,
+      competitionMode: latestChallenge.competition_mode || null,
+      startedAt: latestChallenge.started_at || null,
+      finishedAt: latestChallenge.finished_at || null,
+      durationSeconds: latestChallenge.duration_seconds ?? null,
+      candidateCount: latestChallenge.candidate_count ?? null,
+      outcome: latestChallenge.outcome || null,
+      winnerPullRequest: latestChallenge.winner_pull_request ?? null,
+      winnerAuthor: latestChallenge.winner_author || null,
+      winnerSubmissionId: latestChallenge.winner_submission_id || null,
+      bestTruePositives: latestChallenge.best_true_positives ?? null,
+      bestDetectionScore: latestChallenge.best_detection_score ?? null,
+      proof: latestChallenge.proof || null,
     },
     benchmark: {
       name: benchmark.name || null,
-      roundSha256: benchmark.round_sha256 || null,
+      challengeSha256: benchmark.challenge_sha256 || null,
       sandboxCommit: benchmark.sandbox_commit || null,
       scorerVersion: benchmark.scorer_version || null,
     },
@@ -418,12 +418,12 @@ export function loadPublicProof(publicResultsCurrentPath, kataRoot) {
   };
 }
 
-function loadPublicProofRoundDetail(kataRoot, proofPath) {
+function loadPublicProofChallengeDetail(kataRoot, proofPath) {
   const empty = { selectedProjectCount: null, selectedProjects: [] };
   if (!proofPath || !kataRoot) {
     return empty;
   }
-  // The bot writes `proof` relative to KATA_ROOT (`public-results[/<lane_id>]/rounds/<id>.json`),
+  // The bot writes `proof` relative to KATA_ROOT (`public-results[/<lane_id>]/challenges/<id>.json`),
   // so resolve against kataRoot. For a root current.json this equals the old
   // dirname(dirname(currentPath)); for a per-lane `<lane_id>/current.json` it stays correct.
   const proofFile = path.resolve(kataRoot, proofPath);
@@ -431,14 +431,14 @@ function loadPublicProofRoundDetail(kataRoot, proofPath) {
   if (!proof || typeof proof !== "object") {
     return empty;
   }
-  const selectedProjects = extractProjectKeysFromRoundProof(proof);
+  const selectedProjects = extractProjectKeysFromChallengeProof(proof);
   return {
     selectedProjectCount: selectedProjects.length || null,
     selectedProjects,
   };
 }
 
-function extractProjectKeysFromRoundProof(proof) {
+function extractProjectKeysFromChallengeProof(proof) {
   const direct = [
     proof.project_keys,
     proof.selected_project_keys,
@@ -479,16 +479,16 @@ function uniqueStrings(values) {
   ];
 }
 
-function enrichLeaderboardLatestWinnerWithRound(leaderboard, round, roundLane) {
-  if (round?.state !== "completed" || !round.winnerSubmissionId) {
+function enrichLeaderboardLatestWinnerWithChallenge(leaderboard, challenge, challengeLane) {
+  if (challenge?.state !== "completed" || !challenge.winnerSubmissionId) {
     return leaderboard;
   }
-  const winnerPullNumber = prNumberFromSubmissionId(round.winnerSubmissionId);
-  const winnerEntrant = findWinnerEntrant(round, winnerPullNumber);
+  const winnerPullNumber = prNumberFromSubmissionId(challenge.winnerSubmissionId);
+  const winnerEntrant = findWinnerEntrant(challenge, winnerPullNumber);
   if (!winnerEntrant?.author) {
     return leaderboard;
   }
-  const laneKey = laneKeyForLane(roundLane);
+  const laneKey = laneKeyForLane(challengeLane);
   if (!laneKey) {
     return leaderboard;
   }
@@ -503,7 +503,7 @@ function enrichLeaderboardLatestWinnerWithRound(leaderboard, round, roundLane) {
     [laneKey]: {
       ...current,
       author: winnerEntrant.author,
-      mergedAt: current.mergedAt || round.finishedAt || round.generatedAt || null,
+      mergedAt: current.mergedAt || challenge.finishedAt || challenge.generatedAt || null,
       pullNumber: winnerPull,
       submissionId:
         winnerEntrant.submission_id || winnerEntrant.submissionId || current.submissionId || null,
@@ -868,13 +868,13 @@ function primaryKataStatusLabel(labels) {
 
 function enrichPublicProofWithLiveWinner(
   publicProof,
-  { round, roundHistory, leaderboard, activeLane }
+  { challenge, challengeHistory, leaderboard, activeLane }
 ) {
   const proof = publicProof
     ? {
         ...publicProof,
         currentKing: { ...(publicProof.currentKing || {}) },
-        latestRound: { ...(publicProof.latestRound || {}) },
+        latestChallenge: { ...(publicProof.latestChallenge || {}) },
       }
     : {
         schemaVersion: 1,
@@ -883,7 +883,7 @@ function enrichPublicProofWithLiveWinner(
         activeMode: activeLane?.mode || null,
         dashboardUrl: null,
         currentKing: {},
-        latestRound: {},
+        latestChallenge: {},
         benchmark: {},
       };
   const activePack = proof.activePack || activeLane?.subnetPack || null;
@@ -892,18 +892,18 @@ function enrichPublicProofWithLiveWinner(
   const latestWinner = activeLaneKey
     ? leaderboard?.latestLaneWinners?.[activeLaneKey] || null
     : null;
-  const completedRound = round?.state === "completed" && round.winnerSubmissionId ? round : null;
-  const latestRound =
-    completedRound ||
-    (Array.isArray(roundHistory) ? roundHistory.find((item) => item?.winnerSubmissionId) : null);
+  const completedChallenge = challenge?.state === "completed" && challenge.winnerSubmissionId ? challenge : null;
+  const latestChallenge =
+    completedChallenge ||
+    (Array.isArray(challengeHistory) ? challengeHistory.find((item) => item?.winnerSubmissionId) : null);
   const winnerPullNumber =
-    latestWinner?.pullNumber || prNumberFromSubmissionId(latestRound?.winnerSubmissionId);
-  const winnerEntrant = findWinnerEntrant(latestRound, winnerPullNumber);
+    latestWinner?.pullNumber || prNumberFromSubmissionId(latestChallenge?.winnerSubmissionId);
+  const winnerEntrant = findWinnerEntrant(latestChallenge, winnerPullNumber);
   const winnerSubmissionId =
     latestWinner?.submissionId ||
     winnerEntrant?.submission_id ||
     winnerEntrant?.submissionId ||
-    latestRound?.winnerSubmissionId ||
+    latestChallenge?.winnerSubmissionId ||
     null;
   const winnerAuthor =
     latestWinner?.author ||
@@ -913,11 +913,11 @@ function enrichPublicProofWithLiveWinner(
     null;
   const promotedAt =
     latestWinner?.mergedAt ||
-    latestRound?.generatedAt ||
-    latestRound?.finishedAt ||
+    latestChallenge?.generatedAt ||
+    latestChallenge?.finishedAt ||
     proof.currentKing.promotedAt ||
     null;
-  const proofPromotionTime = proof.currentKing.promotedAt || proof.latestRound.finishedAt;
+  const proofPromotionTime = proof.currentKing.promotedAt || proof.latestChallenge.finishedAt;
   const shouldReplaceKing =
     winnerAuthor &&
     (!proof.currentKing.author ||
@@ -937,47 +937,47 @@ function enrichPublicProofWithLiveWinner(
     };
   }
 
-  if (latestRound?.runId || latestRound?.winnerSubmissionId) {
-    const entrants = Array.isArray(latestRound.entrants) ? latestRound.entrants : [];
-    const sameProofRound = latestRound.runId && latestRound.runId === proof.latestRound.roundId;
-    proof.latestRound = {
-      ...proof.latestRound,
-      roundId: latestRound.runId || proof.latestRound.roundId || null,
-      roundNumber: latestRound.roundNumber ?? proof.latestRound.roundNumber ?? null,
-      competitionMode: latestRound.competitionMode || proof.latestRound.competitionMode || null,
-      startedAt: latestRound.startedAt || (sameProofRound ? proof.latestRound.startedAt : null),
+  if (latestChallenge?.runId || latestChallenge?.winnerSubmissionId) {
+    const entrants = Array.isArray(latestChallenge.entrants) ? latestChallenge.entrants : [];
+    const sameProofChallenge = latestChallenge.runId && latestChallenge.runId === proof.latestChallenge.challengeId;
+    proof.latestChallenge = {
+      ...proof.latestChallenge,
+      challengeId: latestChallenge.runId || proof.latestChallenge.challengeId || null,
+      challengeNumber: latestChallenge.challengeNumber ?? proof.latestChallenge.challengeNumber ?? null,
+      competitionMode: latestChallenge.competitionMode || proof.latestChallenge.competitionMode || null,
+      startedAt: latestChallenge.startedAt || (sameProofChallenge ? proof.latestChallenge.startedAt : null),
       finishedAt:
-        latestRound.finishedAt ||
-        latestRound.generatedAt ||
-        (sameProofRound ? proof.latestRound.finishedAt : null) ||
+        latestChallenge.finishedAt ||
+        latestChallenge.generatedAt ||
+        (sameProofChallenge ? proof.latestChallenge.finishedAt : null) ||
         null,
       durationSeconds:
-        latestRound.durationSeconds ?? (sameProofRound ? proof.latestRound.durationSeconds : null),
+        latestChallenge.durationSeconds ?? (sameProofChallenge ? proof.latestChallenge.durationSeconds : null),
       candidateCount:
-        latestRound.candidateCount ??
-        (entrants.length ? entrants.length : (proof.latestRound.candidateCount ?? null)),
-      outcome: latestRound.winnerSubmissionId ? "king_promoted" : proof.latestRound.outcome,
-      winnerPullRequest: winnerPullNumber ?? proof.latestRound.winnerPullRequest ?? null,
-      winnerAuthor: winnerAuthor || proof.latestRound.winnerAuthor || null,
-      winnerSubmissionId: winnerSubmissionId || proof.latestRound.winnerSubmissionId || null,
+        latestChallenge.candidateCount ??
+        (entrants.length ? entrants.length : (proof.latestChallenge.candidateCount ?? null)),
+      outcome: latestChallenge.winnerSubmissionId ? "king_promoted" : proof.latestChallenge.outcome,
+      winnerPullRequest: winnerPullNumber ?? proof.latestChallenge.winnerPullRequest ?? null,
+      winnerAuthor: winnerAuthor || proof.latestChallenge.winnerAuthor || null,
+      winnerSubmissionId: winnerSubmissionId || proof.latestChallenge.winnerSubmissionId || null,
       bestTruePositives:
         maxEntrantMetric(entrants, "true_positives") ??
-        latestRound.bestTruePositives ??
-        proof.latestRound.bestTruePositives ??
+        latestChallenge.bestTruePositives ??
+        proof.latestChallenge.bestTruePositives ??
         null,
       bestDetectionScore:
         maxEntrantMetric(entrants, "aggregated_score") ??
-        latestRound.bestDetection ??
-        proof.latestRound.bestDetectionScore ??
+        latestChallenge.bestDetection ??
+        proof.latestChallenge.bestDetectionScore ??
         null,
-      proof: sameProofRound ? proof.latestRound.proof : null,
+      proof: sameProofChallenge ? proof.latestChallenge.proof : null,
     };
   }
   return proof;
 }
 
-function findWinnerEntrant(round, winnerPullNumber) {
-  const entrants = Array.isArray(round?.entrants) ? round.entrants : [];
+function findWinnerEntrant(challenge, winnerPullNumber) {
+  const entrants = Array.isArray(challenge?.entrants) ? challenge.entrants : [];
   return (
     entrants.find((entrant) => entrant?.selected_winner === true || entrant?.status === "winner") ||
     entrants.find(
@@ -1011,67 +1011,67 @@ function dateIsAfter(left, right) {
   return Number.isFinite(leftTime) && leftTime > (Number.isFinite(rightTime) ? rightTime : 0);
 }
 
-function assignRoundSequence(round, roundHistory) {
-  const numberedHistory = (Array.isArray(roundHistory) ? roundHistory : []).map(
+function assignChallengeSequence(challenge, challengeHistory) {
+  const numberedHistory = (Array.isArray(challengeHistory) ? challengeHistory : []).map(
     (entry, index, entries) => ({
       ...entry,
-      roundNumber: entries.length - index,
+      challengeNumber: entries.length - index,
     })
   );
-  if (!round) {
-    return { round, roundHistory: numberedHistory };
+  if (!challenge) {
+    return { challenge, challengeHistory: numberedHistory };
   }
 
-  const matchingHistoryRound = numberedHistory.find(
-    (entry) => entry.runId && entry.runId === round.runId
+  const matchingHistoryChallenge = numberedHistory.find(
+    (entry) => entry.runId && entry.runId === challenge.runId
   );
-  const roundNumber = matchingHistoryRound?.roundNumber || numberedHistory.length + 1;
-  const numberedRound = {
-    ...round,
-    roundNumber,
-    liveProgress: round.liveProgress
+  const challengeNumber = matchingHistoryChallenge?.challengeNumber || numberedHistory.length + 1;
+  const numberedChallenge = {
+    ...challenge,
+    challengeNumber,
+    liveProgress: challenge.liveProgress
       ? {
-          ...round.liveProgress,
-          roundNumber,
+          ...challenge.liveProgress,
+          challengeNumber,
         }
-      : round.liveProgress,
+      : challenge.liveProgress,
   };
-  return { round: numberedRound, roundHistory: numberedHistory };
+  return { challenge: numberedChallenge, challengeHistory: numberedHistory };
 }
 
-const DEFAULT_ROUND_STALE_MS = 30 * 60 * 1000; // 30 min without a progress write => dead
+const DEFAULT_CHALLENGE_STALE_MS = 30 * 60 * 1000; // 30 min without a progress write => dead
 
-function readRoundStaleMs(env) {
-  const raw = Number.parseInt(env?.KATA_BOARD_ROUND_STALE_MS ?? "", 10);
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_ROUND_STALE_MS;
+function readChallengeStaleMs(env) {
+  const raw = Number.parseInt(env?.KATA_BOARD_CHALLENGE_STALE_MS ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_CHALLENGE_STALE_MS;
 }
 
-function applyRoundStalenessGuard(round, env) {
-  // A round writes round-progress.json as it runs; if it was crashed/killed without
-  // the bot writing a terminal state, round-status.json stays "executing" forever and
-  // the dashboard animates a phantom running round. Present a round whose freshest
+function applyChallengeStalenessGuard(challenge, env) {
+  // A challenge writes challenge-progress.json as it runs; if it was crashed/killed without
+  // the bot writing a terminal state, challenge-status.json stays "executing" forever and
+  // the dashboard animates a phantom running challenge. Present a challenge whose freshest
   // timestamp is older than the stale window as "stale" (and drop liveProgress) so the
   // client -- which gates the animation on state === "executing" -- stops animating.
-  if (!round || round.state !== "executing") {
-    return round;
+  if (!challenge || challenge.state !== "executing") {
+    return challenge;
   }
-  const stamps = [round.liveProgress?.updatedAt, round.generatedAt]
+  const stamps = [challenge.liveProgress?.updatedAt, challenge.generatedAt]
     .map((value) => (value ? Date.parse(value) : Number.NaN))
     .filter((value) => Number.isFinite(value));
   if (!stamps.length) {
-    return round;
+    return challenge;
   }
   const freshest = Math.max(...stamps);
-  if (Date.now() - freshest > readRoundStaleMs(env)) {
-    return { ...round, state: "stale", stale: true, liveProgress: null };
+  if (Date.now() - freshest > readChallengeStaleMs(env)) {
+    return { ...challenge, state: "stale", stale: true, liveProgress: null };
   }
-  return round;
+  return challenge;
 }
 
-function loadRoundStatus(roundStatusPath) {
-  // The competition round writes this file at start (executing) and end
+function loadChallengeStatus(challengeStatusPath) {
+  // The competition challenge writes this file at start (executing) and end
   // (completed); the board renders every entrant until final results.
-  const status = readJsonSafe(roundStatusPath);
+  const status = readJsonSafe(challengeStatusPath);
   if (!status || typeof status !== "object") {
     return null;
   }
@@ -1102,21 +1102,21 @@ function loadRoundStatus(roundStatusPath) {
   };
 }
 
-function loadRoundProgress(roundProgressPath, kataRoot = null) {
+function loadChallengeProgress(challengeProgressPath, kataRoot = null) {
   // Live per-candidate progress written by the scoring engine as each candidate
-  // and problem finishes; used to animate the round while it is executing.
-  const data = readJsonSafe(roundProgressPath);
+  // and problem finishes; used to animate the challenge while it is executing.
+  const data = readJsonSafe(challengeProgressPath);
   if (!data || typeof data !== "object") {
     return null;
   }
-  return enrichRoundProgressWithReplicas(
+  return enrichChallengeProgressWithReplicas(
     {
       state: data.state || null,
       runId: data.run_id || null,
       competitionMode: data.competition_mode || "king_duel",
       updatedAt: data.updated_at || null,
       projectKeys: Array.isArray(data.project_keys) ? data.project_keys : [],
-      replicasPerProject: inferRoundReplicasPerProject(data),
+      replicasPerProject: inferChallengeReplicasPerProject(data),
       king: data.king && typeof data.king === "object" ? data.king : null,
       candidates: Array.isArray(data.candidates) ? data.candidates : [],
     },
@@ -1124,7 +1124,7 @@ function loadRoundProgress(roundProgressPath, kataRoot = null) {
   );
 }
 
-function inferRoundReplicasPerProject(progress) {
+function inferChallengeReplicasPerProject(progress) {
   const explicit = positiveIntegerOrNull(progress?.replicas_per_project);
   if (explicit) {
     return explicit;
@@ -1148,7 +1148,7 @@ function inferRoundReplicasPerProject(progress) {
   return null;
 }
 
-function enrichRoundProgressWithReplicas(progress, kataRoot) {
+function enrichChallengeProgressWithReplicas(progress, kataRoot) {
   if (!progress?.runId || !kataRoot) {
     return progress;
   }
@@ -1158,13 +1158,13 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
   }
   const projectKeys = Array.isArray(progress.projectKeys) ? progress.projectKeys : [];
   const expectedReplicas = positiveIntegerOrNull(progress.replicasPerProject);
-  const screening = summarizeRoundScreeningProgress(progress, runRoot);
+  const screening = summarizeChallengeScreeningProgress(progress, runRoot);
   return {
     ...progress,
     updatedAt: maxDate(progress.updatedAt, screening?.updatedAt),
     screening,
     king: progress.king
-      ? enrichRoundProgressSide({
+      ? enrichChallengeProgressSide({
           side: progress.king,
           runRoot,
           variantName: "king",
@@ -1175,7 +1175,7 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
       : progress.king,
     candidates: (progress.candidates || []).map((candidate) => {
       const pullNumber = pullNumberFromProgressId(candidate?.submission_id);
-      return enrichRoundProgressSide({
+      return enrichChallengeProgressSide({
         side: candidate,
         runRoot,
         variantName: "candidate",
@@ -1187,14 +1187,14 @@ function enrichRoundProgressWithReplicas(progress, kataRoot) {
   };
 }
 
-function summarizeRoundScreeningProgress(progress, runRoot) {
+function summarizeChallengeScreeningProgress(progress, runRoot) {
   const candidates = Array.isArray(progress?.candidates) ? progress.candidates : [];
   if (!candidates.length) {
     return null;
   }
   const entries = candidates
     .map((candidate) =>
-      summarizeRoundScreeningCandidate({
+      summarizeChallengeScreeningCandidate({
         candidate,
         runRoot,
         fallbackProjectKey: progress.projectKeys?.[0] || null,
@@ -1229,7 +1229,7 @@ function summarizeRoundScreeningProgress(progress, runRoot) {
   };
 }
 
-function summarizeRoundScreeningCandidate({ candidate, runRoot, fallbackProjectKey = null }) {
+function summarizeChallengeScreeningCandidate({ candidate, runRoot, fallbackProjectKey = null }) {
   const pullNumber = pullNumberFromProgressId(candidate?.submission_id);
   if (!pullNumber) {
     return null;
@@ -1276,7 +1276,7 @@ function summarizeRoundScreeningCandidate({ candidate, runRoot, fallbackProjectK
     projectKey,
     startedAt: statMtimeIso(latestRunRoot),
     updatedAt,
-    screening_result: publicRoundScreeningResult(result),
+    screening_result: publicChallengeScreeningResult(result),
   };
 }
 
@@ -1310,7 +1310,7 @@ function screeningResultState(result) {
   return "running";
 }
 
-function publicRoundScreeningResult(result) {
+function publicChallengeScreeningResult(result) {
   if (!result || typeof result !== "object") {
     return null;
   }
@@ -1326,7 +1326,7 @@ function publicRoundScreeningResult(result) {
   };
 }
 
-function enrichRoundProgressSide({
+function enrichChallengeProgressSide({
   side,
   runRoot,
   variantName,
@@ -1353,7 +1353,7 @@ function enrichRoundProgressSide({
   const enrichedProjects = [];
   for (const projectKey of keys) {
     const existingProject = projectByKey.get(projectKey) || null;
-    const replicaProject = findRoundReplicaProject({
+    const replicaProject = findChallengeReplicaProject({
       runRoot,
       variantName,
       pullNumber,
@@ -1366,7 +1366,7 @@ function enrichRoundProgressSide({
       continue;
     }
     enrichedProjects.push(
-      mergeRoundProjectReplicaProgress(existingProject, replicaProject, projectKey)
+      mergeChallengeProjectReplicaProgress(existingProject, replicaProject, projectKey)
     );
   }
   return {
@@ -1380,7 +1380,7 @@ function pullNumberFromProgressId(submissionId) {
   return match ? Number(match[1]) : null;
 }
 
-function findRoundReplicaProject({
+function findChallengeReplicaProject({
   runRoot,
   variantName,
   pullNumber,
@@ -1393,7 +1393,7 @@ function findRoundReplicaProject({
   if (pullNumber) {
     directRoots.push(path.join(runRoot, `pr-${pullNumber}`, variantName, projectKey));
   }
-  // Per-label round layout (plugin orchestrator): each variant runs under its own
+  // Per-label challenge layout (plugin orchestrator): each variant runs under its own
   // label dir -> runRoot/<label>/<variant>/<project>. The king's label is "king"
   // (so runRoot/king/king/...); candidates use the pr-<n> path above.
   directRoots.push(path.join(runRoot, variantName, variantName, projectKey));
@@ -1488,7 +1488,7 @@ function numbersClose(left, right) {
   return Math.abs(Number(left) - Number(right)) < 1e-9;
 }
 
-function mergeRoundProjectReplicaProgress(existingProject, replicaProject, projectKey) {
+function mergeChallengeProjectReplicaProgress(existingProject, replicaProject, projectKey) {
   const base =
     existingProject && typeof existingProject === "object"
       ? { ...existingProject }
@@ -1516,12 +1516,12 @@ function mergeRoundProjectReplicaProgress(existingProject, replicaProject, proje
     pass_count: Number(replicaProject.passCount || 0),
     invalid_runs: Number(replicaProject.invalidRuns || 0),
     replicas: Array.isArray(replicaProject.replicas)
-      ? replicaProject.replicas.map(roundReplicaPayload)
+      ? replicaProject.replicas.map(challengeReplicaPayload)
       : [],
   };
 }
 
-function roundReplicaPayload(replica) {
+function challengeReplicaPayload(replica) {
   return {
     replica_index: Number(replica.replicaIndex || 0),
     started: Boolean(replica.started),
@@ -3081,7 +3081,7 @@ function evaluatorProjectToLiveVariant(project) {
     completedReplicas: Number(project.completedReplicas || 0),
     totalReplicas: Number(project.totalReplicas || 0),
     passCount: Number(project.passCount || 0),
-    replicas: Array.isArray(project.replicas) ? project.replicas.map(roundReplicaPayload) : [],
+    replicas: Array.isArray(project.replicas) ? project.replicas.map(challengeReplicaPayload) : [],
   };
 }
 
@@ -3433,7 +3433,7 @@ export function loadLocalArtifactLeaderboard(kataRoot) {
   ) {
     return localArtifactLeaderboardCache.value;
   }
-  const value = augmentLeaderboardWithRoundSummaries(
+  const value = augmentLeaderboardWithChallengeResults(
     loadLocalGitWinnerLeaderboard(kataRoot),
     kataRoot,
   );
@@ -3557,12 +3557,12 @@ function inferLaneFromPromotionCommit(promotion, lanes) {
   return matchingSubnet.length === 1 ? matchingSubnet[0] : null;
 }
 
-function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
+function augmentLeaderboardWithChallengeResults(leaderboard, kataRoot) {
   const resolvedRoot = kataRoot ? path.resolve(kataRoot) : null;
   if (!resolvedRoot) {
     return leaderboard;
   }
-  const summaryPaths = collectFiles(path.join(resolvedRoot, "runs"), "round_summary.json");
+  const summaryPaths = collectFiles(path.join(resolvedRoot, "runs"), "challenge_result.json");
   if (!summaryPaths.length) {
     return leaderboard;
   }
@@ -3593,23 +3593,23 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
       continue;
     }
     const createdAt = summary.created_at || statMtimeIso(summaryPath);
-    for (const roundEntry of Array.isArray(summary.entries) ? summary.entries : []) {
-      const pullNumber = pullNumberFromRoundEntry(roundEntry);
-      const artifact = inferArtifactSubmission(roundEntry?.artifact_path);
+    for (const challengeEntry of Array.isArray(summary.entries) ? summary.entries : []) {
+      const pullNumber = pullNumberFromChallengeEntry(challengeEntry);
+      const artifact = inferArtifactSubmission(challengeEntry?.artifact_path);
       const author =
         (pullNumber ? winnerByPull.get(pullNumber) : null) ||
         inferSubmissionAuthorFromId(artifact?.submissionId) ||
-        inferSubmissionAuthorFromId(roundEntry?.submission_id) ||
+        inferSubmissionAuthorFromId(challengeEntry?.submission_id) ||
         "unknown";
       const entry = byAuthor.get(author) || createAuthorRow(author);
       const seenPulls = seenPullsByAuthor.get(author) || new Set();
       if (!pullNumber || !seenPulls.has(pullNumber)) {
         entry.totalSubmissions += 1;
-        if (roundEntry?.selected_winner) {
+        if (challengeEntry?.selected_winner) {
           entry.winnerSubmissions += 1;
-        } else if (roundEntry?.beats_king) {
+        } else if (challengeEntry?.beats_king) {
           // A non-winning candidate can beat the old king but remain open for
-          // a future round. Only live GitHub state should decide whether it is
+          // a future challenge. Only live GitHub state should decide whether it is
           // still open/pending now.
         } else {
           entry.closedSubmissions += 1;
@@ -3622,11 +3622,11 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
       if (entry.recentPulls.length < 4 && pullNumber && !seenPulls.has(-pullNumber)) {
         entry.recentPulls.push({
           number: pullNumber,
-          title: artifact?.submissionId || roundEntry?.submission_id || `PR #${pullNumber}`,
+          title: artifact?.submissionId || challengeEntry?.submission_id || `PR #${pullNumber}`,
           htmlUrl: null,
-          state: roundEntry?.selected_winner
+          state: challengeEntry?.selected_winner
             ? "merged"
-            : roundEntry?.beats_king
+            : challengeEntry?.beats_king
               ? "open"
               : "closed",
           updatedAt: createdAt,
@@ -3641,13 +3641,13 @@ function augmentLeaderboardWithRoundSummaries(leaderboard, kataRoot) {
 
   return {
     ...leaderboard,
-    source: added ? `${leaderboard.source}+round-artifacts` : leaderboard.source,
+    source: added ? `${leaderboard.source}+challenge-artifacts` : leaderboard.source,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
 }
 
-function pullNumberFromRoundEntry(entry) {
+function pullNumberFromChallengeEntry(entry) {
   const match = String(entry?.submission_id || "").match(/^pr-(\d+)$/);
   return match ? Number.parseInt(match[1], 10) : null;
 }
@@ -3778,19 +3778,19 @@ function normalizeIsoDate(value) {
   return date.toISOString();
 }
 
-function enrichRoundKingIdentity(round, leaderboard) {
-  if (!round || round.kingAuthor || round.kingSubmissionId) {
-    return round;
+function enrichChallengeKingIdentity(challenge, leaderboard) {
+  if (!challenge || challenge.kingAuthor || challenge.kingSubmissionId) {
+    return challenge;
   }
   const winner = latestWinnerBefore(
     leaderboard?.rows || [],
-    round.generatedAt || new Date().toISOString()
+    challenge.generatedAt || new Date().toISOString()
   );
   if (!winner) {
-    return round;
+    return challenge;
   }
   return {
-    ...round,
+    ...challenge,
     kingAuthor: winner.author,
     kingSubmissionId: winner.submissionId || null,
   };
@@ -3831,15 +3831,15 @@ function extractSubmissionIdFromText(value) {
   return match?.[1] || null;
 }
 
-function augmentLeaderboardWithRound(
+function augmentLeaderboardWithChallenge(
   leaderboard,
-  round,
+  challenge,
   identityAliases = new Map(),
-  roundLane = null
+  challengeLane = null
 ) {
   const source = String(leaderboard.source || "");
   if (
-    !round?.entrants?.length ||
+    !challenge?.entrants?.length ||
     (!source.startsWith("unavailable") &&
       source !== "github-not-configured" &&
       source !== "local-git")
@@ -3853,10 +3853,10 @@ function augmentLeaderboardWithRound(
     ])
   );
   const latestLaneWinners = new Map(Object.entries(leaderboard.latestLaneWinners || {}));
-  const activityAt = round.generatedAt || new Date().toISOString();
-  const laneKey = laneKeyForLane(roundLane);
+  const activityAt = challenge.generatedAt || new Date().toISOString();
+  const laneKey = laneKeyForLane(challengeLane);
 
-  for (const entrant of round.entrants) {
+  for (const entrant of challenge.entrants) {
     const author =
       resolveAuthorAlias(entrant.author, identityAliases) ||
       inferSubmissionAuthorFromId(entrant.submission_id) ||
@@ -3893,7 +3893,7 @@ function augmentLeaderboardWithRound(
 
   return {
     ...leaderboard,
-    source: `${leaderboard.source}+round`,
+    source: `${leaderboard.source}+challenge`,
     rows: finalizeLeaderboardRows(byAuthor, latestLaneWinners),
     latestLaneWinners: Object.fromEntries(latestLaneWinners),
   };
@@ -4065,7 +4065,7 @@ function buildOverview(lanes, activity, leaderboard, validator, submissionStatus
     0
   );
   const projectCount =
-    selectedProjectCountFromRound(context.round) ||
+    selectedProjectCountFromChallenge(context.challenge) ||
     positiveIntegerOrNull(context.publicProof?.selectedProjectCount) ||
     laneProjectCount;
   const rows = Array.isArray(leaderboard?.rows) ? leaderboard.rows : [];
@@ -4104,16 +4104,16 @@ function buildOverview(lanes, activity, leaderboard, validator, submissionStatus
   };
 }
 
-function selectedProjectCountFromRound(round) {
-  const liveCount = positiveIntegerOrNull(round?.liveProgress?.projectKeys?.length);
+function selectedProjectCountFromChallenge(challenge) {
+  const liveCount = positiveIntegerOrNull(challenge?.liveProgress?.projectKeys?.length);
   if (liveCount) {
     return liveCount;
   }
-  const kingProjectCount = positiveIntegerOrNull(round?.king?.projects?.length);
+  const kingProjectCount = positiveIntegerOrNull(challenge?.king?.projects?.length);
   if (kingProjectCount) {
     return kingProjectCount;
   }
-  const entrantProjectCounts = (Array.isArray(round?.entrants) ? round.entrants : [])
+  const entrantProjectCounts = (Array.isArray(challenge?.entrants) ? challenge.entrants : [])
     .map((entrant) => positiveIntegerOrNull(entrant?.projects?.length))
     .filter(Boolean);
   return entrantProjectCounts.length ? Math.max(...entrantProjectCounts) : null;
@@ -4255,11 +4255,11 @@ function laneKeyForLane(lane) {
   return `${lane.subnetPack}::${lane.mode}`;
 }
 
-function resolveRoundLane(round, lanes, publicProof) {
+function resolveChallengeLane(challenge, lanes, publicProof) {
   const knownLanes = Array.isArray(lanes) ? lanes : [];
-  const roundLaneId = String(round?.laneId || "").trim();
-  if (roundLaneId) {
-    const byId = knownLanes.find((lane) => lane.laneId === roundLaneId || lane.id === roundLaneId);
+  const challengeLaneId = String(challenge?.laneId || "").trim();
+  if (challengeLaneId) {
+    const byId = knownLanes.find((lane) => lane.laneId === challengeLaneId || lane.id === challengeLaneId);
     if (byId) {
       return byId;
     }

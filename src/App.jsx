@@ -4,8 +4,8 @@ import heroImage from "../assets/hero.png";
 import {
   PAGES,
   POLL_INTERVAL_MS,
-  ROUND_STATE_BANNER,
-  ROUND_STATUS_LABEL,
+  CHALLENGE_STATE_BANNER,
+  CHALLENGE_STATUS_LABEL,
 } from "./constants.js";
 import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js";
 
@@ -126,7 +126,7 @@ export default function App() {
     () => lanes.find((lane) => lane.id === selectedLaneId) || lanes[0] || null,
     [lanes, selectedLaneId]
   );
-  // The selected lane's competition fields (round / proof / leaderboard / activity). On a
+  // The selected lane's competition fields (challenge / proof / leaderboard / activity). On a
   // single-lane board byLane[selectedLane.id] holds the same objects as the top-level payload, so
   // this is byte-identical; the `payload` fallback keeps a lane with no byLane entry rendering the
   // global data.
@@ -176,8 +176,8 @@ export default function App() {
         {payload && (pathname === "/arena" || pathname === "/live") ? (
           <Arena
             selectedLane={selectedLane}
-            round={laneData.round}
-            roundHistory={laneData.roundHistory}
+            challenge={laneData.challenge}
+            challengeHistory={laneData.challengeHistory}
             kataRepoSlug={payload.publicLinks?.kataRepo}
           />
         ) : null}
@@ -446,12 +446,12 @@ function DashboardStats({ payload, lanes }) {
   const laneList = Array.isArray(lanes) ? lanes : [];
   const activeSubnets = overview.activeLanes ?? laneList.length;
   const challengesRun = laneList.reduce(
-    (sum, lane) => sum + (byLane[lane.id]?.roundHistory?.length || 0),
+    (sum, lane) => sum + (byLane[lane.id]?.challengeHistory?.length || 0),
     0
   );
   const challengers = overview.uniqueChallengers ?? 0;
   const submissions = overview.totalSubmissions ?? 0;
-  const live = laneList.some((lane) => byLane[lane.id]?.round?.state === "executing");
+  const live = laneList.some((lane) => byLane[lane.id]?.challenge?.state === "executing");
   return (
     <section className="dash-stats" aria-label="Network at a glance">
       <StatTile label="Active subnets" value={activeSubnets} live={live} />
@@ -518,12 +518,12 @@ function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLa
 }
 
 function SubnetCard({ lane, data, active, onEnter }) {
-  const round = data.round || {};
-  const live = round.state === "executing";
+  const challenge = data.challenge || {};
+  const live = challenge.state === "executing";
   const kingName = lane.king?.seeded
     ? "seed king"
     : lane.currentHolder || lane.king?.author || "—";
-  const challenges = data.roundHistory?.length ?? round.roundNumber ?? "—";
+  const challenges = data.challengeHistory?.length ?? challenge.challengeNumber ?? "—";
   const challengers = data.leaderboard?.rows?.length ?? "—";
   return (
     <article
@@ -755,8 +755,8 @@ function ProofFact({ label, value }) {
   );
 }
 
-function RoundStatusPill({ status }) {
-  const label = ROUND_STATUS_LABEL[status] || status || "—";
+function ChallengeStatusPill({ status }) {
+  const label = CHALLENGE_STATUS_LABEL[status] || status || "—";
   return <span className={`rstat rstat-${status || "neutral"}`}>{label}</span>;
 }
 
@@ -788,7 +788,7 @@ function ScreeningFailureBadge({ failure }) {
   return (
     <span
       className="rstat rstat-screening-failed"
-      title={title || "Round-start execution screening failed"}
+      title={title || "Challenge-start execution screening failed"}
     >
       screening failed
     </span>
@@ -831,12 +831,12 @@ function projectCountFromEntrant(entrant) {
   return Array.isArray(entrant?.projects) ? entrant.projects.length : 0;
 }
 
-function selectedProjectKeysFromRound(round) {
+function selectedProjectKeysFromChallenge(challenge) {
   const candidates = [
-    round?.liveProgress?.projectKeys,
-    round?.projectKeys,
-    round?.primary?.projectKeys,
-    round?.evaluatorState?.current?.projectKeys,
+    challenge?.liveProgress?.projectKeys,
+    challenge?.projectKeys,
+    challenge?.primary?.projectKeys,
+    challenge?.evaluatorState?.current?.projectKeys,
   ];
   const keys = candidates.find((value) => Array.isArray(value) && value.length);
   return keys || [];
@@ -883,15 +883,15 @@ function formatProjectsPassed(entrant) {
   return passCount < 0 ? "—" : String(passCount);
 }
 
-function inferReplicasPerProject(round) {
+function inferReplicasPerProject(challenge) {
   const configured = Number(
-    round?.liveProgress?.replicasPerProject || round?.replicasPerProject || 0
+    challenge?.liveProgress?.replicasPerProject || challenge?.replicasPerProject || 0
   );
   if (configured > 0) {
     return configured;
   }
-  const projectCount = Number(round?.liveProgress?.projectKeys?.length || 0);
-  const candidates = round?.liveProgress?.candidates || [];
+  const projectCount = Number(challenge?.liveProgress?.projectKeys?.length || 0);
+  const candidates = challenge?.liveProgress?.candidates || [];
   const firstTotal = Number(
     candidates.find((candidate) => Number(candidate?.total) > 0)?.total || 0
   );
@@ -939,23 +939,23 @@ function projectReplicaPassLabel(project, fallback = 0) {
   return `${projectPassCount(project)}/${total || 0} passed`;
 }
 
-function roundExtras(round) {
+function challengeExtras(challenge) {
   const extras = [];
-  if (round.screenedOut?.length) {
-    extras.push(`${round.screenedOut.length} screened out`);
+  if (challenge.screenedOut?.length) {
+    extras.push(`${challenge.screenedOut.length} screened out`);
   }
-  if (round.closedExtras?.length) {
-    extras.push(`${round.closedExtras.length} extra PR closed — one open PR per contributor`);
+  if (challenge.closedExtras?.length) {
+    extras.push(`${challenge.closedExtras.length} extra PR closed — one open PR per contributor`);
   }
-  if (round.skippedStale?.length) {
-    extras.push(`${round.skippedStale.length} skipped — unchanged since last round`);
+  if (challenge.skippedStale?.length) {
+    extras.push(`${challenge.skippedStale.length} skipped — unchanged since last challenge`);
   }
   return extras;
 }
 
-function RoundRuleCard({ passThreshold, replicasPerProject }) {
+function ChallengeRuleCard({ passThreshold, replicasPerProject }) {
   return (
-    <div className="round-rule-card">
+    <div className="challenge-rule-card">
       <div>
         <span>promotion rule</span>
         <strong>Beat the king&apos;s running-average score by the margin</strong>
@@ -977,27 +977,27 @@ function RoundRuleCard({ passThreshold, replicasPerProject }) {
   );
 }
 
-function RoundPanel({
-  round,
+function ChallengePanel({
+  challenge,
   kataRepoSlug,
   kingAuthor,
   kingSubmissionId,
   selectedPull,
   setSelectedPull,
 }) {
-  const entrants = round?.entrants || [];
-  const state = round?.state || "idle";
-  const hasRound = Boolean(round && (state !== "idle" || entrants.length || round.runId));
-  const roundTitle = round?.roundNumber
-    ? `Current challenge · Challenge ${round.roundNumber}`
+  const entrants = challenge?.entrants || [];
+  const state = challenge?.state || "idle";
+  const hasChallenge = Boolean(challenge && (state !== "idle" || entrants.length || challenge.runId));
+  const challengeTitle = challenge?.challengeNumber
+    ? `Current challenge · Challenge ${challenge.challengeNumber}`
     : "Current challenge";
-  const roundKingAuthor = round?.kingAuthor || kingAuthor;
-  const roundKingSubmissionId = round?.kingSubmissionId || kingSubmissionId;
+  const challengeKingAuthor = challenge?.kingAuthor || kingAuthor;
+  const challengeKingSubmissionId = challenge?.kingSubmissionId || kingSubmissionId;
   const selectedEntrant = entrants.find((entrant) => entrant.pull_number === selectedPull) || null;
-  // Live progress only while the round is actively scoring; ignore a stale
-  // snapshot left over from a previous round.
+  // Live progress only while the challenge is actively scoring; ignore a stale
+  // snapshot left over from a previous challenge.
   const live =
-    state === "executing" && round?.liveProgress?.state === "executing" ? round.liveProgress : null;
+    state === "executing" && challenge?.liveProgress?.state === "executing" ? challenge.liveProgress : null;
   const progressByPull = {};
   if (live) {
     live.candidates.forEach((candidate) => {
@@ -1015,20 +1015,20 @@ function RoundPanel({
   });
   const showScreeningGate = Boolean(live?.screening) && live.screening.state !== "complete";
 
-  // Per-PR result feed (published as each PR finishes, and after the round ends) —
+  // Per-PR result feed (published as each PR finishes, and after the challenge ends) —
   // used by the detail page so a finished PR keeps its full result. Not gated on
   // "executing", so it survives to the completed snapshot.
   const resultByPull = {};
-  (round?.liveProgress?.candidates || []).forEach((candidate) => {
+  (challenge?.liveProgress?.candidates || []).forEach((candidate) => {
     const match = /^pr-(\d+)$/.exec(candidate.submission_id || "");
     if (match) {
       resultByPull[Number(match[1])] = candidate;
     }
   });
-  const kingResult = round?.liveProgress?.king || round?.king || null;
-  const projectKeys = selectedProjectKeysFromRound(round);
+  const kingResult = challenge?.liveProgress?.king || challenge?.king || null;
+  const projectKeys = selectedProjectKeysFromChallenge(challenge);
   const selectedProjectCount = projectKeys.length;
-  const replicasPerProject = inferReplicasPerProject(round);
+  const replicasPerProject = inferReplicasPerProject(challenge);
   const passThreshold = projectPassThresholdLabel(replicasPerProject);
 
   // Live-merge each entrant with its published result, then rank by the engine's
@@ -1057,13 +1057,13 @@ function RoundPanel({
 
   // Clicking a row opens a full-width duel page (not a modal), matching the
   // original arena duel layout.
-  if (hasRound && selectedPull === "king") {
+  if (hasChallenge && selectedPull === "king") {
     return (
       <KingDetail
         king={kingResult}
-        progress={round?.liveProgress?.king || null}
-        kingAuthor={roundKingAuthor}
-        kingSubmissionId={roundKingSubmissionId}
+        progress={challenge?.liveProgress?.king || null}
+        kingAuthor={challengeKingAuthor}
+        kingSubmissionId={challengeKingSubmissionId}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
         passThreshold={passThreshold}
@@ -1071,7 +1071,7 @@ function RoundPanel({
       />
     );
   }
-  if (hasRound && selectedEntrant) {
+  if (hasChallenge && selectedEntrant) {
     const result = resultByPull[selectedEntrant.pull_number] || null;
     const candidate = {
       ...selectedEntrant,
@@ -1099,7 +1099,7 @@ function RoundPanel({
       <DuelDetail
         entrant={candidate}
         king={kingResult}
-        kingAuthor={roundKingAuthor}
+        kingAuthor={challengeKingAuthor}
         progress={result}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
@@ -1111,75 +1111,75 @@ function RoundPanel({
   }
 
   return (
-    <div className="round-block">
-      <div className="round-block-head">
+    <div className="challenge-block">
+      <div className="challenge-block-head">
         <span className="showcase-kicker">Arena</span>
-        <SectionTitle title={roundTitle} />
-        <p className="section-lead round-lead">
+        <SectionTitle title={challengeTitle} />
+        <p className="section-lead challenge-lead">
           Live challenge: the challenger is scored against the current king on the same secret
           evaluator-selected projects.
         </p>
       </div>
 
-      {!hasRound ? (
-        <div className="round-empty">
+      {!hasChallenge ? (
+        <div className="challenge-empty">
           <Status label="no challenge running" tone="neutral" />
           <p>
-            No round is running. Once started, live candidate scores and results will appear here.
+            No challenge is running. Once started, live candidate scores and results will appear here.
           </p>
         </div>
       ) : (
-        <section className="table-section round-table">
-          <div className="round-banner">
-            <div className="round-banner-state">
+        <section className="table-section challenge-table">
+          <div className="challenge-banner">
+            <div className="challenge-banner-state">
               <Status
-                label={(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).label}
-                tone={(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).tone}
+                label={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).label}
+                tone={(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).tone}
               />
-              <p>{(ROUND_STATE_BANNER[state] || ROUND_STATE_BANNER.idle).text}</p>
+              <p>{(CHALLENGE_STATE_BANNER[state] || CHALLENGE_STATE_BANNER.idle).text}</p>
             </div>
-            <div className="round-banner-meta">
-              {round.roundNumber ? (
-                <RoundMeta label="round" value={`#${round.roundNumber}`} />
+            <div className="challenge-banner-meta">
+              {challenge.challengeNumber ? (
+                <ChallengeMeta label="challenge" value={`#${challenge.challengeNumber}`} />
               ) : null}
               {kingResult && kingResult.aggregated_score != null ? (
-                <RoundMeta
+                <ChallengeMeta
                   label="king detection"
                   value={formatDetection(kingResult.aggregated_score)}
                 />
               ) : null}
-              <RoundMeta label="project pass" value={`${passThreshold} replicas`} />
-              <RoundMeta label="candidates" value={entrants.length} />
-              {round.generatedAt ? (
-                <RoundMeta
+              <ChallengeMeta label="project pass" value={`${passThreshold} replicas`} />
+              <ChallengeMeta label="candidates" value={entrants.length} />
+              {challenge.generatedAt ? (
+                <ChallengeMeta
                   label={state === "executing" ? "started" : "finished"}
-                  value={formatDateTime(round.generatedAt)}
+                  value={formatDateTime(challenge.generatedAt)}
                 />
               ) : null}
             </div>
           </div>
 
-          {round.note ? (
+          {challenge.note ? (
             <div
-              className={`round-note round-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}
+              className={`challenge-note challenge-note-${state === "skipped" || state === "failed" ? "warn" : "info"}`}
             >
-              {round.note}
+              {challenge.note}
             </div>
           ) : null}
 
-          {round.winnerSubmissionId ? (
-            <div className="round-verdict round-verdict-win">
-              <span className="round-verdict-crown" aria-hidden="true">
+          {challenge.winnerSubmissionId ? (
+            <div className="challenge-verdict challenge-verdict-win">
+              <span className="challenge-verdict-crown" aria-hidden="true">
                 ♔
               </span>
               <div>
-                <strong>New king: {round.winnerSubmissionId}</strong>
+                <strong>New king: {challenge.winnerSubmissionId}</strong>
                 <p>Beat the king and is being promoted.</p>
               </div>
             </div>
           ) : state === "completed" ? (
-            <div className="round-verdict round-verdict-hold">
-              <span className="round-verdict-crown" aria-hidden="true">
+            <div className="challenge-verdict challenge-verdict-hold">
+              <span className="challenge-verdict-crown" aria-hidden="true">
                 ♔
               </span>
               <div>
@@ -1191,14 +1191,14 @@ function RoundPanel({
             </div>
           ) : null}
 
-          <RoundRuleCard
+          <ChallengeRuleCard
             passThreshold={passThreshold}
             replicasPerProject={replicasPerProject}
           />
 
           {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
 
-          <div className="table-head round-grid">
+          <div className="table-head challenge-grid">
             <span>PR</span>
             <span>{state === "completed" ? "rank · entrant" : "entrant"}</span>
             <span>pass score</span>
@@ -1210,7 +1210,7 @@ function RoundPanel({
 
           {kingResult || (live && live.king) ? (
             <div
-              className="table-row round-grid round-row-king round-row-clickable"
+              className="table-row challenge-grid challenge-row-king challenge-row-clickable"
               role="button"
               tabIndex={0}
               title="Open the king's scoring detail"
@@ -1225,8 +1225,8 @@ function RoundPanel({
               <span aria-hidden="true">♔</span>
               <span className="entrant-cell">
                 <EntrantIdentity
-                  author={roundKingAuthor}
-                  submissionId={roundKingSubmissionId || "current king"}
+                  author={challengeKingAuthor}
+                  submissionId={challengeKingSubmissionId || "current king"}
                 />
               </span>
               <span>{formatPassScore(kingResult, selectedProjectCount)}</span>
@@ -1246,7 +1246,7 @@ function RoundPanel({
           {rankedEntrants.length ? (
             rankedEntrants.map((entrant, index) => (
               <div
-                className="table-row round-grid round-row-clickable"
+                className="table-row challenge-grid challenge-row-clickable"
                 key={entrant.pull_number}
                 role="button"
                 tabIndex={0}
@@ -1287,9 +1287,9 @@ function RoundPanel({
             <Empty text="No challenger entered this challenge." />
           )}
 
-          {roundExtras(round).length ? (
-            <div className="round-extras">
-              {roundExtras(round).map((text) => (
+          {challengeExtras(challenge).length ? (
+            <div className="challenge-extras">
+              {challengeExtras(challenge).map((text) => (
                 <span key={text}>{text}</span>
               ))}
             </div>
@@ -1600,10 +1600,10 @@ function KingDetail({
       : projects.map((project) => project.project_key);
   const name = kingAuthor || kingSubmissionId || "Current king";
   return (
-    <div className="round-block duel-page">
+    <div className="challenge-block duel-page">
       <div className="duel-detail-topbar">
         <button type="button" className="button" onClick={onBack}>
-          ← Back to round
+          ← Back to challenge
         </button>
         <div className="duel-detail-title">
           <span className="rstat rstat-king">♔ current king</span>
@@ -1771,15 +1771,15 @@ function DuelDetail({
   const onlyScreeningFailure = Boolean(screeningFailure && !projects.length);
 
   return (
-    <div className="round-block duel-page">
+    <div className="challenge-block duel-page">
       <div className="duel-detail-topbar">
         <button type="button" className="button" onClick={onBack}>
-          ← Back to round
+          ← Back to challenge
         </button>
         <div className="duel-detail-title">
           <EntrantIdentity author={entrant.author} submissionId={entrant.submission_id} />
           {prLabel(kataRepoSlug, entrant.pull_number)}
-          <RoundStatusPill status={entrant.status} />
+          <ChallengeStatusPill status={entrant.status} />
         </div>
       </div>
 
@@ -1787,7 +1787,7 @@ function DuelDetail({
         <div className="screening-failure-panel">
           <div>
             <Status label="screening failed" tone="bad" />
-            <strong>Round-start execution screener failed</strong>
+            <strong>Challenge-start execution screener failed</strong>
             <p>
               This PR passed intake earlier, but it did not run cleanly in the one-project execution
               smoke test, so it did not enter main scoring.
@@ -2183,9 +2183,9 @@ function formatPackLabel(value) {
   return normalized.replace(/\bsn(\d+)\b/gi, "SN$1").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function RoundMeta({ label, value }) {
+function ChallengeMeta({ label, value }) {
   return (
-    <div className="round-meta">
+    <div className="challenge-meta">
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -2201,9 +2201,9 @@ function ScreeningGatePanel({ screening }) {
   const next = nextScreeningEntry(screening);
   const headline = screeningHeadline(screening);
   return (
-    <div className="round-screening-gate">
-      <div className="round-screening-head">
-        <div className="round-screening-title">
+    <div className="challenge-screening-gate">
+      <div className="challenge-screening-head">
+        <div className="challenge-screening-title">
           <span>screening gate</span>
           <strong>{headline}</strong>
           <small>
@@ -2217,7 +2217,7 @@ function ScreeningGatePanel({ screening }) {
           tone="screening"
         />
       </div>
-      <div className="round-screening-meta" aria-label="Screening status counts">
+      <div className="challenge-screening-meta" aria-label="Screening status counts">
         <ScreeningCount label="cleared" value={screening.passed || 0} tone="passed" />
         <ScreeningCount label="screening" value={screening.running || 0} tone="running" />
         <ScreeningCount label="waiting" value={screening.queued || 0} tone="queued" />
@@ -2233,7 +2233,7 @@ function ScreeningGatePanel({ screening }) {
           <ScreeningCount label="next" value={`#${next.pullNumber}`} tone="queued" />
         ) : null}
       </div>
-      <div className="round-screening-steps" aria-label="Per-PR screening progress">
+      <div className="challenge-screening-steps" aria-label="Per-PR screening progress">
         {(screening.entries || []).map((entry) => (
           <div
             className={`screening-step screening-step-${entry.state}`}
@@ -2356,7 +2356,7 @@ function renderEntrantStatus(entrant, progress, screening) {
   if (screening) {
     return <ScreeningStatusBadge screening={screening} />;
   }
-  return <RoundStatusPill status={entrant.status} />;
+  return <ChallengeStatusPill status={entrant.status} />;
 }
 
 function ScreeningStatusBadge({ screening }) {
@@ -2401,42 +2401,42 @@ function prLabel(kataRepoSlug, pullNumber) {
   );
 }
 
-function RoundHistory({ rounds }) {
-  if (!rounds || !rounds.length) {
+function ChallengeHistory({ challenges }) {
+  if (!challenges || !challenges.length) {
     return null;
   }
   return (
-    <div className="round-block">
-      <div className="round-block-head">
+    <div className="challenge-block">
+      <div className="challenge-block-head">
         <SectionTitle title="Recent challenges" />
         <p className="section-lead">Highlights from completed challenges.</p>
       </div>
       <section className="table-section leaderboard-table">
-        <div className="table-head round-hist-grid">
-          <span>round</span>
+        <div className="table-head challenge-hist-grid">
+          <span>challenge</span>
           <span>highlights</span>
           <span>best detection</span>
           <span>finished</span>
         </div>
-        {rounds.slice(0, 12).map((round, index) => (
-          <div className="table-row round-hist-grid" key={round.runId || index}>
-            <span className="round-hist-title">
-              <strong>{round.roundNumber ? `Round ${round.roundNumber}` : "Round"}</strong>
-              <small>{round.headline || "Challenge"}</small>
+        {challenges.slice(0, 12).map((challenge, index) => (
+          <div className="table-row challenge-hist-grid" key={challenge.runId || index}>
+            <span className="challenge-hist-title">
+              <strong>{challenge.challengeNumber ? `Challenge ${challenge.challengeNumber}` : "Challenge"}</strong>
+              <small>{challenge.headline || "Challenge"}</small>
             </span>
-            <span className="round-hist-badges">
-              {round.achievements?.length ? (
-                round.achievements.map((item) => (
+            <span className="challenge-hist-badges">
+              {challenge.achievements?.length ? (
+                challenge.achievements.map((item) => (
                   <span className="rstat rstat-winner" key={item}>
                     {item}
                   </span>
                 ))
               ) : (
-                <span className="round-hist-quiet">no new king</span>
+                <span className="challenge-hist-quiet">no new king</span>
               )}
             </span>
-            <span>{formatDetection(round.bestDetection)}</span>
-            <span>{formatDateTime(round.generatedAt)}</span>
+            <span>{formatDetection(challenge.bestDetection)}</span>
+            <span>{formatDateTime(challenge.generatedAt)}</span>
           </div>
         ))}
       </section>
@@ -2444,10 +2444,10 @@ function RoundHistory({ rounds }) {
   );
 }
 
-function Arena({ selectedLane, round, roundHistory, kataRepoSlug }) {
+function Arena({ selectedLane, challenge, challengeHistory, kataRepoSlug }) {
   const [selectedPull, setSelectedPull] = useState(null);
-  const entrants = round?.entrants || [];
-  // A duel detail page is open — hide everything else (recent rounds) so the page
+  const entrants = challenge?.entrants || [];
+  // A duel detail page is open — hide everything else (recent challenges) so the page
   // shows only that PR's duel.
   const detailOpen =
     selectedPull === "king" ||
@@ -2455,8 +2455,8 @@ function Arena({ selectedLane, round, roundHistory, kataRepoSlug }) {
 
   return (
     <div className="stack">
-      <RoundPanel
-        round={round}
+      <ChallengePanel
+        challenge={challenge}
         kataRepoSlug={kataRepoSlug}
         kingAuthor={selectedLane?.king?.author || null}
         kingSubmissionId={selectedLane?.king?.submissionId || null}
@@ -2464,7 +2464,7 @@ function Arena({ selectedLane, round, roundHistory, kataRepoSlug }) {
         setSelectedPull={setSelectedPull}
       />
 
-      {!detailOpen ? <RoundHistory rounds={roundHistory} /> : null}
+      {!detailOpen ? <ChallengeHistory challenges={challengeHistory} /> : null}
     </div>
   );
 }
@@ -2686,7 +2686,7 @@ function DocOverview({ selectedLane, links }) {
       <div className="doc-metrics">
         <KeyValue label="current target" value={selectedLane?.repoName || "Bitsec / SN60"} />
         <KeyValue label="agent type" value={selectedLane?.mode || "miner"} />
-        <KeyValue label="challenge format" value={docsRoundFormat(selectedLane)} />
+        <KeyValue label="challenge format" value={docsChallengeFormat(selectedLane)} />
         <KeyValue
           label="promotion rule"
           value={selectedLane ? promotionGate(selectedLane) : "project pass score first"}
@@ -2841,7 +2841,7 @@ function DocMiner({ links, selectedLane }) {
         title="How a PR can stop"
         items={[
           "Static screening fails: the PR closes early with a clear reason and no scoring cost.",
-          "Round-start smoke test fails: the PR closes as kata:invalid before scoring.",
+          "Challenge-start smoke test fails: the PR closes as kata:invalid before scoring.",
           "Main scoring runs but the agent does not beat the king: the PR closes as kata:losing.",
           "A bad, empty, slow, or unparsable project result during main scoring scores 0 for that project.",
         ]}
@@ -2885,7 +2885,7 @@ function DocMiner({ links, selectedLane }) {
 }
 
 function DocScoring({ selectedLane }) {
-  const benchmarkText = `${docsRoundFormat(selectedLane)} pinned by the evaluator for the challenge.`;
+  const benchmarkText = `${docsChallengeFormat(selectedLane)} pinned by the evaluator for the challenge.`;
   const promotionOrder = [
     [
       "1",
@@ -2974,9 +2974,9 @@ function DocScoring({ selectedLane }) {
       <DocGrid>
         <DocCard
           title="kata:pending"
-          text="Screened and waiting for the next round, or kept open because it beat the king but was not the top winner."
+          text="Screened and waiting for the next challenge, or kept open because it beat the king but was not the top winner."
         />
-        <DocCard title="kata:winner" text="Won the round, merged, and promoted as the new king." />
+        <DocCard title="kata:winner" text="Won the challenge, merged, and promoted as the new king." />
         <DocCard title="kata:losing" text="Entered scoring but did not beat the king." />
         <DocCard
           title="kata:invalid"
@@ -2987,18 +2987,18 @@ function DocScoring({ selectedLane }) {
       <p>
         Static screening runs at PR intake/update and uses cheap source-only checks: no model calls
         and no scoring cost. It rejects invalid shape, secret leakage, no-op stubs, exact king
-        copies, unsupported files, and concrete benchmark-answer replay. The round-start executable
+        copies, unsupported files, and concrete benchmark-answer replay. The challenge-start executable
         smoke test then runs the agent once on a real project and checks that it returns a valid
         vulnerabilities report. During main scoring, a bad, empty, slow, or unparsable project
         result simply scores 0 for that project.
       </p>
       <CodeBlock
-        value={`project_pass_score = passed_projects / selected_projects\n\ndetection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  intake static screening passed\n  round-start executable smoke test passed\n  candidate strictly outranks king on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error evaluations\n    precision\n    f1 score`}
+        value={`project_pass_score = passed_projects / selected_projects\n\ndetection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  candidate strictly outranks king on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error evaluations\n    precision\n    f1 score`}
       />
       <h2>Reading the live board</h2>
       <p>
-        The Arena view shows the current round — every candidate and the king — as it runs, plus a
-        highlights feed of past rounds. A few terms map straight to the scoring above.
+        The Arena view shows the current challenge — every candidate and the king — as it runs, plus a
+        highlights feed of past challenges. A few terms map straight to the scoring above.
       </p>
       <DocGrid>
         <DocCard
@@ -3038,15 +3038,15 @@ function DocListCard({ title, items }) {
 function DocValidator({ links, selectedLane }) {
   return (
     <section>
-      <p className="kicker">Round</p>
+      <p className="kicker">Challenge</p>
       <h1>What happens after your PR becomes pending</h1>
       <p>
-        Kata does not score every PR immediately. A valid PR waits for the next scheduled round.
-        When the round starts, all pending candidates compete under the same rules, the same
+        Kata does not score every PR immediately. A valid PR waits for the next scheduled challenge.
+        When the challenge starts, all pending candidates compete under the same rules, the same
         evaluator-selected projects and the same scoring rules.
       </p>
 
-      <h2>Round checklist</h2>
+      <h2>Challenge checklist</h2>
       <DocSteps
         items={[
           [
@@ -3067,7 +3067,7 @@ function DocValidator({ links, selectedLane }) {
           ],
           [
             "Evaluator replicas",
-            "The evaluator records its replica count and pass threshold in the Arena and public round proof.",
+            "The evaluator records its replica count and pass threshold in the Arena and public challenge proof.",
           ],
           [
             "Winner promoted",
@@ -3076,7 +3076,7 @@ function DocValidator({ links, selectedLane }) {
         ]}
       />
 
-      <h2>Round constraints</h2>
+      <h2>Challenge constraints</h2>
       <p>
         These shared controls make the evaluation reproducible while each miner remains responsible
         for its own inference costs.
@@ -3095,23 +3095,23 @@ function DocValidator({ links, selectedLane }) {
           text="Agents use the in-room gateway; direct public egress and embedded secrets are blocked."
         />
         <DocCard
-          title="Round proof"
-          text="The evaluator publishes the benchmark, replica, scoring, and promotion evidence for the completed round."
+          title="Challenge proof"
+          text="The evaluator publishes the benchmark, replica, scoring, and promotion evidence for the completed challenge."
         />
       </DocGrid>
 
       <h2>Selected projects</h2>
       <p>
-        Each round uses a selected benchmark set. Every candidate sees the same set, and the result
-        page shows the selected project names after the round.
+        Each challenge uses a selected benchmark set. Every candidate sees the same set, and the result
+        page shows the selected project names after the challenge.
       </p>
       <p>
-        The selected lane currently uses <strong>{docsRoundFormat(selectedLane)}</strong>. The exact
+        The selected lane currently uses <strong>{docsChallengeFormat(selectedLane)}</strong>. The exact
         project IDs are not something contributors should hardcode against.
       </p>
 
       <h2>What you can see</h2>
-      <p>The Arena page shows live progress during a round and final proof after it ends.</p>
+      <p>The Arena page shows live progress during a challenge and final proof after it ends.</p>
       <DocGrid>
         <DocCard
           title="Live status"
@@ -3124,7 +3124,7 @@ function DocValidator({ links, selectedLane }) {
         <DocCard title="Final ranking" text="Who won, who beat the king, who lost, and why." />
         <DocCard
           title="Proof"
-          text="Round timing, selected projects, aggregate metrics, and public result files."
+          text="Challenge timing, selected projects, aggregate metrics, and public result files."
         />
       </DocGrid>
 
@@ -3145,7 +3145,7 @@ function DocMilestones() {
       <h1>How Kata shows progress</h1>
       <p>
         Kata should not ask contributors to trust vague claims. The dashboard and public proof files
-        show what happened in each round: who competed, which agent won, how many true positives
+        show what happened in each challenge: who competed, which agent won, how many true positives
         were found, and whether the current king improved.
       </p>
       <MilestoneList
@@ -3157,18 +3157,18 @@ function DocMilestones() {
           ],
           [
             "complete",
-            "Round proof",
-            "Completed rounds publish selected projects, candidate counts, true positives, precision, duration, and winner status.",
+            "Challenge proof",
+            "Completed challenges publish selected projects, candidate counts, true positives, precision, duration, and winner status.",
           ],
           [
             "complete",
             "Live arena",
-            "During a round, contributors can watch execution status and per-project progress.",
+            "During a challenge, contributors can watch execution status and per-project progress.",
           ],
           [
             "current",
             "Public proof",
-            "Kata publishes the current king and latest completed round proof in the public repository.",
+            "Kata publishes the current king and latest completed challenge proof in the public repository.",
           ],
           [
             "next",
@@ -3189,7 +3189,7 @@ function DocMilestones() {
       />
       <DocCallout
         title="What contributors should look at"
-        text="Use the Arena for round details, the Leaderboard for historical ranking, and the Winners page for the current king. If a claim is real, it should show up there with numbers."
+        text="Use the Arena for challenge details, the Leaderboard for historical ranking, and the Winners page for the current king. If a claim is real, it should show up there with numbers."
       />
     </section>
   );
@@ -3416,7 +3416,7 @@ function Empty({ text }) {
   return <div className="empty">{text}</div>;
 }
 
-function docsRoundFormat(selectedLane) {
+function docsChallengeFormat(selectedLane) {
   const count = selectedLane?.projects?.length;
   if (count) {
     return `${count} evaluator-selected benchmark project${count === 1 ? "" : "s"}`;

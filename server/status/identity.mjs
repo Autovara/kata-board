@@ -1,10 +1,10 @@
 // Contributor identity aliasing: map submission ids / inferred authors to the
-// canonical GitHub login so round entrants and kings display consistently.
+// canonical GitHub login so challenge entrants and kings display consistently.
 import { inferSubmissionAuthorFromId } from "../../shared/submissionAuthor.mjs";
 
-export function buildIdentityAliases({ validator, round }) {
+export function buildIdentityAliases({ validator, challenge }) {
   const aliases = new Map();
-  for (const entrant of round?.entrants || []) {
+  for (const entrant of challenge?.entrants || []) {
     const login = entrant?.author || null;
     const submissionId = entrant?.submission_id || entrant?.submissionId || null;
     if (!login || !submissionId) {
@@ -19,7 +19,7 @@ export function buildIdentityAliases({ validator, round }) {
   if (!login || !pullNumber || active?.finalAction !== "merge") {
     return aliases;
   }
-  const winnerEntrant = (round?.entrants || []).find(
+  const winnerEntrant = (challenge?.entrants || []).find(
     (entrant) => entrant?.pull_number === pullNumber
   );
   if (!winnerEntrant?.submission_id) {
@@ -48,14 +48,14 @@ export function resolveAuthorAlias(author, aliases = new Map()) {
   return aliases.get(value) || aliases.get(value.toLowerCase()) || author;
 }
 
-export function applyRoundIdentityAliases(round, identityAliases = new Map()) {
-  if (!round) {
-    return round;
+export function applyChallengeIdentityAliases(challenge, identityAliases = new Map()) {
+  if (!challenge) {
+    return challenge;
   }
   return {
-    ...round,
-    kingAuthor: resolveAuthorAlias(round.kingAuthor, identityAliases),
-    entrants: (round.entrants || []).map((entrant) => ({
+    ...challenge,
+    kingAuthor: resolveAuthorAlias(challenge.kingAuthor, identityAliases),
+    entrants: (challenge.entrants || []).map((entrant) => ({
       ...entrant,
       author: resolveAuthorAlias(entrant.author, identityAliases),
     })),

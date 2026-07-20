@@ -64,10 +64,10 @@ app.get("/api/stream", async (_request, response) => {
       if (closed) {
         return;
       }
-      // Gate on a stamp that also reflects live round progress. On a cache hit
-      // loadBoardStatus refreshes round.liveProgress but keeps the same
-      // generatedAt, so gating on generatedAt alone would drop every mid-round
-      // progress frame and the round would only animate once per cache TTL.
+      // Gate on a stamp that also reflects live challenge progress. On a cache hit
+      // loadBoardStatus refreshes challenge.liveProgress but keeps the same
+      // generatedAt, so gating on generatedAt alone would drop every mid-challenge
+      // progress frame and the challenge would only animate once per cache TTL.
       const stamp = streamStamp(payload);
       if (stamp !== lastStamp) {
         lastStamp = stamp;
@@ -139,10 +139,10 @@ if (isMainModule) {
 }
 
 // A stream identity for the payload: the generatedAt timestamp plus the live
-// round progress, which changes on a cache hit while generatedAt does not.
+// challenge progress, which changes on a cache hit while generatedAt does not.
 export function streamStamp(payload) {
-  const progress = payload?.round?.liveProgress;
-  // Include EACH lane's live progress so the SSE stream also pushes multi-lane round updates
+  const progress = payload?.challenge?.liveProgress;
+  // Include EACH lane's live progress so the SSE stream also pushes multi-lane challenge updates
   // (byLane progress advances on a cache hit while generatedAt does not).
   const byLane = payload?.byLane;
   let laneProgress = "";
@@ -150,7 +150,7 @@ export function streamStamp(payload) {
     laneProgress = Object.keys(byLane)
       .sort()
       .map((id) => {
-        const p = byLane[id]?.round?.liveProgress;
+        const p = byLane[id]?.challenge?.liveProgress;
         return `${id}:${p ? JSON.stringify(p) : ""}`;
       })
       .join("|");

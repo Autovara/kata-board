@@ -15,7 +15,7 @@ const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
 // keyed to request *rate*, not the hourly budget -- so swapping tokens can't
 // dodge it. This gate reserves a slot per request, pacing even concurrent
 // callers. It only slows the background leaderboard build; the real-time
-// round/king status is served from local files and is never gated here.
+// challenge/king status is served from local files and is never gated here.
 let githubNextRequestAt = 0;
 function githubMinRequestIntervalMs() {
   const raw = Number(process.env.KATA_GITHUB_MIN_REQUEST_INTERVAL_MS);
@@ -50,7 +50,7 @@ export async function loadGithubLeaderboard({ repoSlug, githubToken, githubToken
     // A kata submission PR is identifiable by its kata:* labels (the bot labels
     // every submission), so relevance and lane are derived from labels rather
     // than fetching per-PR files. That per-PR file fetch was an N+1 that tripped
-    // GitHub's secondary rate limit -- especially while a round runs and hits
+    // GitHub's secondary rate limit -- especially while a challenge runs and hits
     // the same GitHub source -- degrading the board to a stale "GitHub
     // unavailable" fallback. The PR list already carries labels, so one cheap
     // paginated query yields a complete, real-time leaderboard.
@@ -211,7 +211,7 @@ function isKataWinnerPull(pull) {
 
 // A dethroned king carries `kata:defeat:<subnet-pack>` (its winner label was
 // stripped on promotion of the next king). It is no longer the current king,
-// but it did win a round, so it still counts toward a contributor's history.
+// but it did win a challenge, so it still counts toward a contributor's history.
 function isKataDefeatedPull(pull) {
   const labels = normalizeLabelNames(pull?.labels);
   return labels.some((label) => label.startsWith("kata:defeat:"));

@@ -666,31 +666,31 @@ button {
   color: var(--muted);
 }
 
-.battle-progress {
-  width: 100%;
-  margin-top: 12px;
+/* per-side problem-progress bar, sits in row 2 of the hero grid (below each card) */
+.side-progress {
   display: grid;
-  gap: 5px;
+  gap: 6px;
+  align-content: start;
 }
-.battle-progress-head {
+.side-progress-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
-.battle-progress-head span {
+.side-progress-head span {
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.battle-progress-head strong {
+.side-progress-head strong {
   color: var(--text);
   font-size: 13px;
   font-family: "IBM Plex Mono", monospace;
 }
-.battle-progress small {
+.side-progress small {
   color: var(--muted);
   font-size: 11px;
 }

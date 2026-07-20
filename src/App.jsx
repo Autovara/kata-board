@@ -1506,9 +1506,6 @@ function DuelDetail({
                 score={kingPassScore}
                 scoreLabel="project pass score"
                 won={decided && !won}
-                progress={
-                  king ? { done: king.done, total: king.total, state: king.state } : null
-                }
               />
               <div className="battle-mid">
                 <div className="vs">VS</div>
@@ -1547,11 +1544,21 @@ function DuelDetail({
                 score={candidatePassScore}
                 scoreLabel="project pass score"
                 won={won}
+              />
+              <SideProgressBar
+                progress={king ? { done: king.done, total: king.total, state: king.state } : null}
+                role="king"
+                label="king"
+              />
+              <div aria-hidden="true" />
+              <SideProgressBar
                 progress={
                   progress
                     ? { done: progress.done, total: progress.total, state: progress.state }
                     : null
                 }
+                role="candidate"
+                label="challenger"
               />
             </div>
           </div>
@@ -1739,17 +1746,7 @@ function BattleSide({
   crown,
   won,
   pr = null,
-  progress = null,
 }) {
-  const hasProgress = progress && Number(progress.total) > 0;
-  const stateLabel =
-    progress?.state === "scoring"
-      ? "scoring…"
-      : progress?.state === "done"
-        ? "scored"
-        : progress?.state === "queued"
-          ? "waiting to score"
-          : progress?.state || "";
   return (
     <div className={`battle-side battle-side-${role} ${won ? "battle-side-won" : ""}`}>
       {crown ? (
@@ -1766,22 +1763,36 @@ function BattleSide({
         <strong>{score}</strong>
         <small>{scoreLabel}</small>
       </div>
-      {hasProgress ? (
-        <div className="battle-progress">
-          <div className="battle-progress-head">
-            <span>problem progress</span>
-            <strong>
-              {Number(progress.done || 0)}/{Number(progress.total)}
-            </strong>
-          </div>
-          <ProgressBar
-            done={Number(progress.done || 0)}
-            total={Number(progress.total)}
-            tone={role}
-          />
-          {stateLabel ? <small>{stateLabel}</small> : null}
-        </div>
-      ) : null}
+    </div>
+  );
+}
+
+// A per-side "problem progress" bar rendered BELOW its hero card (outside the box), in
+// the second row of the hero grid so it lines up under the card.
+function SideProgressBar({ progress, role, label }) {
+  if (!progress || Number(progress.total) <= 0) {
+    return <div aria-hidden="true" />; // keep the grid cell so alignment holds
+  }
+  const done = Number(progress.done || 0);
+  const total = Number(progress.total);
+  const stateLabel =
+    progress.state === "scoring"
+      ? "scoring…"
+      : progress.state === "done"
+        ? "scored"
+        : progress.state === "queued"
+          ? "waiting to score"
+          : progress.state || "";
+  return (
+    <div className={`side-progress side-progress-${role}`}>
+      <div className="side-progress-head">
+        <span>{label} · problem progress</span>
+        <strong>
+          {done}/{total}
+        </strong>
+      </div>
+      <ProgressBar done={done} total={total} tone={role} />
+      {stateLabel ? <small>{stateLabel}</small> : null}
     </div>
   );
 }

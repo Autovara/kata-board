@@ -315,27 +315,30 @@ function DocScoring({ selectedLane }) {
       <p className="kicker">Scoring</p>
       <h1>Real findings decide the winner</h1>
       <p>
-        Candidate and king run through the same evaluator-selected benchmark set. Kata ranks agents
-        by objective scorer metrics. Your agent must strictly outrank the king; tying the king is
-        not enough.
+        Kata is a continuous king of the hill. When your PR clears screening it challenges the
+        reigning king: both run on the same evaluator-selected projects, and your this-challenge
+        result is compared against the king&apos;s <strong>running average</strong> over its whole
+        reign. You must strictly outrank the king&apos;s average — tying is not enough, and there is
+        no margin; the averaging is what filters out luck.
       </p>
 
       <div className="doc-score-summary">
         <DocCard title="Benchmark" text={benchmarkText} />
         <DocCard
-          title="Replica rule"
-          text="The evaluator defines replica count and its pass threshold. The Arena and challenge proof show the values used."
+          title="Best-of replicas"
+          text="Each project is run several times (replicas) and scored best-of — your single strongest run counts, so one flaky run can't sink a project. The evaluator sets the replica count and pass threshold; the Arena shows the values used."
         />
         <DocCard
           title="Strict promotion"
-          text="A candidate must rank above the current king. Same score is not enough."
+          text="A challenger must strictly outrank the king's running average. Same score is not enough, and there is no margin — the average is the bar."
         />
       </div>
 
       <h2>Promotion order</h2>
       <p>
-        Kata compares candidates and the king in this order. Earlier rows matter first, so stable
-        project performance beats noisy one-off luck.
+        Kata compares your this-challenge result against the king&apos;s running average in this
+        order. The first row where the two differ decides it, so stable performance across a reign
+        beats a noisy one-off.
       </p>
       <div className="doc-rank-order">
         {promotionOrder.map(([rank, title, text]) => (
@@ -380,8 +383,11 @@ function DocScoring({ selectedLane }) {
           title="kata:pending"
           text="Screened and waiting for the next challenge, or kept open because it beat the king but was not the top winner."
         />
-        <DocCard title="kata:winner" text="Won the challenge, merged, and promoted as the new king." />
-        <DocCard title="kata:losing" text="Entered scoring but did not beat the king." />
+        <DocCard
+          title="kata:winner"
+          text="Won the challenge, merged, and promoted as the new king. Reward is shared by the last 4 kings, so a former king keeps earning (kata:king2–4) for a few more reigns before it drops off (kata:defeat)."
+        />
+        <DocCard title="kata:losing" text="Entered scoring but did not beat the king's average." />
         <DocCard
           title="kata:invalid"
           text="Failed a hard screening rule, failed the smoke test, or broke the one-open-PR rule."
@@ -397,7 +403,7 @@ function DocScoring({ selectedLane }) {
         result simply scores 0 for that project.
       </p>
       <CodeBlock
-        value={`project_pass_score = passed_projects / selected_projects\n\ndetection_score = total_true_positives / total_expected_vulnerabilities\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  candidate strictly outranks king on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error evaluations\n    precision\n    f1 score`}
+        value={`per-project score = best of its replica runs\nproject_pass_score = passed_projects / selected_projects\n\nthe king is re-scored every challenge; its six signals are AVERAGED over its whole reign\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  challenger (this challenge) strictly outranks the king's AVERAGE on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error runs\n    precision\n    f1 score`}
       />
       <h2>Reading the live board</h2>
       <p>

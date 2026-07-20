@@ -139,11 +139,16 @@ export default function App() {
       source.onmessage = (event) => {
         lastFrameAt = Date.now();
         receivedAny = true;
+        let parsed;
         try {
-          applyPayload(JSON.parse(event.data));
+          parsed = JSON.parse(event.data);
         } catch {
-          // ignore a malformed frame; the next one will refresh state
+          return; // ignore a malformed frame; the next one will refresh state
         }
+        if (parsed && parsed.__heartbeat) {
+          return; // liveness only — do not replace state (avoids idle re-render flashes)
+        }
+        applyPayload(parsed);
       };
       source.onerror = () => {
         if (!receivedAny && source) {
@@ -800,38 +805,6 @@ function DashboardOperations({ payload, latestStatus, generatedAt }) {
   );
 }
 
-function ChallengeRuleCard({ passThreshold, replicasPerProject }) {
-  return (
-    <div className="challenge-rule-card">
-      <div>
-        <span>promotion rule</span>
-        <strong>Outrank the king on SN60&apos;s promotion order</strong>
-        <p>
-          The challenger and the king are scored on the same secret projects, then compared
-          top-to-bottom on the signals on the right. The <em>first</em> signal where they differ
-          decides it — a lower signal only matters when everything above it ties. There is no
-          margin: the challenger just has to rank strictly higher.
-        </p>
-        <p>
-          How the score is built: each project is scored <em>best of {replicasPerProject}</em> run
-          {replicasPerProject === 1 ? "" : "s"} — its single strongest run, never the sum — then
-          added up across projects. A project &ldquo;passes&rdquo; when a two-thirds majority of its{" "}
-          <em>successful</em> runs find every bug ({passThreshold}); infra-failed runs are excluded,
-          so a flaked run never turns a pass into a fail.
-        </p>
-      </div>
-      <ol>
-        <li>Pass score (projects fully solved)</li>
-        <li>Projects passed</li>
-        <li>True positives (real bugs found)</li>
-        <li>Fewer invalid runs</li>
-        <li>Precision</li>
-        <li>F1 score</li>
-      </ol>
-    </div>
-  );
-}
-
 function ChallengePanel({
   challenge,
   kataRepoSlug,
@@ -1054,7 +1027,6 @@ function ChallengePanel({
       {banner}
       {note}
       {verdict}
-      <ChallengeRuleCard passThreshold={passThreshold} replicasPerProject={replicasPerProject} />
       {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
     </>
   );
@@ -1065,6 +1037,8 @@ function ChallengePanel({
         entrant={primaryEntrant}
         king={kingResult}
         kingAuthor={challengeKingAuthor}
+        kingRankAverage={challenge?.kingRankAverage || null}
+        kingRankSamples={challenge?.kingRankSamples || 0}
         progress={primaryProgress}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
@@ -1092,7 +1066,6 @@ function ChallengePanel({
           {banner}
           {note}
           {verdict}
-          <ChallengeRuleCard passThreshold={passThreshold} replicasPerProject={replicasPerProject} />
           <Empty text="No challenger has entered yet — the king holds the crown until one does." />
         </>
       )}
@@ -1427,6 +1400,8 @@ function DuelDetail({
   entrant,
   king,
   kingAuthor,
+  kingRankAverage = null,
+  kingRankSamples = 0,
   kataRepoSlug,
   progress,
   projectKeys,
@@ -1462,6 +1437,33 @@ function DuelDetail({
   const kingPassRatio = entrantPassScore(king, problemKeys.length);
   const candidatePassedProjects = entrantPassCount(entrant);
   const kingPassedProjects = entrantPassCount(king);
+  // The gate compares the candidate against the king's AVERAGE over its reign, so show
+  // that average in the decision ladder when we have it (a fresh king with no reign
+  // history falls back to its this-challenge scores).
+  const kingIsAverage = Boolean(kingRankAverage);
+  const kingLadder = kingIsAverage
+    ? {
+        passRatio: Number(kingRankAverage.pass_score || 0),
+        passScore: `${Math.round(Number(kingRankAverage.pass_score || 0) * 100)}%`,
+        projectsPassed: Number(kingRankAverage.codebase_pass_count || 0),
+        truePositives: Number(kingRankAverage.true_positives || 0),
+        totalExpected: null,
+        totalFound: null,
+        invalidRuns: Number(kingRankAverage.invalid_runs || 0),
+        precision: Number(kingRankAverage.precision || 0),
+        f1: Number(kingRankAverage.f1_score || 0),
+      }
+    : {
+        passRatio: kingPassRatio,
+        passScore: kingPassScore,
+        projectsPassed: kingPassedProjects,
+        truePositives: king?.true_positives,
+        totalExpected: king?.total_expected,
+        totalFound: king?.total_found,
+        invalidRuns: king ? Number(king.invalid_runs || 0) : null,
+        precision: king?.precision,
+        f1: king?.f1_score,
+      };
   const screeningFailure = screeningFailureDetails(entrant) || screeningFailureDetails(progress);
   const onlyScreeningFailure = Boolean(screeningFailure && !projects.length);
 
@@ -1613,17 +1615,9 @@ function DuelDetail({
             precision: entrant.precision,
             f1: entrant.f1_score,
           }}
-          king={{
-            passRatio: kingPassRatio,
-            passScore: kingPassScore,
-            projectsPassed: kingPassedProjects,
-            truePositives: king?.true_positives,
-            totalExpected: king?.total_expected,
-            totalFound: king?.total_found,
-            invalidRuns: king ? Number(king.invalid_runs || 0) : null,
-            precision: king?.precision,
-            f1: king?.f1_score,
-          }}
+          king={kingLadder}
+          kingIsAverage={kingIsAverage}
+          kingLabel={kingIsAverage ? `king · avg of ${kingRankSamples}` : "king"}
         />
       )}
 
@@ -1642,7 +1636,12 @@ function DuelDetail({
   );
 }
 
-function DecisionLadder({ candidate, king }) {
+function DecisionLadder({ candidate, king, kingIsAverage = false, kingLabel = "king" }) {
+  // Averaged king signals are fractional, so show them as decimals / percentages.
+  const kingNum = kingIsAverage
+    ? (value) => (value == null ? "—" : Number(value).toFixed(1))
+    : formatMetricNumber;
+  const kingPct = (value) => (value == null ? "—" : `${Math.round(Number(value) * 100)}%`);
   const steps = [
     {
       rank: 1,
@@ -1662,7 +1661,7 @@ function DecisionLadder({ candidate, king }) {
       candidateValue: candidate.projectsPassed,
       kingValue: king.projectsPassed,
       candidateDisplay: formatMetricNumber(candidate.projectsPassed),
-      kingDisplay: formatMetricNumber(king.projectsPassed),
+      kingDisplay: kingNum(king.projectsPassed),
       higherIsBetter: true,
       primary: true,
     },
@@ -1673,7 +1672,7 @@ function DecisionLadder({ candidate, king }) {
       candidateValue: candidate.truePositives,
       kingValue: king.truePositives,
       candidateDisplay: formatMetricNumber(candidate.truePositives),
-      kingDisplay: formatMetricNumber(king.truePositives),
+      kingDisplay: kingNum(king.truePositives),
       higherIsBetter: true,
     },
     {
@@ -1683,7 +1682,7 @@ function DecisionLadder({ candidate, king }) {
       candidateValue: candidate.invalidRuns,
       kingValue: king.invalidRuns,
       candidateDisplay: formatMetricNumber(candidate.invalidRuns),
-      kingDisplay: formatMetricNumber(king.invalidRuns),
+      kingDisplay: kingNum(king.invalidRuns),
       higherIsBetter: false,
     },
     {
@@ -1697,7 +1696,9 @@ function DecisionLadder({ candidate, king }) {
         candidate.truePositives,
         candidate.totalFound
       ),
-      kingDisplay: precisionFindingFigure(king.precision, king.truePositives, king.totalFound),
+      kingDisplay: kingIsAverage
+        ? kingPct(king.precision)
+        : precisionFindingFigure(king.precision, king.truePositives, king.totalFound),
       higherIsBetter: true,
     },
     {
@@ -1712,12 +1713,9 @@ function DecisionLadder({ candidate, king }) {
         candidate.totalExpected,
         candidate.totalFound
       ),
-      kingDisplay: f1FindingFigure(
-        king.f1,
-        king.truePositives,
-        king.totalExpected,
-        king.totalFound
-      ),
+      kingDisplay: kingIsAverage
+        ? kingPct(king.f1)
+        : f1FindingFigure(king.f1, king.truePositives, king.totalExpected, king.totalFound),
       higherIsBetter: true,
     },
   ];
@@ -1731,8 +1729,9 @@ function DecisionLadder({ candidate, king }) {
           <span>promotion priority</span>
           <strong>How this matchup is ranked</strong>
           <p>
-            Kata checks these signals in order. Lower priority metrics matter only when every signal
-            above them is tied.
+            The challenger&apos;s score is compared, in order, against{" "}
+            {kingIsAverage ? "the king's average over its reign" : "the king"}. Lower-priority
+            signals matter only when every signal above them is tied.
           </p>
         </div>
         <div className="decision-ladder-verdict">
@@ -1744,14 +1743,19 @@ function DecisionLadder({ candidate, king }) {
       </div>
       <div className="decision-ladder-grid">
         {steps.map((step) => (
-          <DecisionStep key={step.label} step={step} active={firstDecider?.rank === step.rank} />
+          <DecisionStep
+            key={step.label}
+            step={step}
+            active={firstDecider?.rank === step.rank}
+            kingLabel={kingLabel}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function DecisionStep({ step, active }) {
+function DecisionStep({ step, active, kingLabel = "king" }) {
   const winner = decisionWinner(step);
   return (
     <article
@@ -1771,7 +1775,7 @@ function DecisionStep({ step, active }) {
           <div className="decision-value-main">{step.candidateDisplay}</div>
         </span>
         <span>
-          <small>king</small>
+          <small>{kingLabel}</small>
           <div className="decision-value-main">{step.kingDisplay}</div>
         </span>
       </div>

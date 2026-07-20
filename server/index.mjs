@@ -73,7 +73,12 @@ app.get("/api/stream", async (_request, response) => {
         lastStamp = stamp;
         response.write(`data: ${JSON.stringify(payload)}\n\n`);
       } else {
-        response.write(":\n\n"); // keep-alive comment
+        // Liveness frame: a real `data:` frame (so it fires the client's onmessage and
+        // keeps its stream-freshness watchdog satisfied) that the client ignores for
+        // rendering. A bare `:` comment does NOT fire onmessage, so during idle the
+        // watchdog would wrongly think the stream was dead and reconnect every window,
+        // flashing the UI.
+        response.write(`data: ${JSON.stringify({ __heartbeat: 1 })}\n\n`);
       }
     } catch (error) {
       if (closed) {

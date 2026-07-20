@@ -111,6 +111,11 @@ export function loadChallengeStatus(challengeStatusPath) {
     king: status.king || null,
     kingAuthor: status.king_author || status.king?.author || null,
     kingSubmissionId: status.king_submission_id || status.king?.submission_id || null,
+    kingRankAverage:
+      status.king_rank_average && typeof status.king_rank_average === "object"
+        ? status.king_rank_average
+        : null,
+    kingRankSamples: Number(status.king_rank_samples || 0),
     winnerSubmissionId: status.winner_submission_id || null,
     entrants: (Array.isArray(status.entrants) ? status.entrants : []).map((entrant) => ({
       ...entrant,

@@ -4,11 +4,6 @@ import { createAuthorRow, finalizeLeaderboardRows, maxDate } from "./leaderboard
 
 const SUBMISSION_PATH_PATTERN = /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
 
-// Per-PR file listings keyed by updated_at. Without this, every leaderboard
-// refresh costs one files-request per PR (an N+1 that burns the GitHub rate
-// limit); with it, only PRs updated since the last refresh are re-fetched.
-const pullFilesCache = new Map();
-const PULL_FILES_CACHE_MAX_ENTRIES = 2000;
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
 // Space out GitHub calls so the leaderboard's per-PR fan-out does not trip
 // GitHub's *secondary* rate limit (HTTP 429 "too many requests"), which is
@@ -327,43 +322,6 @@ async function fetchPulls(repoSlug, githubToken) {
     );
   }
   return pulls;
-}
-
-async function fetchSubmissionFilesCached(repoSlug, pull, githubToken) {
-  const cacheKey = `${repoSlug}#${pull.number}`;
-  const cached = pullFilesCache.get(cacheKey);
-  if (cached && cached.updatedAt === pull.updated_at) {
-    return cached.files;
-  }
-  const files = await fetchSubmissionFiles(repoSlug, pull.number, githubToken);
-  pullFilesCache.set(cacheKey, { updatedAt: pull.updated_at, files });
-  if (pullFilesCache.size > PULL_FILES_CACHE_MAX_ENTRIES) {
-    const oldestKey = pullFilesCache.keys().next().value;
-    pullFilesCache.delete(oldestKey);
-  }
-  return files;
-}
-
-async function fetchSubmissionFiles(repoSlug, pullNumber, githubToken) {
-  const files = [];
-  for (let page = 1; page <= 4; page += 1) {
-    const response = await githubRequest(
-      `/repos/${repoSlug}/pulls/${pullNumber}/files?per_page=100&page=${page}`,
-      githubToken
-    );
-    if (!response.length) {
-      break;
-    }
-    for (const file of response) {
-      if (typeof file.filename === "string" && file.filename.startsWith("submissions/")) {
-        files.push(file.filename);
-      }
-    }
-    if (response.length < 100) {
-      break;
-    }
-  }
-  return files;
 }
 
 export async function githubRequest(path, githubToken) {

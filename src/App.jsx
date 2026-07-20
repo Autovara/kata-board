@@ -955,9 +955,9 @@ function ChallengePanel({
       <span className="showcase-kicker">Arena</span>
       <SectionTitle title={challengeTitle} />
       <p className="section-lead challenge-lead">
-        A challenger is taking on the reigning king. Both agents hunt for bugs in the same set
-        of secret projects, and the challenger only takes the crown if it beats the king&apos;s
-        typical performance across the six ranked signals below.
+        The king defends its crown against a challenger. Both agents look for bugs in the same
+        secret projects — the challenger wins the crown only if it beats the king on the ranked
+        signals below.
       </p>
     </div>
   );
@@ -999,10 +999,10 @@ function ChallengePanel({
           ⏸
         </span>
         <div>
-          <strong>Round paused — last recorded status</strong>
+          <strong>Round paused</strong>
           <p>
-            This challenge stopped updating. Its last scores are shown below. Resume the round to
-            continue the competition from here.
+            Below are the last scores from the challenge that was running. Resume the round to pick
+            up where it left off.
           </p>
         </div>
       </div>

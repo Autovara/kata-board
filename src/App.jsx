@@ -1917,11 +1917,11 @@ function ChallengeHistory({ challenges, kataRepoSlug }) {
   return (
     <div className="challenge-block">
       <div className="challenge-block-head">
-        <SectionTitle title="Recent challenges" />
-        <p className="section-lead">How the last few king-of-the-hill matches finished.</p>
+        <SectionTitle title="Latest challenge" />
+        <p className="section-lead">How the most recent king-of-the-hill match finished.</p>
       </div>
       <ul className="challenge-feed">
-        {challenges.slice(0, 12).map((challenge, index) => {
+        {challenges.slice(0, 1).map((challenge, index) => {
           const promoted = Boolean(challenge.winnerSubmissionId);
           const winnerPull = winnerPullFromSubmission(challenge.winnerSubmissionId);
           // "New king" is already covered by the outcome badge; keep the rest.

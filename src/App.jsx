@@ -1803,9 +1803,9 @@ function ScreeningGatePanel({ screening }) {
   const next = nextScreeningEntry(screening);
   const headline = screeningHeadline(screening);
   return (
-    <div className="challenge-screening-gate">
-      <div className="challenge-screening-head">
-        <div className="challenge-screening-title">
+    <div className="round-screening-gate">
+      <div className="round-screening-head">
+        <div className="round-screening-title">
           <span>screening gate</span>
           <strong>{headline}</strong>
           <small>
@@ -1819,7 +1819,7 @@ function ScreeningGatePanel({ screening }) {
           tone="screening"
         />
       </div>
-      <div className="challenge-screening-meta" aria-label="Screening status counts">
+      <div className="round-screening-meta" aria-label="Screening status counts">
         <ScreeningCount label="cleared" value={screening.passed || 0} tone="passed" />
         <ScreeningCount label="screening" value={screening.running || 0} tone="running" />
         <ScreeningCount label="waiting" value={screening.queued || 0} tone="queued" />
@@ -1835,7 +1835,7 @@ function ScreeningGatePanel({ screening }) {
           <ScreeningCount label="next" value={`#${next.pullNumber}`} tone="queued" />
         ) : null}
       </div>
-      <div className="challenge-screening-steps" aria-label="Per-PR screening progress">
+      <div className="round-screening-steps" aria-label="Per-PR screening progress">
         {(screening.entries || []).map((entry) => (
           <div
             className={`screening-step screening-step-${entry.state}`}

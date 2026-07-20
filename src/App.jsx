@@ -9,6 +9,42 @@ import {
 } from "./constants.js";
 import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js";
 import { Docs } from "./pages/Docs.jsx";
+import {
+  avatarUrl,
+  buildDashboardLatestStatus,
+  challengeExtras,
+  compareEntrantsByRank,
+  decisionWinner,
+  entrantPassCount,
+  entrantPassScore,
+  formatDate,
+  formatDateTime,
+  formatDetection,
+  formatMetricNumber,
+  formatNumber,
+  formatPackLabel,
+  formatPassScore,
+  formatProjectName,
+  formatProjectsPassed,
+  formatReplicaFindings,
+  formatTpExpectedFound,
+  inferReplicasPerProject,
+  initials,
+  kingAgentLink,
+  nextScreeningEntry,
+  normalizeReplicaRows,
+  percentMetric,
+  problemResult,
+  projectPassThresholdLabel,
+  projectReplicaPassLabel,
+  rankBadge,
+  replicaStatusLabel,
+  replicaStatusTone,
+  screeningFailureDetails,
+  screeningHeadline,
+  screeningStatusLabel,
+  selectedProjectKeysFromChallenge,
+} from "./lib/format.js";
 
 export default function App() {
   const [pathname, setPathname] = useState(readCurrentRoute);
@@ -229,15 +265,29 @@ function Footer({ kataRepoSlug, onNavigate }) {
         <nav className="site-footer-nav" aria-label="Footer">
           <div className="site-footer-col">
             <h4>Explore</h4>
-            <button type="button" onClick={() => onNavigate("/arena")}>Arena</button>
-            <button type="button" onClick={() => onNavigate("/winners")}>Winners</button>
-            <button type="button" onClick={() => onNavigate("/leaderboard")}>Leaderboard</button>
+            <button type="button" onClick={() => onNavigate("/arena")}>
+              Arena
+            </button>
+            <button type="button" onClick={() => onNavigate("/winners")}>
+              Winners
+            </button>
+            <button type="button" onClick={() => onNavigate("/leaderboard")}>
+              Leaderboard
+            </button>
           </div>
           <div className="site-footer-col">
             <h4>Build</h4>
-            <button type="button" onClick={() => onNavigate("/docs")}>Submit an agent</button>
-            <a href={`https://github.com/${repo}`} target="_blank" rel="noreferrer">GitHub</a>
-            <a href={`https://github.com/${repo}/blob/main/README.md`} target="_blank" rel="noreferrer">
+            <button type="button" onClick={() => onNavigate("/docs")}>
+              Submit an agent
+            </button>
+            <a href={`https://github.com/${repo}`} target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+            <a
+              href={`https://github.com/${repo}/blob/main/README.md`}
+              target="_blank"
+              rel="noreferrer"
+            >
               Docs
             </a>
           </div>
@@ -399,8 +449,7 @@ function DashboardHero({ onNavigate }) {
       <div className="dash-hero-copy">
         <p className="kicker">Built with Gittensor · Bittensor SN74</p>
         <h1 className="dash-hero-title">
-          <span>Kata is an</span>{" "}
-          <span className="dash-hero-mark">optimization engine</span>{" "}
+          <span>Kata is an</span> <span className="dash-hero-mark">optimization engine</span>{" "}
           <span>for miner agents</span>
         </h1>
         <p className="dash-hero-sub">
@@ -521,9 +570,7 @@ function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLa
 function SubnetCard({ lane, data, active, onEnter }) {
   const challenge = data.challenge || {};
   const live = challenge.state === "executing";
-  const kingName = lane.king?.seeded
-    ? "seed king"
-    : lane.currentHolder || lane.king?.author || "—";
+  const kingName = lane.king?.seeded ? "seed king" : lane.currentHolder || lane.king?.author || "—";
   const challenges = data.challengeHistory?.length ?? challenge.challengeNumber ?? "—";
   const challengers = data.leaderboard?.rows?.length ?? "—";
   return (
@@ -583,18 +630,31 @@ function WorkflowTagNode({ node }) {
         rx="12"
       />
       {node.king ? (
-        <path className="wf-crown" d={`M ${cx - 19} ${node.y - 6} l 7 12 8 -14 8 14 7 -12 -3 20 -24 0 z`} />
+        <path
+          className="wf-crown"
+          d={`M ${cx - 19} ${node.y - 6} l 7 12 8 -14 8 14 7 -12 -3 20 -24 0 z`}
+        />
       ) : null}
       {node.tag ? (
         <text className="wf-tag" x={node.x + 13} y={node.y + 17}>
           {node.tag}
         </text>
       ) : null}
-      <text className="wf-title" x={cx} y={node.y + node.h / 2 + (node.tag ? 6 : -2)} textAnchor="middle">
+      <text
+        className="wf-title"
+        x={cx}
+        y={node.y + node.h / 2 + (node.tag ? 6 : -2)}
+        textAnchor="middle"
+      >
         {node.t}
       </text>
       {node.s ? (
-        <text className="wf-sub" x={cx} y={node.y + node.h / 2 + (node.tag ? 24 : 16)} textAnchor="middle">
+        <text
+          className="wf-sub"
+          x={cx}
+          y={node.y + node.h / 2 + (node.tag ? 24 : 16)}
+          textAnchor="middle"
+        >
           {node.s}
         </text>
       ) : null}
@@ -617,7 +677,14 @@ function DashboardWorkflow() {
     { x: 538, y: 262, w: 158, h: 42, t: "SN22 · Desearch" },
     { x: 538, y: 314, w: 158, h: 42, t: "+ more targets" },
   ];
-  const tee = { x: 726, y: 262, w: 158, h: 42, t: "kata-tee-runner", s: "sealed room · miner-paid" };
+  const tee = {
+    x: 726,
+    y: 262,
+    w: 158,
+    h: 42,
+    t: "kata-tee-runner",
+    s: "sealed room · miner-paid",
+  };
   const rank = { x: 914, y: 262, w: 148, h: 42, t: "beats king's average?" };
   const edges = [
     "M 168 113 L 190 113",
@@ -647,7 +714,11 @@ function DashboardWorkflow() {
         </p>
       </div>
       <div className="wf-diagram">
-        <svg viewBox="0 0 1240 380" role="img" aria-label="Kata workflow: a contributor opens a PR; kata-bot screens it at intake to pending, then runs one continuous challenge marking the challenger executing; the kata engine re-solves the king fresh and scores it against the single challenger across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room with miner-paid inference; the ranking checks whether the challenger beats the king's running-average score by the margin; kata-bot promotes the winner to a new king in kings and kata-board shows it live. The new king becomes the bar to beat, and the last four kings share the reward.">
+        <svg
+          viewBox="0 0 1240 380"
+          role="img"
+          aria-label="Kata workflow: a contributor opens a PR; kata-bot screens it at intake to pending, then runs one continuous challenge marking the challenger executing; the kata engine re-solves the king fresh and scores it against the single challenger across the SN60, SN22 and future subnets in parallel inside the kata-tee-runner sealed room with miner-paid inference; the ranking checks whether the challenger beats the king's running-average score by the margin; kata-bot promotes the winner to a new king in kings and kata-board shows it live. The new king becomes the bar to beat, and the last four kings share the reward."
+        >
           <defs>
             <marker id="wfArrow" markerWidth="8" markerHeight="8" refX="5.5" refY="3" orient="auto">
               <path d="M0 0 L6 3 L0 6 z" className="wf-arrowhead" />
@@ -657,7 +728,11 @@ function DashboardWorkflow() {
           <text className="wf-band-label" x="536" y="366">
             SCORE EVERY SUBNET, IN PARALLEL
           </text>
-          <path className="wf-loop" d="M 1152 76 C 1152 26, 442 26, 442 76" markerEnd="url(#wfArrow)" />
+          <path
+            className="wf-loop"
+            d="M 1152 76 C 1152 26, 442 26, 442 76"
+            markerEnd="url(#wfArrow)"
+          />
           <text className="wf-loop-label" x="797" y="20" textAnchor="middle">
             the new king becomes the next challenger&apos;s bar to beat
           </text>
@@ -666,16 +741,40 @@ function DashboardWorkflow() {
           ))}
           {subnets.map((node) => (
             <g key={node.t}>
-              <rect className="wf-node wf-node-subnet" x={node.x} y={node.y} width={node.w} height={node.h} rx="10" />
-              <text className="wf-title wf-title-sm" x={node.x + node.w / 2} y={node.y + node.h / 2 + 5} textAnchor="middle">
+              <rect
+                className="wf-node wf-node-subnet"
+                x={node.x}
+                y={node.y}
+                width={node.w}
+                height={node.h}
+                rx="10"
+              />
+              <text
+                className="wf-title wf-title-sm"
+                x={node.x + node.w / 2}
+                y={node.y + node.h / 2 + 5}
+                textAnchor="middle"
+              >
                 {node.t}
               </text>
             </g>
           ))}
           <WorkflowTagNode node={tee} />
           <g>
-            <rect className="wf-node wf-node-rank" x={rank.x} y={rank.y} width={rank.w} height={rank.h} rx="10" />
-            <text className="wf-title wf-title-sm" x={rank.x + rank.w / 2} y={rank.y + rank.h / 2 + 5} textAnchor="middle">
+            <rect
+              className="wf-node wf-node-rank"
+              x={rank.x}
+              y={rank.y}
+              width={rank.w}
+              height={rank.h}
+              rx="10"
+            />
+            <text
+              className="wf-title wf-title-sm"
+              x={rank.x + rank.w / 2}
+              y={rank.y + rank.h / 2 + 5}
+              textAnchor="middle"
+            >
               {rank.t}
             </text>
           </g>
@@ -761,24 +860,6 @@ function ChallengeStatusPill({ status }) {
   return <span className={`rstat rstat-${status || "neutral"}`}>{label}</span>;
 }
 
-function screeningFailureDetails(source) {
-  const screening = source?.screening_result;
-  if (!screening || typeof screening !== "object") {
-    return null;
-  }
-  const status = String(screening.status || "").toLowerCase();
-  const stage = String(screening.stage || "").toLowerCase();
-  if (stage !== "execution" || !["failed", "fail", "false"].includes(status)) {
-    return null;
-  }
-  return {
-    projectKey: screening.project_key || screening.projectKey || "",
-    reasons: Array.isArray(screening.reasons)
-      ? screening.reasons.map((reason) => String(reason).trim()).filter(Boolean)
-      : [],
-  };
-}
-
 function ScreeningFailureBadge({ failure }) {
   if (!failure) {
     return null;
@@ -805,153 +886,6 @@ function BeatsKingBadge({ beats }) {
   ) : (
     <span className="beat-badge beat-no">no</span>
   );
-}
-
-function compareEntrantsByRank(a, b, selectedProjectCount = 0) {
-  // Same order the engine ranks by: pass score, projects passed, true positives,
-  // fewer invalid runs, precision, then F1. Unscored entrants sort last.
-  const key = (entrant) => [
-    entrantPassScore(entrant, selectedProjectCount),
-    entrantPassCount(entrant),
-    entrant.true_positives ?? -1,
-    -(entrant.invalid_runs ?? 0),
-    entrant.precision ?? -1,
-    entrant.f1_score ?? -1,
-  ];
-  const av = key(a);
-  const bv = key(b);
-  for (let i = 0; i < av.length; i += 1) {
-    if (av[i] !== bv[i]) {
-      return bv[i] - av[i];
-    }
-  }
-  return 0;
-}
-
-function projectCountFromEntrant(entrant) {
-  return Array.isArray(entrant?.projects) ? entrant.projects.length : 0;
-}
-
-function selectedProjectKeysFromChallenge(challenge) {
-  const candidates = [
-    challenge?.liveProgress?.projectKeys,
-    challenge?.projectKeys,
-    challenge?.primary?.projectKeys,
-    challenge?.evaluatorState?.current?.projectKeys,
-  ];
-  const keys = candidates.find((value) => Array.isArray(value) && value.length);
-  return keys || [];
-}
-
-function entrantPassCount(entrant) {
-  if (entrant?.codebase_pass_count != null) {
-    return Number(entrant.codebase_pass_count);
-  }
-  if (Array.isArray(entrant?.projects)) {
-    return entrant.projects.filter((project) => project?.passed).length;
-  }
-  return -1;
-}
-
-function entrantProjectTotal(entrant, selectedProjectCount = 0) {
-  const selectedTotal = Number(selectedProjectCount || 0);
-  if (selectedTotal > 0) {
-    return selectedTotal;
-  }
-  return projectCountFromEntrant(entrant);
-}
-
-function entrantPassScore(entrant, selectedProjectCount = 0) {
-  const count = entrantPassCount(entrant);
-  const total = entrantProjectTotal(entrant, selectedProjectCount);
-  if (count < 0 || total <= 0) {
-    return -1;
-  }
-  return count / total;
-}
-
-function formatPassScore(entrant, selectedProjectCount = 0) {
-  const passCount = entrantPassCount(entrant);
-  const projectCount = entrantProjectTotal(entrant, selectedProjectCount);
-  if (passCount < 0 || projectCount <= 0) {
-    return "—";
-  }
-  return `${passCount}/${projectCount}`;
-}
-
-function formatProjectsPassed(entrant) {
-  const passCount = entrantPassCount(entrant);
-  return passCount < 0 ? "—" : String(passCount);
-}
-
-function inferReplicasPerProject(challenge) {
-  const configured = Number(
-    challenge?.liveProgress?.replicasPerProject || challenge?.replicasPerProject || 0
-  );
-  if (configured > 0) {
-    return configured;
-  }
-  const projectCount = Number(challenge?.liveProgress?.projectKeys?.length || 0);
-  const candidates = challenge?.liveProgress?.candidates || [];
-  const firstTotal = Number(
-    candidates.find((candidate) => Number(candidate?.total) > 0)?.total || 0
-  );
-  if (projectCount > 0 && firstTotal > 0) {
-    return Math.max(1, Math.round(firstTotal / projectCount));
-  }
-  return 1;
-}
-
-function projectPassThresholdLabel(replicasPerProject) {
-  const replicas = Math.max(1, Number(replicasPerProject || 1));
-  const required = Math.ceil((replicas * 2) / 3);
-  return `${required}/${replicas}`;
-}
-
-function projectPassCount(project) {
-  if (!project) {
-    return 0;
-  }
-  if (project.pass_count != null) {
-    return Number(project.pass_count || 0);
-  }
-  const replicas = Array.isArray(project.replicas) ? project.replicas : [];
-  return replicas.filter((replica) => replica?.passed || replica?.result === "PASS").length;
-}
-
-function projectReplicaTotal(project, fallback = 0) {
-  const fallbackTotal = Number(fallback || 0);
-  if (!project) {
-    return fallbackTotal;
-  }
-  const replicas = Array.isArray(project.replicas) ? project.replicas : [];
-  const replicaRows = replicas.length;
-  if (project.total_replicas != null) {
-    return Math.max(Number(project.total_replicas || 0), fallbackTotal, replicaRows);
-  }
-  return Math.max(replicaRows, fallbackTotal);
-}
-
-function projectReplicaPassLabel(project, fallback = 0) {
-  const total = projectReplicaTotal(project, fallback);
-  if (!project && !total) {
-    return "—";
-  }
-  return `${projectPassCount(project)}/${total || 0} passed`;
-}
-
-function challengeExtras(challenge) {
-  const extras = [];
-  if (challenge.screenedOut?.length) {
-    extras.push(`${challenge.screenedOut.length} screened out`);
-  }
-  if (challenge.closedExtras?.length) {
-    extras.push(`${challenge.closedExtras.length} extra PR closed — one open PR per contributor`);
-  }
-  if (challenge.skippedStale?.length) {
-    extras.push(`${challenge.skippedStale.length} skipped — unchanged since last challenge`);
-  }
-  return extras;
 }
 
 function ChallengeRuleCard({ passThreshold, replicasPerProject }) {
@@ -988,7 +922,9 @@ function ChallengePanel({
 }) {
   const entrants = challenge?.entrants || [];
   const state = challenge?.state || "idle";
-  const hasChallenge = Boolean(challenge && (state !== "idle" || entrants.length || challenge.runId));
+  const hasChallenge = Boolean(
+    challenge && (state !== "idle" || entrants.length || challenge.runId)
+  );
   const challengeTitle = challenge?.challengeNumber
     ? `Current challenge · Challenge ${challenge.challengeNumber}`
     : "Current challenge";
@@ -998,7 +934,9 @@ function ChallengePanel({
   // Live progress only while the challenge is actively scoring; ignore a stale
   // snapshot left over from a previous challenge.
   const live =
-    state === "executing" && challenge?.liveProgress?.state === "executing" ? challenge.liveProgress : null;
+    state === "executing" && challenge?.liveProgress?.state === "executing"
+      ? challenge.liveProgress
+      : null;
   const progressByPull = {};
   if (live) {
     live.candidates.forEach((candidate) => {
@@ -1126,7 +1064,8 @@ function ChallengePanel({
         <div className="challenge-empty">
           <Status label="no challenge running" tone="neutral" />
           <p>
-            No challenge is running. Once started, live candidate scores and results will appear here.
+            No challenge is running. Once started, live candidate scores and results will appear
+            here.
           </p>
         </div>
       ) : (
@@ -1306,56 +1245,6 @@ function ChallengePanel({
 //   expected = real vulnerabilities in that codebase
 //   found    = total findings the agent reported (tp + false positives)
 // `project.passed` is the engine verdict after applying the replica threshold.
-function replicaAwareProblemTotals(project, replicasPerProject = 0) {
-  if (!project) {
-    return null;
-  }
-  const actualReplicas = Array.isArray(project.replicas) ? project.replicas : [];
-  const expectedPerReplica = Number(
-    project.total_expected ?? actualReplicas[0]?.total_expected ?? 0
-  );
-  if (!actualReplicas.length) {
-    return {
-      truePositives: Number(project.true_positives ?? 0),
-      totalExpected: expectedPerReplica,
-      totalFound: Number(project.total_found ?? 0),
-    };
-  }
-  const projectTruePositives = Number(project.true_positives ?? 0);
-  const projectTotalExpected = Number(project.total_expected ?? 0);
-  const projectTotalFound = Number(project.total_found ?? 0);
-  const replicas = normalizeReplicaRows(project, replicasPerProject);
-  const replicaTotals = replicas.reduce(
-    (totals, replica) => ({
-      truePositives: totals.truePositives + Number(replica.true_positives ?? 0),
-      totalExpected: totals.totalExpected + Number(replica.total_expected ?? expectedPerReplica),
-      totalFound: totals.totalFound + Number(replica.total_found ?? 0),
-    }),
-    { truePositives: 0, totalExpected: 0, totalFound: 0 }
-  );
-  return {
-    truePositives: Math.max(replicaTotals.truePositives, projectTruePositives),
-    totalExpected: Math.max(replicaTotals.totalExpected, projectTotalExpected),
-    totalFound: Math.max(replicaTotals.totalFound, projectTotalFound),
-  };
-}
-
-function formatTpExpectedFound(project, replicasPerProject = 0) {
-  if (!project) return "—";
-  const totals = replicaAwareProblemTotals(project, replicasPerProject);
-  return `${totals.truePositives}/${totals.totalExpected}/${totals.totalFound}`;
-}
-
-function problemResult(project, replicasPerProject = 0) {
-  if (!project) return { label: "scoring", tone: "warn" };
-  if (project.finished === false || project.scoring) return { label: "scoring", tone: "warn" };
-  if (project.passed) return { label: "pass", tone: "ok" };
-  if ((replicaAwareProblemTotals(project, replicasPerProject)?.truePositives ?? 0) > 0) {
-    return { label: "fail · partial", tone: "warn" };
-  }
-  return { label: "fail", tone: "bad" };
-}
-
 function ProblemBreakdown({
   projectKeys,
   primaryByKey,
@@ -1513,66 +1402,6 @@ function ReplicaTable({ title, project, replicasPerProject, compact = false }) {
       ))}
     </div>
   );
-}
-
-function normalizeReplicaRows(project, replicasPerProject) {
-  const total = projectReplicaTotal(project, replicasPerProject);
-  const byIndex = new Map(
-    (Array.isArray(project?.replicas) ? project.replicas : []).map((replica) => [
-      Number(replica.replica_index || 0),
-      replica,
-    ])
-  );
-  return Array.from({ length: Math.max(1, total || replicasPerProject || 1) }, (_, index) => {
-    const replicaIndex = index + 1;
-    return {
-      replica_index: replicaIndex,
-      started: false,
-      evaluated: false,
-      passed: false,
-      status: "queued",
-      true_positives: 0,
-      total_expected: project?.total_expected ?? 0,
-      total_found: 0,
-      ...(byIndex.get(replicaIndex) || {}),
-    };
-  });
-}
-
-function formatReplicaFindings(replica) {
-  if (!replica?.evaluated) {
-    return "—";
-  }
-  return `${replica.true_positives ?? 0}/${replica.total_expected ?? 0}/${replica.total_found ?? 0}`;
-}
-
-function replicaStatusTone(replica) {
-  if (!replica?.started || !replica?.evaluated) {
-    return "neutral";
-  }
-  if (replica.passed || replica.result === "PASS" || replica.status === "pass") {
-    return "ok";
-  }
-  if (replica.status === "invalid") {
-    return "warn";
-  }
-  return "bad";
-}
-
-function replicaStatusLabel(replica) {
-  if (!replica?.started) {
-    return "queued";
-  }
-  if (!replica.evaluated) {
-    return "running";
-  }
-  if (replica.passed || replica.result === "PASS" || replica.status === "pass") {
-    return "pass";
-  }
-  if (replica.status === "invalid") {
-    return "invalid";
-  }
-  return "fail";
 }
 
 function KingDetail({
@@ -2078,33 +1907,6 @@ function DecisionStep({ step, active }) {
   );
 }
 
-function decisionWinner(step) {
-  const candidate = normalizedDecisionValue(step.candidateValue);
-  const king = normalizedDecisionValue(step.kingValue);
-  if (candidate == null || king == null || candidate === king) {
-    return "tie";
-  }
-  if (step.higherIsBetter) {
-    return candidate > king ? "candidate" : "king";
-  }
-  return candidate < king ? "candidate" : "king";
-}
-
-function normalizedDecisionValue(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return null;
-  }
-  const numeric = Number(value);
-  return numeric < 0 ? null : numeric;
-}
-
-function formatMetricNumber(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
-  return formatNumber(value);
-}
-
 function BattleSide({
   role,
   name,
@@ -2143,13 +1945,6 @@ function MetricChip({ label, value, tone = "neutral" }) {
   );
 }
 
-function percentMetric(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "-";
-  }
-  return `${formatNumber(Number(value) * 100)}%`;
-}
-
 function precisionFindingFigure(value, truePositives, totalFound) {
   return qualityRatio(value, [truePositives, totalFound]);
 }
@@ -2168,20 +1963,6 @@ function qualityRatio(value, figures) {
       <small>{figures.map((figure) => formatMetricNumber(figure)).join("/")}</small>
     </div>
   );
-}
-
-function formatProjectName(key) {
-  return String(key || "").replace(/_/g, " ");
-}
-
-function formatPackLabel(value) {
-  if (!value) {
-    return "-";
-  }
-  // Generic for any subnet pack: "sn60__bitsec" -> "SN60 Bitsec", "sn22__desearch" -> "SN22
-  // Desearch". Split on the pack separators, upper-case the SNxx token and title-case the rest.
-  const normalized = String(value).replace(/__/g, " ").replace(/_/g, " ").trim();
-  return normalized.replace(/\bsn(\d+)\b/gi, "SN$1").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function ChallengeMeta({ label, value }) {
@@ -2261,46 +2042,6 @@ function ScreeningCount({ label, value, tone }) {
   );
 }
 
-function screeningHeadline(screening) {
-  if (!screening) {
-    return "Waiting for screening";
-  }
-  if (screening.failed > 0) {
-    return `${screening.failed} PR${screening.failed === 1 ? "" : "s"} failed screening`;
-  }
-  if (screening.state === "complete") {
-    return "Screening complete";
-  }
-  const current = screening.current;
-  if (current?.state === "running") {
-    return `Screening PR #${current.pullNumber}`;
-  }
-  if (current?.state === "queued") {
-    return `PR #${current.pullNumber} is next`;
-  }
-  return "Waiting for screening";
-}
-
-function nextScreeningEntry(screening) {
-  return (screening?.entries || []).find((entry) => entry.state === "queued") || null;
-}
-
-function screeningStatusLabel(entry, { short = false } = {}) {
-  if (!entry) {
-    return short ? "wait" : "waiting";
-  }
-  if (entry.state === "passed") {
-    return short ? "clear" : "cleared";
-  }
-  if (entry.state === "failed") {
-    return "failed";
-  }
-  if (entry.state === "running") {
-    return short ? "now" : "screening now";
-  }
-  return short ? "wait" : "waiting";
-}
-
 function ProgressBar({ done, total, label, tone = "candidate" }) {
   const safeTotal = total > 0 ? total : 0;
   const pct = safeTotal > 0 ? Math.round((done / safeTotal) * 100) : 0;
@@ -2377,13 +2118,6 @@ function ScreeningStatusBadge({ screening }) {
   );
 }
 
-function formatDetection(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return "—";
-  }
-  return `${Math.round(Number(value) * 100)}%`;
-}
-
 function prLabel(kataRepoSlug, pullNumber) {
   if (!pullNumber) {
     return "—";
@@ -2422,7 +2156,9 @@ function ChallengeHistory({ challenges }) {
         {challenges.slice(0, 12).map((challenge, index) => (
           <div className="table-row challenge-hist-grid" key={challenge.runId || index}>
             <span className="challenge-hist-title">
-              <strong>{challenge.challengeNumber ? `Challenge ${challenge.challengeNumber}` : "Challenge"}</strong>
+              <strong>
+                {challenge.challengeNumber ? `Challenge ${challenge.challengeNumber}` : "Challenge"}
+              </strong>
               <small>{challenge.headline || "Challenge"}</small>
             </span>
             <span className="challenge-hist-badges">
@@ -2595,10 +2331,6 @@ function Leaderboard({ leaderboard }) {
   );
 }
 
-function rankBadge(index) {
-  return ["🥇", "🥈", "🥉"][index] || String(index + 1);
-}
-
 function PageIntro({ eyebrow, title, text }) {
   return (
     <section className="page-intro">
@@ -2660,128 +2392,4 @@ function Status({ label, tone }) {
 
 function Empty({ text }) {
   return <div className="empty">{text}</div>;
-}
-
-function duelStatus(duel) {
-  return duel.promotionReady ? "winner" : "completed";
-}
-
-function buildDashboardLatestStatus(activeEvaluation, latestChallenge) {
-  if (activeEvaluation?.available && activeEvaluation.state !== "idle") {
-    return {
-      challenger:
-        activeEvaluation.candidateGithubLogin ||
-        activeEvaluation.candidateAuthor ||
-        activeEvaluation.candidateSubmissionId ||
-        "active challenger",
-      status: activeEvaluationStatus(activeEvaluation),
-      source: activeEvaluation.pullNumber
-        ? `PR #${activeEvaluation.pullNumber}`
-        : "validator queue",
-      updatedAt: activeEvaluation.updatedAt || activeEvaluation.startedAt,
-    };
-  }
-  if (latestChallenge) {
-    return {
-      challenger:
-        latestChallenge.candidateAuthor ||
-        latestChallenge.candidateSubmissionId ||
-        "completed challenger",
-      status: duelStatus(latestChallenge),
-      source: latestChallenge.runId || "run artifact",
-      updatedAt: latestChallenge.createdAt,
-    };
-  }
-  return {
-    challenger: "none yet",
-    status: "no duel yet",
-    source: "waiting",
-    updatedAt: null,
-  };
-}
-
-function kingAgentLink(lane, repoSlug) {
-  const path = `kings/${lane.subnetPack || lane.repoPack}/${lane.mode}/agent.py`;
-  if (!repoSlug) {
-    return path;
-  }
-  return `https://github.com/${repoSlug}/blob/main/${path}`;
-}
-
-function avatarUrl(name) {
-  if (!name || /\s/.test(name) || name === "waiting" || name === "Kata Seed") {
-    return null;
-  }
-  return `https://github.com/${name}.png?size=160`;
-}
-
-function initials(value) {
-  return String(value || "?")
-    .split(/[\s-_]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
-function activeEvaluationStatus(activeEvaluation) {
-  if (!activeEvaluation || activeEvaluation.state === "idle") {
-    return "idle";
-  }
-  if (activeEvaluation.state === "completed") {
-    return activeEvaluation.finalAction === "merge" ? "winner" : "completed";
-  }
-  if (activeEvaluation.state === "failed") {
-    return "failed";
-  }
-  if (activeEvaluation.phase === "confirm") {
-    return "confirming";
-  }
-  if (activeEvaluation.state === "verifying") {
-    return "verifying";
-  }
-  if (activeEvaluation.state === "queued") {
-    return "queued";
-  }
-  return "evaluating";
-}
-
-function formatNumber(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "-";
-  }
-  return Number(value).toLocaleString(undefined, {
-    maximumFractionDigits: Number(value) % 1 === 0 ? 0 : 2,
-  });
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
-
-function formatDate(value) {
-  if (!value) {
-    return "-";
-  }
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
 }

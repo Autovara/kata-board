@@ -18,6 +18,7 @@ import {
   formatNumber,
   formatPackLabel,
   formatPassScore,
+  formatTruePositives,
   formatProjectName,
   formatProjectsPassed,
   formatReplicaFindings,
@@ -1087,7 +1088,7 @@ function ChallengePanel({
               </span>
               <span>{formatPassScore(kingResult, selectedProjectCount)}</span>
               <span>{formatProjectsPassed(kingResult)}</span>
-              <span>{kingResult?.true_positives ?? "—"}</span>
+              <span>{formatTruePositives(kingResult)}</span>
               <span>—</span>
               <span>
                 {live && live.king && live.king.state === "scoring" ? (
@@ -1126,7 +1127,7 @@ function ChallengePanel({
                 </span>
                 <span>{formatPassScore(entrant, selectedProjectCount)}</span>
                 <span>{formatProjectsPassed(entrant)}</span>
-                <span>{entrant.true_positives ?? "—"}</span>
+                <span>{formatTruePositives(entrant)}</span>
                 <span>
                   <BeatsKingBadge beats={entrant.beats_king} />
                 </span>
@@ -1444,7 +1445,7 @@ function KingMetricPanel({ king, projectCount, passThreshold }) {
         />
       </div>
       <div className="king-metric-support">
-        <MetricChip label="true positives" value={String(king?.true_positives ?? "—")} />
+        <MetricChip label="true positives" value={formatTruePositives(king)} />
         <MetricChip label="fewer invalid runs" value={String(Number(king?.invalid_runs || 0))} />
         <MetricChip
           label="precision"

@@ -95,6 +95,20 @@ export function formatProjectsPassed(entrant) {
   return passCount < 0 ? "—" : String(passCount);
 }
 
+export function formatTruePositives(entrant) {
+  // A bare true-positive count is NOT comparable across challenges: each challenge
+  // scores a fresh sample of projects with a different number of planted
+  // vulnerabilities (total_expected), so "5" one challenge and "16" another can be
+  // the SAME detection rate. Always show the count against its denominator so a
+  // smaller sample never reads as a regression.
+  const tp = entrant?.true_positives;
+  if (tp == null) {
+    return "—";
+  }
+  const expected = Number(entrant?.total_expected || 0);
+  return expected > 0 ? `${Number(tp)} / ${expected}` : String(Number(tp));
+}
+
 export function inferReplicasPerProject(challenge) {
   const configured = Number(
     challenge?.liveProgress?.replicasPerProject || challenge?.replicasPerProject || 0
@@ -180,22 +194,30 @@ export function replicaAwareProblemTotals(project, replicasPerProject = 0) {
       totalFound: Number(project.total_found ?? 0),
     };
   }
-  const projectTruePositives = Number(project.true_positives ?? 0);
-  const projectTotalExpected = Number(project.total_expected ?? 0);
-  const projectTotalFound = Number(project.total_found ?? 0);
-  const replicas = normalizeReplicaRows(project, replicasPerProject);
-  const replicaTotals = replicas.reduce(
-    (totals, replica) => ({
-      truePositives: totals.truePositives + Number(replica.true_positives ?? 0),
-      totalExpected: totals.totalExpected + Number(replica.total_expected ?? expectedPerReplica),
-      totalFound: totals.totalFound + Number(replica.total_found ?? 0),
-    }),
-    { truePositives: 0, totalExpected: 0, totalFound: 0 }
+  // A project is scored BEST-OF across its successful replicas -- never summed. The
+  // scorer's project-level fields already hold that best-of result, so prefer them.
+  // Only when a project summary hasn't been written yet (mid-progress) do we fall
+  // back to the single strongest replica (by true positives), still best-of.
+  const bestReplica = normalizeReplicaRows(project, replicasPerProject).reduce(
+    (best, replica) => {
+      const tp = Number(replica.true_positives ?? 0);
+      if (best === null || tp > best.truePositives) {
+        return {
+          truePositives: tp,
+          totalExpected: Number(replica.total_expected ?? expectedPerReplica),
+          totalFound: Number(replica.total_found ?? 0),
+        };
+      }
+      return best;
+    },
+    null
   );
   return {
-    truePositives: Math.max(replicaTotals.truePositives, projectTruePositives),
-    totalExpected: Math.max(replicaTotals.totalExpected, projectTotalExpected),
-    totalFound: Math.max(replicaTotals.totalFound, projectTotalFound),
+    truePositives: Number(project.true_positives ?? bestReplica?.truePositives ?? 0),
+    totalExpected: Number(
+      project.total_expected ?? bestReplica?.totalExpected ?? expectedPerReplica
+    ),
+    totalFound: Number(project.total_found ?? bestReplica?.totalFound ?? 0),
   };
 }
 

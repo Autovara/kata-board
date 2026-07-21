@@ -23,7 +23,7 @@ export default function GridBackground() {
     const SPEED = 0.4; // scroll speed (px/frame) -- clearly visible, ~24px/s
     const BORDER = "rgba(244, 247, 239, 0.08)";
     const HOVER_FILL = "rgba(185, 255, 93, 0.18)"; // accent green
-    const BG = "8, 9, 8"; // --bg rgb, for the edge vignette
+    const BG = "11, 18, 12"; // --bg rgb (#0b120c), for the edge vignette
 
     let W = 0;
     let H = 0;
@@ -43,7 +43,7 @@ export default function GridBackground() {
         Math.sqrt(W * W + H * H) / 2
       );
       g.addColorStop(0, `rgba(${BG}, 0)`);
-      g.addColorStop(1, `rgba(${BG}, 0.55)`);
+      g.addColorStop(1, `rgba(${BG}, 0.42)`);
       vignette = g;
     }
 

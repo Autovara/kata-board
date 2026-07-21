@@ -1671,8 +1671,12 @@ const roundTo = (value, places = 0) => {
   return Math.round(Number(value || 0) * factor) / factor;
 };
 const asPercent = (value) => (value == null ? "—" : `${Math.round(Number(value) * 100)}%`);
-const fractionPercent = (num, den) =>
-  den > 0 ? `${Math.round((Number(num || 0) / den) * 100)}%` : "—";
+// Whole-count signals show the number itself (the king's reign average, the challenger's
+// this-challenge count); a whole number stays whole, an average shows one decimal.
+const formatCount = (value) => {
+  const n = Number(value || 0);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+};
 
 // The raw ladder value used to decide the ranking for each signal (unchanged by display).
 function ladderRawValue(ladder, key) {
@@ -1694,18 +1698,20 @@ function ladderRawValue(ladder, key) {
   }
 }
 
-// Every card shows a percentage: ratios (pass score, precision, F1) directly, and the
-// count signals as a fraction of their natural denominator.
-function ladderSignalPercent(ladder, key, { numProjects, totalRuns, totalExpected }) {
+// Ratio signals (project pass score, precision, F1) show a percentage; whole-count
+// signals (projects passed, true positives, invalid runs) show the number itself. Note
+// "project pass score" (a %) and "projects passed" (a count) are deliberately different
+// views of the same passes.
+function ladderSignalDisplay(ladder, key) {
   switch (key) {
     case "pass_score":
       return asPercent(ladder.passRatio);
     case "codebase_pass_count":
-      return fractionPercent(ladder.projectsPassed, numProjects);
+      return formatCount(ladder.projectsPassed);
     case "true_positives":
-      return fractionPercent(ladder.truePositives, totalExpected);
+      return formatCount(ladder.truePositives);
     case "invalid_runs":
-      return fractionPercent(ladder.invalidRuns, totalRuns);
+      return formatCount(ladder.invalidRuns);
     case "precision":
       return asPercent(ladder.precision);
     case "f1_score":
@@ -1715,25 +1721,35 @@ function ladderSignalPercent(ladder, key, { numProjects, totalRuns, totalExpecte
   }
 }
 
-// The challenger's raw this-challenge counts for a signal (shown in the popup).
+const SIGNAL_HELP = {
+  pass_score: "Share of the sampled projects the agent fully passed.",
+  codebase_pass_count: "How many of the sampled projects the agent passed.",
+  true_positives: "Real benchmark bugs the agent correctly found.",
+  invalid_runs: "Scoring runs that errored out — fewer is better.",
+  precision: "Of everything the agent reported, how much was real.",
+  f1_score: "Overall balance of precision and detection.",
+};
+
+// The challenger's raw this-challenge counts for a signal, as a plain sentence.
 function candidateSignalCounts(key, c, { numProjects, totalRuns }) {
   const tp = roundTo(c.truePositives);
   const found = roundTo(c.totalFound);
   const expected = roundTo(c.totalExpected);
   const passed = roundTo(c.projectsPassed);
   const invalid = roundTo(c.invalidRuns);
+  const withPct = (num, den) => (den > 0 ? ` (${Math.round((num / den) * 100)}%)` : "");
   switch (key) {
     case "pass_score":
     case "codebase_pass_count":
-      return `${passed} of ${numProjects} projects passed`;
+      return `Passed ${passed} of ${numProjects} projects${withPct(passed, numProjects)}.`;
     case "true_positives":
-      return `${tp} of ${expected} expected bugs found · ${Math.max(found - tp, 0)} false positives`;
+      return `Found ${tp} of ${expected} real bugs · ${Math.max(found - tp, 0)} false positives.`;
     case "invalid_runs":
-      return `${invalid} of ${totalRuns} scoring runs errored`;
+      return `${invalid} of ${totalRuns} scoring runs errored${withPct(invalid, totalRuns)}.`;
     case "precision":
-      return `${tp} real of ${found} reported findings`;
+      return `${tp} of ${found} reported findings were real${withPct(tp, found)}.`;
     case "f1_score":
-      return `F1 ${roundTo(c.f1, 2)} — balances precision and detection`;
+      return `F1 ${roundTo(c.f1, 2)} — the balance of precision and detection.`;
     default:
       return "—";
   }
@@ -1790,8 +1806,8 @@ function DecisionLadder({
     ...signal,
     candidateValue: ladderRawValue(candidate, signal.key),
     kingValue: ladderRawValue(king, signal.key),
-    candidateDisplay: ladderSignalPercent(candidate, signal.key, ctx),
-    kingDisplay: ladderSignalPercent(king, signal.key, ctx),
+    candidateDisplay: ladderSignalDisplay(candidate, signal.key),
+    kingDisplay: ladderSignalDisplay(king, signal.key),
     candidateDetail: candidateSignalCounts(signal.key, candidate, ctx),
     kingHistory: kingSignalHistory(signal.key, kingReignRecords, liveKingSignals, executing),
   }));
@@ -1832,7 +1848,6 @@ function DecisionLadder({
       {activeStep ? (
         <DecisionStepDialog
           step={activeStep}
-          kingLabel={kingLabel}
           ctx={ctx}
           onClose={() => setOpenSignal(null)}
         />
@@ -1872,7 +1887,7 @@ function DecisionStep({ step, active, kingLabel = "king", onOpen }) {
   );
 }
 
-function DecisionStepDialog({ step, kingLabel, ctx, onClose }) {
+function DecisionStepDialog({ step, ctx, onClose }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === "Escape") {
@@ -1887,7 +1902,7 @@ function DecisionStepDialog({ step, kingLabel, ctx, onClose }) {
       <div className="decision-dialog" onClick={(event) => event.stopPropagation()}>
         <div className="decision-dialog-head">
           <div>
-            <span>#{step.rank} · finding counts</span>
+            <span>signal #{step.rank}</span>
             <strong>{step.label}</strong>
           </div>
           <button
@@ -1900,12 +1915,13 @@ function DecisionStepDialog({ step, kingLabel, ctx, onClose }) {
           </button>
         </div>
         <div className="decision-dialog-body">
+          <p className="decision-dialog-help">{SIGNAL_HELP[step.key]}</p>
           <section className="decision-dialog-section">
-            <h4>challenger · this challenge</h4>
+            <h4>🥊 Challenger — this challenge</h4>
             <p className="decision-dialog-candidate">{step.candidateDetail}</p>
           </section>
           <section className="decision-dialog-section">
-            <h4>{kingLabel} · full history</h4>
+            <h4>👑 King — every challenge in its reign</h4>
             {step.kingHistory.rows.length ? (
               <ul className="decision-dialog-history">
                 {step.kingHistory.rows.map((row, index) => (
@@ -1915,7 +1931,7 @@ function DecisionStepDialog({ step, kingLabel, ctx, onClose }) {
                   </li>
                 ))}
                 <li className="decision-dialog-avg">
-                  <span>average (the bar to beat)</span>
+                  <span>Average — the score to beat</span>
                   <strong>{formatKingHistoryValue(step.key, step.kingHistory.average, ctx)}</strong>
                 </li>
               </ul>

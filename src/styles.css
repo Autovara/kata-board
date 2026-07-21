@@ -4579,6 +4579,15 @@ html {
   gap: 16px;
   padding: 16px 18px 18px;
 }
+.decision-dialog-help {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-3);
+  color: var(--soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
 .decision-dialog-section h4 {
   margin: 0 0 8px;
   font-size: 11px;

@@ -37,9 +37,61 @@ app.get("/api/status", async (_request, response) => {
   }
 });
 
-// Real-time push. The client subscribes with EventSource; we emit a fresh
-// payload whenever the status timestamp changes and a lightweight keep-alive
-// comment otherwise. loadBoardStatus is cached, so a short interval is cheap.
+// Real-time push. Clients subscribe with EventSource. A SINGLE shared interval
+// computes loadBoardStatus once per tick and fans the result out to every
+// subscriber, so N clients cost O(1) status builds per tick, not O(N). (Previously
+// each connection ran its own interval + status build; a reconnect spiral then
+// multiplied the work until the event loop was saturated and new connections were
+// starved out of the accept queue — the whole dashboard would fail to load.)
+const sseClients = new Set();
+let sseTimer = null;
+let sseLastStamp = null;
+
+function writeToClient(response, chunk) {
+  try {
+    response.write(chunk);
+  } catch {
+    // A client that died without firing "close": drop it so it stops costing writes.
+    sseClients.delete(response);
+    try {
+      response.end();
+    } catch {
+      /* already torn down */
+    }
+  }
+}
+
+async function broadcastBoardStatus() {
+  if (sseClients.size === 0) {
+    return;
+  }
+  let chunk;
+  try {
+    const payload = await loadBoardStatus(process.env);
+    // Gate on a stamp that also reflects live challenge progress. On a cache hit
+    // loadBoardStatus refreshes challenge.liveProgress but keeps the same
+    // generatedAt, so gating on generatedAt alone would drop every mid-challenge
+    // progress frame and the challenge would only animate once per cache TTL.
+    const stamp = streamStamp(payload);
+    if (stamp !== sseLastStamp) {
+      sseLastStamp = stamp;
+      chunk = `data: ${JSON.stringify(payload)}\n\n`;
+    } else {
+      // Liveness as a NAMED event: the client listens for "heartbeat" to keep its
+      // stream-freshness watchdog satisfied, but a named event does NOT fire the
+      // default `onmessage`, so it never disturbs the rendered state — and older
+      // cached clients (which only handle onmessage) simply ignore it.
+      chunk = "event: heartbeat\ndata: 1\n\n";
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    chunk = `data: ${JSON.stringify({ __error: message })}\n\n`;
+  }
+  for (const response of [...sseClients]) {
+    writeToClient(response, chunk);
+  }
+}
+
 app.get("/api/stream", async (_request, response) => {
   response.set({
     "Content-Type": "text/event-stream",
@@ -49,53 +101,34 @@ app.get("/api/stream", async (_request, response) => {
     "X-Accel-Buffering": "no",
   });
   response.flushHeaders?.();
+  sseClients.add(response);
 
-  let closed = false;
-  let lastStamp = null;
-
-  async function push() {
-    if (closed) {
-      return;
-    }
-    try {
-      const payload = await loadBoardStatus(process.env);
-      // The client may have disconnected during the await; writing to an ended
-      // response throws an unhandled rejection out of the interval callback.
-      if (closed) {
-        return;
-      }
-      // Gate on a stamp that also reflects live challenge progress. On a cache hit
-      // loadBoardStatus refreshes challenge.liveProgress but keeps the same
-      // generatedAt, so gating on generatedAt alone would drop every mid-challenge
-      // progress frame and the challenge would only animate once per cache TTL.
-      const stamp = streamStamp(payload);
-      if (stamp !== lastStamp) {
-        lastStamp = stamp;
-        response.write(`data: ${JSON.stringify(payload)}\n\n`);
-      } else {
-        // Liveness as a NAMED event: the client listens for "heartbeat" to keep its
-        // stream-freshness watchdog satisfied, but a named event does NOT fire the
-        // default `onmessage`, so it never disturbs the rendered state — and older
-        // cached clients (which only handle onmessage) simply ignore it. A bare `:`
-        // comment would not fire any handler, so the watchdog would wrongly think the
-        // stream was dead and reconnect every window, flashing the UI.
-        response.write("event: heartbeat\ndata: 1\n\n");
-      }
-    } catch (error) {
-      if (closed) {
-        return;
-      }
-      const message = error instanceof Error ? error.message : "unknown error";
-      response.write(`data: ${JSON.stringify({ __error: message })}\n\n`);
-    }
+  // Give this new subscriber an immediate snapshot: the shared broadcast only fires
+  // on a stamp change, so a client joining between changes would otherwise see
+  // nothing until the next one. loadBoardStatus is cached, so this is a cheap hit.
+  try {
+    const payload = await loadBoardStatus(process.env);
+    writeToClient(response, `data: ${JSON.stringify(payload)}\n\n`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    writeToClient(response, `data: ${JSON.stringify({ __error: message })}\n\n`);
   }
 
-  await push();
-  const interval = setInterval(push, streamIntervalMs(process.env));
+  if (!sseTimer) {
+    sseTimer = setInterval(broadcastBoardStatus, streamIntervalMs(process.env));
+  }
+
   _request.on("close", () => {
-    closed = true;
-    clearInterval(interval);
-    response.end();
+    sseClients.delete(response);
+    try {
+      response.end();
+    } catch {
+      /* already torn down */
+    }
+    if (sseClients.size === 0 && sseTimer) {
+      clearInterval(sseTimer);
+      sseTimer = null;
+    }
   });
 });
 

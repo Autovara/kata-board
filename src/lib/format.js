@@ -283,6 +283,8 @@ export function sideLadderSignals(side, replicasPerProject = 0, projectCount = 0
     passRatio: hasPass ? passCount / total : -1,
     passScore: hasPass ? `${passCount}/${total}` : "—",
     projectsPassed: loosePassCount < 0 ? 0 : loosePassCount,
+    // The strict 2/3 pass count, kept for the "project pass score" popup detail.
+    projectsPassedStrict: passCount < 0 ? 0 : passCount,
     truePositives,
     totalExpected,
     totalFound,

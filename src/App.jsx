@@ -1735,13 +1735,17 @@ function candidateSignalCounts(key, c, { numProjects, totalRuns }) {
   const tp = roundTo(c.truePositives);
   const found = roundTo(c.totalFound);
   const expected = roundTo(c.totalExpected);
-  const passed = roundTo(c.projectsPassed);
+  const strictPassed = roundTo(c.projectsPassedStrict);
+  const loosePassed = roundTo(c.projectsPassed);
   const invalid = roundTo(c.invalidRuns);
   const withPct = (num, den) => (den > 0 ? ` (${Math.round((num / den) * 100)}%)` : "");
   switch (key) {
     case "pass_score":
+      // Pass score is the STRICT 2/3-majority rate.
+      return `Passed ${strictPassed} of ${numProjects} projects${withPct(strictPassed, numProjects)}.`;
     case "codebase_pass_count":
-      return `Passed ${passed} of ${numProjects} projects${withPct(passed, numProjects)}.`;
+      // Projects passed is a plain count (loose >=1-replica) — no fraction, no percent.
+      return `${loosePassed}`;
     case "true_positives":
       return `Found ${tp} of ${expected} real bugs · ${Math.max(found - tp, 0)} false positives.`;
     case "invalid_runs":
@@ -1755,19 +1759,18 @@ function candidateSignalCounts(key, c, { numProjects, totalRuns }) {
   }
 }
 
-// Format one king history value for a signal: ratios as %, counts as counts.
-function formatKingHistoryValue(key, value, { numProjects }) {
+// Format one king history value for a signal: ratios as %, counts as plain numbers.
+function formatKingHistoryValue(key, value) {
   switch (key) {
     case "pass_score":
     case "precision":
+      return asPercent(value);
     case "f1_score":
-      return key === "f1_score" ? roundTo(value, 2).toFixed(2) : asPercent(value);
+      return roundTo(value, 2).toFixed(2);
     case "codebase_pass_count":
-      return `${roundTo(value, 1)} / ${numProjects}`;
     case "true_positives":
-      return `${roundTo(value, 1)} TP`;
     case "invalid_runs":
-      return `${roundTo(value, 1)} runs`;
+      return `${roundTo(value, 1)}`;
     default:
       return "—";
   }
@@ -1846,11 +1849,7 @@ function DecisionLadder({
         ))}
       </div>
       {activeStep ? (
-        <DecisionStepDialog
-          step={activeStep}
-          ctx={ctx}
-          onClose={() => setOpenSignal(null)}
-        />
+        <DecisionStepDialog step={activeStep} onClose={() => setOpenSignal(null)} />
       ) : null}
     </section>
   );
@@ -1887,7 +1886,7 @@ function DecisionStep({ step, active, kingLabel = "king", onOpen }) {
   );
 }
 
-function DecisionStepDialog({ step, ctx, onClose }) {
+function DecisionStepDialog({ step, onClose }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === "Escape") {
@@ -1927,12 +1926,12 @@ function DecisionStepDialog({ step, ctx, onClose }) {
                 {step.kingHistory.rows.map((row, index) => (
                   <li key={`${row.label}-${index}`} className={row.live ? "is-live" : ""}>
                     <span>{row.label}</span>
-                    <strong>{formatKingHistoryValue(step.key, row.value, ctx)}</strong>
+                    <strong>{formatKingHistoryValue(step.key, row.value)}</strong>
                   </li>
                 ))}
                 <li className="decision-dialog-avg">
                   <span>Average — the score to beat</span>
-                  <strong>{formatKingHistoryValue(step.key, step.kingHistory.average, ctx)}</strong>
+                  <strong>{formatKingHistoryValue(step.key, step.kingHistory.average)}</strong>
                 </li>
               </ul>
             ) : (

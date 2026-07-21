@@ -100,6 +100,23 @@ export function applyChallengeStalenessGuard(challenge, env) {
   return challenge;
 }
 
+// The king's reign records (its per-defense rank signals) from the rank ledger, but
+// only when the ledger is for THIS king. The board blends these with the king's LIVE
+// this-challenge score so the average animates during the round, instead of only
+// updating when the round completes and the score is written back into challenge-status.
+function loadKingReignRecords(challengeStatusPath, kingHash) {
+  if (!kingHash) {
+    return [];
+  }
+  const ledger = readJsonSafe(
+    path.join(path.dirname(challengeStatusPath), "king-rank-ledger.json")
+  );
+  if (!ledger || ledger.king_hash !== kingHash || !Array.isArray(ledger.records)) {
+    return [];
+  }
+  return ledger.records.filter((record) => record && typeof record === "object");
+}
+
 export function loadChallengeStatus(challengeStatusPath) {
   // The competition challenge writes this file at start (executing) and end
   // (completed); the board renders every entrant until final results.
@@ -107,7 +124,9 @@ export function loadChallengeStatus(challengeStatusPath) {
   if (!status || typeof status !== "object") {
     return null;
   }
+  const kingHash = status.king?.artifact_hash || status.king?.king_artifact_hash || "";
   return {
+    kingReignRecords: loadKingReignRecords(challengeStatusPath, kingHash),
     state: status.state || "idle",
     note: status.note || null,
     generatedAt: status.generated_at || null,

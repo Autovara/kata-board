@@ -934,6 +934,9 @@ function ChallengePanel({
         entrant={candidate}
         king={kingResult}
         kingAuthor={challengeKingAuthor}
+        kingRankAverage={challenge?.kingRankAverage || null}
+        kingRankSamples={challenge?.kingRankSamples || 0}
+        kingReignRecords={challenge?.kingReignRecords || []}
         progress={result}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
@@ -1026,6 +1029,7 @@ function ChallengePanel({
         kingAuthor={challengeKingAuthor}
         kingRankAverage={challenge?.kingRankAverage || null}
         kingRankSamples={challenge?.kingRankSamples || 0}
+        kingReignRecords={challenge?.kingReignRecords || []}
         progress={primaryProgress}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
@@ -1391,12 +1395,45 @@ function KingMetricCard({ label, value, hint, tone = "neutral" }) {
   );
 }
 
+const KING_SIGNAL_KEYS = [
+  "pass_score",
+  "codebase_pass_count",
+  "true_positives",
+  "invalid_runs",
+  "precision",
+  "f1_score",
+];
+
+// Element-wise mean of a list of six-signal records (same as the bot's ledger average).
+function averageKingSignals(records) {
+  const count = records.length || 1;
+  const out = {};
+  for (const key of KING_SIGNAL_KEYS) {
+    out[key] = records.reduce((sum, record) => sum + Number(record[key] || 0), 0) / count;
+  }
+  return out;
+}
+
+// The king's this-challenge best-of ladder, expressed as the ledger's six-signal shape
+// so it can be averaged with the reign records.
+function ladderToKingSignals(ladder) {
+  return {
+    pass_score: Number(ladder.passRatio || 0),
+    codebase_pass_count: Number(ladder.projectsPassed || 0),
+    true_positives: Number(ladder.truePositives || 0),
+    invalid_runs: Number(ladder.invalidRuns || 0),
+    precision: Number(ladder.precision || 0),
+    f1_score: Number(ladder.f1 || 0),
+  };
+}
+
 function DuelDetail({
   entrant,
   king,
   kingAuthor,
   kingRankAverage = null,
   kingRankSamples = 0,
+  kingReignRecords = [],
   kataRepoSlug,
   progress,
   projectKeys,
@@ -1429,24 +1466,39 @@ function DuelDetail({
   // The gate compares the candidate against the king's AVERAGE over its reign, so show
   // that average in the decision ladder when we have it (a fresh king with no reign
   // history falls back to its this-challenge scores).
-  const kingIsAverage = Boolean(kingRankAverage);
   // Every ladder value is computed BEST-OF and identically for both sides. The candidate
-  // uses its this-challenge best-of; the king uses its reign average when available, else
-  // its this-challenge best-of (a freshly promoted king has no reign history yet).
+  // uses its this-challenge best-of; the king uses its reign average.
   const candidateLadder = sideLadderSignals(entrant, replicasPerProject, problemKeys.length);
+  const liveKingLadder = sideLadderSignals(king, replicasPerProject, problemKeys.length);
+  // While the round is executing, the king's this-challenge score is NOT in the ledger
+  // yet (it's recorded only when the round completes). So blend the reign records with
+  // the king's LIVE this-challenge score, so the displayed average updates in real time
+  // as the king finds more — matching the average the gate will use at completion. Once
+  // completed, the published kingRankAverage already includes this round, so use it.
+  const stillScoring = entrant.status === "executing";
+  let effectiveKingAverage = kingRankAverage;
+  let effectiveKingSamples = kingRankSamples;
+  if (stillScoring && kingReignRecords.length) {
+    effectiveKingAverage = averageKingSignals([
+      ...kingReignRecords,
+      ladderToKingSignals(liveKingLadder),
+    ]);
+    effectiveKingSamples = kingReignRecords.length + 1;
+  }
+  const kingIsAverage = Boolean(effectiveKingAverage);
   const kingLadder = kingIsAverage
     ? {
-        passRatio: Number(kingRankAverage.pass_score || 0),
-        passScore: `${Math.round(Number(kingRankAverage.pass_score || 0) * 100)}%`,
-        projectsPassed: Number(kingRankAverage.codebase_pass_count || 0),
-        truePositives: Number(kingRankAverage.true_positives || 0),
+        passRatio: Number(effectiveKingAverage.pass_score || 0),
+        passScore: `${Math.round(Number(effectiveKingAverage.pass_score || 0) * 100)}%`,
+        projectsPassed: Number(effectiveKingAverage.codebase_pass_count || 0),
+        truePositives: Number(effectiveKingAverage.true_positives || 0),
         totalExpected: null,
         totalFound: null,
-        invalidRuns: Number(kingRankAverage.invalid_runs || 0),
-        precision: Number(kingRankAverage.precision || 0),
-        f1: Number(kingRankAverage.f1_score || 0),
+        invalidRuns: Number(effectiveKingAverage.invalid_runs || 0),
+        precision: Number(effectiveKingAverage.precision || 0),
+        f1: Number(effectiveKingAverage.f1_score || 0),
       }
-    : sideLadderSignals(king, replicasPerProject, problemKeys.length);
+    : liveKingLadder;
   const screeningFailure = screeningFailureDetails(entrant) || screeningFailureDetails(progress);
   const onlyScreeningFailure = Boolean(screeningFailure && !projects.length);
 
@@ -1578,7 +1630,9 @@ function DuelDetail({
           candidate={candidateLadder}
           king={kingLadder}
           kingIsAverage={kingIsAverage}
-          kingLabel={kingIsAverage ? `king · avg of ${kingRankSamples}` : "king (this challenge)"}
+          kingLabel={
+            kingIsAverage ? `king · avg of ${effectiveKingSamples}` : "king (this challenge)"
+          }
         />
       )}
 

@@ -64,6 +64,27 @@ export function entrantPassCount(entrant) {
   return -1;
 }
 
+// "Projects passed" = projects with AT LEAST ONE passing replica (looser than the
+// strict 2/3 `codebase_pass_count` that drives the pass score). Prefer the engine's
+// loose_pass_count; otherwise count projects that either 2/3-passed or had any replica
+// pass; otherwise fall back to the strict count.
+export function entrantLoosePassCount(entrant) {
+  if (entrant?.loose_pass_count != null) {
+    return Number(entrant.loose_pass_count);
+  }
+  if (Array.isArray(entrant?.projects)) {
+    return entrant.projects.filter((project) => {
+      if (project?.passed) return true;
+      if (Number(project?.pass_count || 0) >= 1) return true;
+      const replicas = Array.isArray(project?.replicas) ? project.replicas : [];
+      return replicas.some(
+        (replica) => replica?.passed || replica?.result === "PASS" || replica?.status === "pass"
+      );
+    }).length;
+  }
+  return entrantPassCount(entrant);
+}
+
 export function entrantProjectTotal(entrant, selectedProjectCount = 0) {
   const selectedTotal = Number(selectedProjectCount || 0);
   if (selectedTotal > 0) {
@@ -254,12 +275,14 @@ export function sideLadderSignals(side, replicasPerProject = 0, projectCount = 0
   const recall = totalExpected > 0 ? truePositives / totalExpected : 0;
   const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
   const passCount = entrantPassCount(side);
+  const loosePassCount = entrantLoosePassCount(side);
   const total = entrantProjectTotal(side, projectCount);
   const hasPass = passCount >= 0 && total > 0;
   return {
+    // Pass score stays STRICT (2/3 majority); projects-passed is the LOOSE count.
     passRatio: hasPass ? passCount / total : -1,
     passScore: hasPass ? `${passCount}/${total}` : "—",
-    projectsPassed: passCount < 0 ? 0 : passCount,
+    projectsPassed: loosePassCount < 0 ? 0 : loosePassCount,
     truePositives,
     totalExpected,
     totalFound,

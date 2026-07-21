@@ -28,7 +28,12 @@ import {
   loadGithubLeaderboard,
   parseGithubTokenList,
 } from "./github.mjs";
-import { createAuthorRow, finalizeLeaderboardRows, maxDate } from "./leaderboardRows.mjs";
+import {
+  createAuthorRow,
+  finalizeLeaderboardRows,
+  hasKataRewardLabel,
+  maxDate,
+} from "./leaderboardRows.mjs";
 import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 import {
   collectFiles,
@@ -681,10 +686,9 @@ function applyLivePullCounts(entry, pull) {
 }
 
 function maybeAttachWinnerPull(entry, pull, latestLaneWinners) {
-  const winnerLabel = normalizeLabelNames(pull?.labels).find((label) =>
-    label.startsWith("kata:winner:")
-  );
-  if (!winnerLabel || !pull?.mergedAt) {
+  // Any reward-bearing king PR (reigning kata:winner, runner-up kata:king2/3/4, or
+  // dethroned kata:defeat) counts toward the score at its tier -- collect them all.
+  if (!pull?.mergedAt || !hasKataRewardLabel(pull?.labels)) {
     return;
   }
   entry.winnerPulls = dedupeWinnerPulls([
@@ -695,6 +699,13 @@ function maybeAttachWinnerPull(entry, pull, latestLaneWinners) {
       labels: pull.labels,
     },
   ]);
+  // Only the REIGNING king (kata:winner) is the current lane winner.
+  const winnerLabel = normalizeLabelNames(pull?.labels).find((label) =>
+    label.startsWith("kata:winner:")
+  );
+  if (!winnerLabel) {
+    return;
+  }
   const laneKey = laneKeyFromWinnerPull(pull, winnerLabel);
   if (!laneKey) {
     return;

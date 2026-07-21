@@ -1,6 +1,11 @@
 import { execFileSync } from "node:child_process";
 
-import { createAuthorRow, finalizeLeaderboardRows, maxDate } from "./leaderboardRows.mjs";
+import {
+  createAuthorRow,
+  finalizeLeaderboardRows,
+  hasKataRewardLabel,
+  maxDate,
+} from "./leaderboardRows.mjs";
 
 const SUBMISSION_PATH_PATTERN = /^submissions\/([^/]+)\/([^/]+)\/([^/]+)\//;
 
@@ -204,16 +209,12 @@ function isKataWinnerPull(pull) {
   return labels.some((label) => label.startsWith("kata:winner:"));
 }
 
-// A dethroned king carries `kata:defeat:<subnet-pack>` (its winner label was
-// stripped on promotion of the next king). It is no longer the current king,
-// but it did win a challenge, so it still counts toward a contributor's history.
-function isKataDefeatedPull(pull) {
-  const labels = normalizeLabelNames(pull?.labels);
-  return labels.some((label) => label.startsWith("kata:defeat:"));
-}
-
+// A former king carries a rolling-window reward label -- kata:king2/king3/king4
+// while still in the last-4 window, or kata:defeat once it falls out. All of them
+// (like the reigning kata:winner) are historical wins that count toward a
+// contributor's leaderboard score at their tier.
 function hasKataWinHistory(pull) {
-  return isKataWinnerPull(pull) || isKataDefeatedPull(pull);
+  return hasKataRewardLabel(pull?.labels);
 }
 
 // Lane key(s) a PR won, derived from its kata:winner:<pack> / kata:defeat:<pack>

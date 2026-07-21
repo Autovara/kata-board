@@ -67,9 +67,11 @@ export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
 
 // Mirrors gittensor's authoritative Autovara/kata entry in
 // gittensor/validator/weights/master_repositories.json (entrius/gittensor),
-// as of PR #1638: subnet-specific winner tiers and kata:defeat:* = 0.2.
-// Label resolution takes the MAX matching multiplier, so kata:winner:sn60__bitsec
-// resolves to 2.0 (not the 1.0 kata:winner:* fallback).
+// as of PR #1644: the rolling last-4-kings reward window -- the reigning king
+// (kata:winner) 0.70, the three previous kings still in the window
+// (kata:king2/king3/king4) 0.10 each, and a king that fell out (kata:defeat) 0.0.
+// Label resolution takes the MAX matching multiplier; each king PR carries exactly
+// one rank label, so the resolution is unambiguous.
 //
 // This reproduces gittensor's per-PR EARNED score (fixed_base_score × label ×
 // time_decay). It intentionally does NOT model the parts of the real mechanism
@@ -85,10 +87,11 @@ const KATA_GITTENSOR_CONFIG = {
   timeDecayMinMultiplier: 0.05,
   defaultLabelMultiplier: 0.0,
   labelMultipliers: {
-    "kata:winner:sn60__bitsec": 2.0,
-    "kata:winner:sn22__desearch": 3.0,
-    "kata:winner:*": 1.0,
-    "kata:defeat:*": 0.2,
+    "kata:winner:*": 0.7,
+    "kata:king2:*": 0.1,
+    "kata:king3:*": 0.1,
+    "kata:king4:*": 0.1,
+    "kata:defeat:*": 0.0,
     "kata:pending": 0.0,
     "kata:review": 0.0,
     "kata:executing": 0.0,
@@ -98,6 +101,16 @@ const KATA_GITTENSOR_CONFIG = {
     "kata:stale": 0.0,
   },
 };
+
+// The reward-bearing outcome labels: a PR that was ever a king -- the reigning one
+// (winner), a runner-up still in the reward window (king2/3/4), or one that fell
+// out (defeat). Every source collects these into `winnerPulls` so the score sums
+// their tiers; `resolveKataLabelMultiplier` then weights each by its label.
+const KATA_REWARD_LABEL_PATTERN = /^kata:(winner|king2|king3|king4|defeat):/;
+
+export function hasKataRewardLabel(labels) {
+  return normalizeLabelNames(labels).some((label) => KATA_REWARD_LABEL_PATTERN.test(label));
+}
 
 export function calculateKataGittensorScore(entry, now = new Date()) {
   const pulls = Array.isArray(entry?.winnerPulls) ? entry.winnerPulls : [];

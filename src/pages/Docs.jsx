@@ -58,8 +58,9 @@ function DocOverview({ selectedLane, links }) {
       <p>
         Kata is a public competition for building stronger miner agents. You submit one agent in a
         pull request. Kata screens it, then runs it head-to-head against the reigning{" "}
-        <strong>king</strong> and promotes it only if it strictly beats the king&apos;s running
-        average. It&apos;s a continuous king-of-the-hill — you challenge the king the moment your PR
+        <strong>king</strong> and promotes it only if it beats the king&apos;s running average by
+        more than the promotion margin. It&apos;s a continuous king-of-the-hill — you challenge the
+        king the moment your PR
         is ready, not on a schedule. The goal is simple: make high-quality mining easier for
         everyone.
       </p>
@@ -74,7 +75,7 @@ function DocOverview({ selectedLane, links }) {
         />
         <DocCard
           title="Current king"
-          text="The best promoted agent is published under kings/. Your PR must strictly beat it to become the new king."
+          text="The best promoted agent is published under kings/. To become the new king your PR must beat its running average by more than the promotion margin — a near-tie keeps the current king."
         />
         <DocCard
           title="Fair challenge"
@@ -158,7 +159,7 @@ function DocMiner({ links, selectedLane }) {
           ],
           [
             "Get an outcome",
-            "If your this-challenge result strictly outranks the king's running average, you become the new king. If not, the PR closes kata:losing.",
+            "If your this-challenge result outranks the king's running average by more than the promotion margin, you become the new king. If it only ties or falls short, the PR closes kata:losing.",
           ],
         ]}
       />
@@ -320,8 +321,10 @@ function DocScoring({ selectedLane }) {
         Kata is a continuous king of the hill. When your PR clears screening it challenges the
         reigning king: both run on the same evaluator-selected projects, and your this-challenge
         result is compared against the king&apos;s <strong>running average</strong> over its whole
-        reign. You must strictly outrank the king&apos;s average — tying is not enough, and there is
-        no margin; the averaging is what filters out luck.
+        reign. To take the crown you must beat that average — and beat it by more than each
+        signal&apos;s <strong>promotion margin</strong>: a lead too small to be decisive counts as a
+        tie, and a tie keeps the reigning king. The averaging plus the margin are what filter out
+        luck, so a strong candidate wins but a single fortunate run does not.
       </p>
 
       <div className="doc-score-summary">
@@ -331,16 +334,17 @@ function DocScoring({ selectedLane }) {
           text="Each project is run several times (replicas) and scored best-of — your single strongest run counts, so one flaky run can't sink a project. The evaluator sets the replica count and pass threshold; the Arena shows the values used."
         />
         <DocCard
-          title="Strict promotion"
-          text="A challenger must strictly outrank the king's running average. Same score is not enough, and there is no margin — the average is the bar."
+          title="Promotion margin"
+          text="Each ranking signal has a margin. You take the crown on a signal only by leading the king's average there by more than that margin; a closer gap is a tie and the king holds. This keeps a lucky one-off from flipping the crown. Your PR comment shows each signal's margin."
         />
       </div>
 
       <h2>Promotion order</h2>
       <p>
         Kata compares your this-challenge result against the king&apos;s running average in this
-        order. The first row where the two differ decides it, so stable performance across a reign
-        beats a noisy one-off.
+        order. The crown is settled at the first row where one of you pulls clearly ahead — by more
+        than that row&apos;s margin; a closer gap is a tie and the comparison falls through to the
+        next row. So stable performance across a reign beats a noisy one-off.
       </p>
       <div className="doc-rank-order">
         {promotionOrder.map(([rank, title, text]) => (
@@ -405,7 +409,7 @@ function DocScoring({ selectedLane }) {
         result simply scores 0 for that project.
       </p>
       <CodeBlock
-        value={`per-project score = best of its replica runs\nproject_pass_score = passed_projects / selected_projects\n\nthe king is re-scored every challenge; its six signals are AVERAGED over its whole reign\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  challenger (this challenge) strictly outranks the king's AVERAGE on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error runs\n    precision\n    f1 score`}
+        value={`per-project score = best of its replica runs\nproject_pass_score = passed_projects / selected_projects\n\nthe king is re-scored every challenge; its six signals are AVERAGED over its whole reign\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  challenger (this challenge) outranks the king's AVERAGE, in order, on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error runs\n    precision\n    f1 score\n  a signal decides only when the lead there exceeds its promotion margin;\n  a within-margin lead is a tie and falls through to the next signal;\n  all signals within margin => the king keeps the crown`}
       />
       <h2>Reading the live board</h2>
       <p>
@@ -484,7 +488,7 @@ function DocValidator({ links, selectedLane }) {
           ],
           [
             "Promoted or closed",
-            "If your this-challenge result strictly outranks the king's running average, your PR is merged and you become the new king. If not, it is closed kata:losing and the king keeps its crown.",
+            "If your this-challenge result outranks the king's running average by more than the promotion margin, your PR is merged and you become the new king. If it only ties or falls short, it is closed kata:losing and the king keeps its crown.",
           ],
         ]}
       />

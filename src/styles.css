@@ -4425,6 +4425,29 @@ html {
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent), rgba(255, 255, 255, 0.025);
+  /* The card is a button (tap for the counts popup): reset the browser chrome. */
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+.decision-step:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.decision-step:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.decision-step-more {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .decision-step-active {
@@ -4490,6 +4513,125 @@ html {
   font-size: 13px;
   white-space: nowrap;
   text-align: right;
+}
+
+/* Tap-a-card popup: raw finding counts (candidate this-challenge, king full history) */
+.decision-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(2px);
+}
+.decision-dialog {
+  width: 100%;
+  max-width: 460px;
+  max-height: 86vh;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+}
+.decision-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.decision-dialog-head span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.decision-dialog-head strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 16px;
+  color: var(--text);
+}
+.decision-dialog-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-3);
+  color: var(--soft);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.decision-dialog-close:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.decision-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 18px 18px;
+}
+.decision-dialog-section h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.decision-dialog-candidate {
+  margin: 0;
+  color: var(--soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.decision-dialog-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.decision-dialog-history li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--panel-3);
+}
+.decision-dialog-history li span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.decision-dialog-history li strong {
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.decision-dialog-history li.is-live {
+  border: 1px solid rgba(37, 208, 171, 0.4);
+}
+.decision-dialog-history li.is-live span {
+  color: var(--cyan);
+}
+.decision-dialog-history li.decision-dialog-avg {
+  margin-top: 4px;
+  background: rgba(185, 255, 93, 0.08);
+}
+.decision-dialog-history li.decision-dialog-avg span,
+.decision-dialog-history li.decision-dialog-avg strong {
+  color: var(--green);
 }
 
 .quality-ratio {

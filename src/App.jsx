@@ -1633,6 +1633,12 @@ function DuelDetail({
           kingLabel={
             kingIsAverage ? `king · avg of ${effectiveKingSamples}` : "king (this challenge)"
           }
+          kingReignRecords={kingReignRecords}
+          liveKingSignals={ladderToKingSignals(liveKingLadder)}
+          numProjects={problemKeys.length}
+          replicasPerProject={replicasPerProject}
+          totalExpected={Number(candidateLadder.totalExpected || 0)}
+          executing={stillScoring}
         />
       )}
 
@@ -1651,91 +1657,147 @@ function DuelDetail({
   );
 }
 
-function DecisionLadder({ candidate, king, kingIsAverage = false, kingLabel = "king" }) {
-  // Averaged king signals are fractional, so show them as decimals / percentages.
-  const kingNum = kingIsAverage
-    ? (value) => (value == null ? "—" : Number(value).toFixed(1))
-    : formatMetricNumber;
-  const kingPct = (value) => (value == null ? "—" : `${Math.round(Number(value) * 100)}%`);
-  const steps = [
-    {
-      rank: 1,
-      label: "Project pass score",
-      note: "First decision signal",
-      candidateValue: candidate.passRatio,
-      kingValue: king.passRatio,
-      candidateDisplay: candidate.passScore,
-      kingDisplay: king.passScore,
-      higherIsBetter: true,
-      primary: true,
-    },
-    {
-      rank: 2,
-      label: "Projects passed",
-      note: "Used if pass score is tied",
-      candidateValue: candidate.projectsPassed,
-      kingValue: king.projectsPassed,
-      candidateDisplay: formatMetricNumber(candidate.projectsPassed),
-      kingDisplay: kingNum(king.projectsPassed),
-      higherIsBetter: true,
-      primary: true,
-    },
-    {
-      rank: 3,
-      label: "True positives",
-      note: "Confirmed benchmark matches",
-      candidateValue: candidate.truePositives,
-      kingValue: king.truePositives,
-      candidateDisplay: formatMetricNumber(candidate.truePositives),
-      kingDisplay: kingNum(king.truePositives),
-      higherIsBetter: true,
-    },
-    {
-      rank: 4,
-      label: "Invalid runs",
-      note: "Lower is better",
-      candidateValue: candidate.invalidRuns,
-      kingValue: king.invalidRuns,
-      candidateDisplay: formatMetricNumber(candidate.invalidRuns),
-      kingDisplay: kingNum(king.invalidRuns),
-      higherIsBetter: false,
-    },
-    {
-      rank: 5,
-      label: "Precision",
-      note: "Cleaner reports win ties",
-      candidateValue: candidate.precision,
-      kingValue: king.precision,
-      candidateDisplay: precisionFindingFigure(
-        candidate.precision,
-        candidate.truePositives,
-        candidate.totalFound
-      ),
-      kingDisplay: kingIsAverage
-        ? kingPct(king.precision)
-        : precisionFindingFigure(king.precision, king.truePositives, king.totalFound),
-      higherIsBetter: true,
-    },
-    {
-      rank: 6,
-      label: "F1 score",
-      note: "Final tie-breaker",
-      candidateValue: candidate.f1,
-      kingValue: king.f1,
-      candidateDisplay: f1FindingFigure(
-        candidate.f1,
-        candidate.truePositives,
-        candidate.totalExpected,
-        candidate.totalFound
-      ),
-      kingDisplay: kingIsAverage
-        ? kingPct(king.f1)
-        : f1FindingFigure(king.f1, king.truePositives, king.totalExpected, king.totalFound),
-      higherIsBetter: true,
-    },
-  ];
+const DECISION_SIGNALS = [
+  { rank: 1, key: "pass_score", label: "Project pass score", note: "First decision signal", higherIsBetter: true },
+  { rank: 2, key: "codebase_pass_count", label: "Projects passed", note: "Used if pass score is tied", higherIsBetter: true },
+  { rank: 3, key: "true_positives", label: "True positives", note: "Confirmed benchmark matches", higherIsBetter: true },
+  { rank: 4, key: "invalid_runs", label: "Invalid runs", note: "Lower is better", higherIsBetter: false },
+  { rank: 5, key: "precision", label: "Precision", note: "Cleaner reports win ties", higherIsBetter: true },
+  { rank: 6, key: "f1_score", label: "F1 score", note: "Final tie-breaker", higherIsBetter: true },
+];
+
+const roundTo = (value, places = 0) => {
+  const factor = 10 ** places;
+  return Math.round(Number(value || 0) * factor) / factor;
+};
+const asPercent = (value) => (value == null ? "—" : `${Math.round(Number(value) * 100)}%`);
+const fractionPercent = (num, den) =>
+  den > 0 ? `${Math.round((Number(num || 0) / den) * 100)}%` : "—";
+
+// The raw ladder value used to decide the ranking for each signal (unchanged by display).
+function ladderRawValue(ladder, key) {
+  switch (key) {
+    case "pass_score":
+      return ladder.passRatio;
+    case "codebase_pass_count":
+      return ladder.projectsPassed;
+    case "true_positives":
+      return ladder.truePositives;
+    case "invalid_runs":
+      return ladder.invalidRuns;
+    case "precision":
+      return ladder.precision;
+    case "f1_score":
+      return ladder.f1;
+    default:
+      return null;
+  }
+}
+
+// Every card shows a percentage: ratios (pass score, precision, F1) directly, and the
+// count signals as a fraction of their natural denominator.
+function ladderSignalPercent(ladder, key, { numProjects, totalRuns, totalExpected }) {
+  switch (key) {
+    case "pass_score":
+      return asPercent(ladder.passRatio);
+    case "codebase_pass_count":
+      return fractionPercent(ladder.projectsPassed, numProjects);
+    case "true_positives":
+      return fractionPercent(ladder.truePositives, totalExpected);
+    case "invalid_runs":
+      return fractionPercent(ladder.invalidRuns, totalRuns);
+    case "precision":
+      return asPercent(ladder.precision);
+    case "f1_score":
+      return asPercent(ladder.f1);
+    default:
+      return "—";
+  }
+}
+
+// The challenger's raw this-challenge counts for a signal (shown in the popup).
+function candidateSignalCounts(key, c, { numProjects, totalRuns }) {
+  const tp = roundTo(c.truePositives);
+  const found = roundTo(c.totalFound);
+  const expected = roundTo(c.totalExpected);
+  const passed = roundTo(c.projectsPassed);
+  const invalid = roundTo(c.invalidRuns);
+  switch (key) {
+    case "pass_score":
+    case "codebase_pass_count":
+      return `${passed} of ${numProjects} projects passed`;
+    case "true_positives":
+      return `${tp} of ${expected} expected bugs found · ${Math.max(found - tp, 0)} false positives`;
+    case "invalid_runs":
+      return `${invalid} of ${totalRuns} scoring runs errored`;
+    case "precision":
+      return `${tp} real of ${found} reported findings`;
+    case "f1_score":
+      return `F1 ${roundTo(c.f1, 2)} — balances precision and detection`;
+    default:
+      return "—";
+  }
+}
+
+// Format one king history value for a signal: ratios as %, counts as counts.
+function formatKingHistoryValue(key, value, { numProjects }) {
+  switch (key) {
+    case "pass_score":
+    case "precision":
+    case "f1_score":
+      return key === "f1_score" ? roundTo(value, 2).toFixed(2) : asPercent(value);
+    case "codebase_pass_count":
+      return `${roundTo(value, 1)} / ${numProjects}`;
+    case "true_positives":
+      return `${roundTo(value, 1)} TP`;
+    case "invalid_runs":
+      return `${roundTo(value, 1)} runs`;
+    default:
+      return "—";
+  }
+}
+
+// The king's full finding history for a signal: one row per reign record, plus the live
+// this-challenge value while scoring, plus the reign average.
+function kingSignalHistory(key, reignRecords, liveSignals, executing) {
+  const rows = reignRecords.map((record, index) => ({
+    label: `challenge ${index + 1}`,
+    value: Number(record[key] || 0),
+  }));
+  if (executing && liveSignals) {
+    rows.push({ label: "this challenge (live)", value: Number(liveSignals[key] || 0), live: true });
+  }
+  const average = rows.length ? rows.reduce((sum, row) => sum + row.value, 0) / rows.length : 0;
+  return { rows, average };
+}
+
+function DecisionLadder({
+  candidate,
+  king,
+  kingIsAverage = false,
+  kingLabel = "king",
+  kingReignRecords = [],
+  liveKingSignals = null,
+  numProjects = 0,
+  replicasPerProject = 1,
+  totalExpected = 0,
+  executing = false,
+}) {
+  const [openSignal, setOpenSignal] = useState(null);
+  const totalRuns = numProjects * Math.max(Number(replicasPerProject) || 1, 1);
+  const ctx = { numProjects, totalRuns, totalExpected };
+  const steps = DECISION_SIGNALS.map((signal) => ({
+    ...signal,
+    candidateValue: ladderRawValue(candidate, signal.key),
+    kingValue: ladderRawValue(king, signal.key),
+    candidateDisplay: ladderSignalPercent(candidate, signal.key, ctx),
+    kingDisplay: ladderSignalPercent(king, signal.key, ctx),
+    candidateDetail: candidateSignalCounts(signal.key, candidate, ctx),
+    kingHistory: kingSignalHistory(signal.key, kingReignRecords, liveKingSignals, executing),
+  }));
 
   const firstDecider = steps.find((step) => decisionWinner(step) !== "tie") || null;
+  const activeStep = steps.find((step) => step.key === openSignal) || null;
 
   return (
     <section className="decision-ladder">
@@ -1746,7 +1808,7 @@ function DecisionLadder({ candidate, king, kingIsAverage = false, kingLabel = "k
           <p>
             The challenger&apos;s score is compared, in order, against{" "}
             {kingIsAverage ? "the king's average over its reign" : "the king"}. Lower-priority
-            signals matter only when every signal above them is tied.
+            signals matter only when every signal above them is tied. Tap a card for the counts.
           </p>
         </div>
         <div className="decision-ladder-verdict">
@@ -1763,18 +1825,29 @@ function DecisionLadder({ candidate, king, kingIsAverage = false, kingLabel = "k
             step={step}
             active={firstDecider?.rank === step.rank}
             kingLabel={kingLabel}
+            onOpen={() => setOpenSignal(step.key)}
           />
         ))}
       </div>
+      {activeStep ? (
+        <DecisionStepDialog
+          step={activeStep}
+          kingLabel={kingLabel}
+          ctx={ctx}
+          onClose={() => setOpenSignal(null)}
+        />
+      ) : null}
     </section>
   );
 }
 
-function DecisionStep({ step, active, kingLabel = "king" }) {
+function DecisionStep({ step, active, kingLabel = "king", onOpen }) {
   const winner = decisionWinner(step);
   return (
-    <article
+    <button
+      type="button"
       className={`decision-step decision-step-${winner} ${active ? "decision-step-active" : ""}`}
+      onClick={onOpen}
     >
       <div className="decision-step-top">
         <span className="decision-rank">#{step.rank}</span>
@@ -1794,7 +1867,67 @@ function DecisionStep({ step, active, kingLabel = "king" }) {
           <div className="decision-value-main">{step.kingDisplay}</div>
         </span>
       </div>
-    </article>
+      <span className="decision-step-more">tap for counts</span>
+    </button>
+  );
+}
+
+function DecisionStepDialog({ step, kingLabel, ctx, onClose }) {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="decision-dialog-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="decision-dialog" onClick={(event) => event.stopPropagation()}>
+        <div className="decision-dialog-head">
+          <div>
+            <span>#{step.rank} · finding counts</span>
+            <strong>{step.label}</strong>
+          </div>
+          <button
+            type="button"
+            className="decision-dialog-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="decision-dialog-body">
+          <section className="decision-dialog-section">
+            <h4>challenger · this challenge</h4>
+            <p className="decision-dialog-candidate">{step.candidateDetail}</p>
+          </section>
+          <section className="decision-dialog-section">
+            <h4>{kingLabel} · full history</h4>
+            {step.kingHistory.rows.length ? (
+              <ul className="decision-dialog-history">
+                {step.kingHistory.rows.map((row, index) => (
+                  <li key={`${row.label}-${index}`} className={row.live ? "is-live" : ""}>
+                    <span>{row.label}</span>
+                    <strong>{formatKingHistoryValue(step.key, row.value, ctx)}</strong>
+                  </li>
+                ))}
+                <li className="decision-dialog-avg">
+                  <span>average (the bar to beat)</span>
+                  <strong>{formatKingHistoryValue(step.key, step.kingHistory.average, ctx)}</strong>
+                </li>
+              </ul>
+            ) : (
+              <p className="decision-dialog-candidate">
+                No reign history yet — this is a freshly crowned king.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
 

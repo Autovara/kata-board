@@ -7802,3 +7802,20 @@ html {
   font-size: 15px;
   color: #f0be5a;
 }
+
+/* Global light-mode fallback. The dashboard carries ~19 infinite decorative
+   animations (glows, sheens, hero pan/zoom on a large image) that repaint
+   continuously. Users who ask the OS for reduced motion get a fully static
+   page -- every one of those loops is neutralized here in one place, so the
+   board costs no continuous GPU/paint work. Real-time data still streams over
+   SSE; only the cosmetic motion stops. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

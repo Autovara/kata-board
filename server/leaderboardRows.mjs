@@ -21,6 +21,7 @@ export function createAuthorRow(author) {
     score: 0,
     gittensorBaseScore: 0,
     gittensorScore: 0,
+    poolShare: 0,
     winnerPulls: [],
     lastActivityAt: null,
     recentPulls: [],
@@ -39,22 +40,38 @@ export function maxDate(left, right) {
 
 export function finalizeLeaderboardRows(byAuthor, latestLaneWinners) {
   const now = new Date();
-  return [...byAuthor.values()]
-    .map((entry) => {
-      const gittensorScore = calculateKataGittensorScore(entry, now);
-      const currentKings = [...latestLaneWinners.values()].filter(
-        (winner) => winner.author === entry.author
-      ).length;
-      const latestWinnerAt = latestWinnerTimestamp(entry.winnerPulls);
-      return {
-        ...entry,
-        currentKings,
-        gittensorBaseScore: entry.wins,
-        gittensorScore,
-        score: gittensorScore,
-        latestWinnerAt,
-      };
-    })
+  const scored = [...byAuthor.values()].map((entry) => {
+    const gittensorScore = calculateKataGittensorScore(entry, now);
+    const currentKings = [...latestLaneWinners.values()].filter(
+      (winner) => winner.author === entry.author
+    ).length;
+    const latestWinnerAt = latestWinnerTimestamp(entry.winnerPulls);
+    return {
+      ...entry,
+      currentKings,
+      gittensorBaseScore: entry.wins,
+      gittensorScore,
+      score: gittensorScore,
+      latestWinnerAt,
+    };
+  });
+  // gittensor pays each active king `pool * (theirScore / sumOfActiveScores)`
+  // (emission_allocation.py `_calculate_score_rewards`), so a raw label score
+  // (0.70/0.10) is only a numerator -- empty king tiers never enter the sum.
+  // Reproduce that normalization so the board shows the real share of the kata
+  // emission pool each miner earns, not the pre-normalization weight.
+  const activeScoreTotal = scored.reduce(
+    (total, row) => total + (row.gittensorScore > 0 ? row.gittensorScore : 0),
+    0
+  );
+  return scored
+    .map((row) => ({
+      ...row,
+      poolShare:
+        activeScoreTotal > 0 && row.gittensorScore > 0
+          ? Number((row.gittensorScore / activeScoreTotal).toFixed(6))
+          : 0,
+    }))
     .sort(
       (left, right) =>
         right.score - left.score ||

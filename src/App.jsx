@@ -14,6 +14,7 @@ import {
   formatDetection,
   formatMetricNumber,
   formatNumber,
+  formatPoolShare,
   formatPackLabel,
   formatPassScore,
   formatSideTruePositives,
@@ -2305,7 +2306,7 @@ function Leaderboard({ leaderboard }) {
       <PageIntro
         eyebrow="Leaderboard"
         title="Contributor leaderboard"
-        text="Every contributor who has entered the arena. Gittensor score is earned only by an agent that was promoted to king, and it decays over time — so a fresh king out-earns an old one."
+        text="Every contributor who has entered the arena. Gittensor score is the raw label weight earned by an agent that was promoted to king (0.70 reigning king, 0.10 each runner-up still in the reward window), decayed over time. Pool share normalizes those weights across the active kings — the actual slice of the Kata emission pool each one earns, so an empty runner-up tier is redistributed to whoever is active rather than lost."
       />
 
       <section className="lb-table">
@@ -2315,6 +2316,7 @@ function Leaderboard({ leaderboard }) {
           <span className="lb-num">Wins</span>
           <span className="lb-num">Submissions</span>
           <span className="lb-num">Gittensor score</span>
+          <span className="lb-num">Pool share</span>
         </div>
         {rows.length ? (
           rows.map((row, index) => (
@@ -2338,6 +2340,11 @@ function Leaderboard({ leaderboard }) {
               <strong className="lb-num lb-score">
                 {formatNumber(row.gittensorScore ?? row.score)}
               </strong>
+              <span
+                className={`lb-num lb-share${row.poolShare > 0 ? "" : " lb-share-empty"}`}
+              >
+                {formatPoolShare(row.poolShare)}
+              </span>
             </div>
           ))
         ) : (

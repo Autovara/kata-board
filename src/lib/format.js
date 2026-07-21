@@ -572,6 +572,15 @@ export function formatNumber(value) {
   });
 }
 
+export function formatPoolShare(value) {
+  const share = Number(value);
+  if (!Number.isFinite(share) || share <= 0) {
+    return "-";
+  }
+  const pct = share * 100;
+  return `${pct.toLocaleString(undefined, { maximumFractionDigits: pct < 10 ? 1 : 0 })}%`;
+}
+
 export function formatDateTime(value) {
   if (!value) {
     return "-";

@@ -142,6 +142,10 @@ export function loadChallengeStatus(challengeStatusPath) {
         ? status.king_rank_average
         : null,
     kingRankSamples: Number(status.king_rank_samples || 0),
+    promotionMargins:
+      status.promotion_margins && typeof status.promotion_margins === "object"
+        ? status.promotion_margins
+        : null,
     winnerSubmissionId: status.winner_submission_id || null,
     entrants: (Array.isArray(status.entrants) ? status.entrants : []).map((entrant) => ({
       ...entrant,

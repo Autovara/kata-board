@@ -938,6 +938,7 @@ function ChallengePanel({
         kingRankAverage={challenge?.kingRankAverage || null}
         kingRankSamples={challenge?.kingRankSamples || 0}
         kingReignRecords={challenge?.kingReignRecords || []}
+        promotionMargins={challenge?.promotionMargins || null}
         progress={result}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
@@ -1031,6 +1032,7 @@ function ChallengePanel({
         kingRankAverage={challenge?.kingRankAverage || null}
         kingRankSamples={challenge?.kingRankSamples || 0}
         kingReignRecords={challenge?.kingReignRecords || []}
+        promotionMargins={challenge?.promotionMargins || null}
         progress={primaryProgress}
         projectKeys={projectKeys}
         replicasPerProject={replicasPerProject}
@@ -1435,6 +1437,7 @@ function DuelDetail({
   kingRankAverage = null,
   kingRankSamples = 0,
   kingReignRecords = [],
+  promotionMargins = null,
   kataRepoSlug,
   progress,
   projectKeys,
@@ -1636,6 +1639,7 @@ function DuelDetail({
           }
           kingReignRecords={kingReignRecords}
           liveKingSignals={ladderToKingSignals(liveKingLadder)}
+          margins={promotionMargins}
           numProjects={problemKeys.length}
           replicasPerProject={replicasPerProject}
           totalExpected={Number(candidateLadder.totalExpected || 0)}
@@ -1722,6 +1726,21 @@ function ladderSignalDisplay(ladder, key) {
   }
 }
 
+// A signal's promotion margin, formatted in that signal's own units (ratios as %,
+// counts as plain numbers) — e.g. "14%" for pass score, "2" for true positives.
+function formatSignalMargin(key, margin) {
+  const m = Math.abs(Number(margin) || 0);
+  if (m <= 0) return null;
+  switch (key) {
+    case "pass_score":
+    case "precision":
+    case "f1_score":
+      return asPercent(m);
+    default:
+      return formatCount(m);
+  }
+}
+
 const SIGNAL_HELP = {
   pass_score: "Share of the sampled projects the agent fully passed.",
   codebase_pass_count: "How many of the sampled projects the agent passed.",
@@ -1796,6 +1815,7 @@ function DecisionLadder({
   king,
   kingIsAverage = false,
   kingLabel = "king",
+  margins = null,
   kingReignRecords = [],
   liveKingSignals = null,
   numProjects = 0,
@@ -1806,17 +1826,23 @@ function DecisionLadder({
   const [openSignal, setOpenSignal] = useState(null);
   const totalRuns = numProjects * Math.max(Number(replicasPerProject) || 1, 1);
   const ctx = { numProjects, totalRuns, totalExpected };
-  const steps = DECISION_SIGNALS.map((signal) => ({
-    ...signal,
-    candidateValue: ladderRawValue(candidate, signal.key),
-    kingValue: ladderRawValue(king, signal.key),
-    candidateDisplay: ladderSignalDisplay(candidate, signal.key),
-    kingDisplay: ladderSignalDisplay(king, signal.key),
-    candidateDetail: candidateSignalCounts(signal.key, candidate, ctx),
-    kingHistory: kingSignalHistory(signal.key, kingReignRecords, liveKingSignals, executing),
-  }));
+  const steps = DECISION_SIGNALS.map((signal) => {
+    const margin = Math.abs(Number(margins?.[signal.key] ?? 0)) || 0;
+    const step = {
+      ...signal,
+      margin,
+      candidateValue: ladderRawValue(candidate, signal.key),
+      kingValue: ladderRawValue(king, signal.key),
+      candidateDisplay: ladderSignalDisplay(candidate, signal.key),
+      kingDisplay: ladderSignalDisplay(king, signal.key),
+      candidateDetail: candidateSignalCounts(signal.key, candidate, ctx),
+      kingHistory: kingSignalHistory(signal.key, kingReignRecords, liveKingSignals, executing),
+    };
+    return { ...step, winner: decisionWinner(step, margin) };
+  });
 
-  const firstDecider = steps.find((step) => decisionWinner(step) !== "tie") || null;
+  const anyMargin = steps.some((step) => step.margin > 0);
+  const firstDecider = steps.find((step) => step.winner !== "tie") || null;
   const activeStep = steps.find((step) => step.key === openSignal) || null;
 
   return (
@@ -1827,8 +1853,11 @@ function DecisionLadder({
           <strong>How this matchup is ranked</strong>
           <p>
             The challenger&apos;s score is compared, in order, against{" "}
-            {kingIsAverage ? "the king's average over its reign" : "the king"}. Lower-priority
-            signals matter only when every signal above them is tied. Tap a card for the counts.
+            {kingIsAverage ? "the king's average over its reign" : "the king"}.{" "}
+            {anyMargin
+              ? "To win a signal the challenger must beat the king there by more than that signal's margin — a smaller lead counts as a tie."
+              : "Lower-priority signals matter only when every signal above them is tied."}{" "}
+            Tap a card for the counts.
           </p>
         </div>
         <div className="decision-ladder-verdict">
@@ -1857,7 +1886,8 @@ function DecisionLadder({
 }
 
 function DecisionStep({ step, active, kingLabel = "king", onOpen }) {
-  const winner = decisionWinner(step);
+  const winner = step.winner ?? decisionWinner(step, step.margin);
+  const marginDisplay = formatSignalMargin(step.key, step.margin);
   return (
     <button
       type="button"
@@ -1872,6 +1902,9 @@ function DecisionStep({ step, active, kingLabel = "king", onOpen }) {
       </div>
       <strong>{step.label}</strong>
       <p>{step.note}</p>
+      {marginDisplay ? (
+        <p className="decision-margin">must beat king by &gt;{marginDisplay} to win here</p>
+      ) : null}
       <div className="decision-values">
         <span>
           <small>candidate</small>

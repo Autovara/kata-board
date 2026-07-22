@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  decisionWinner,
   formatSideTruePositives,
   formatTpExpectedFound,
   formatTruePositives,
@@ -146,5 +147,42 @@ describe("formatTruePositives (count with denominator)", () => {
   it("handles missing data", () => {
     expect(formatTruePositives({})).toBe("—");
     expect(formatTruePositives({ true_positives: 3 })).toBe("3");
+  });
+});
+
+describe("decisionWinner (one-sided promotion margin)", () => {
+  const higher = (candidate, king) => ({ candidateValue: candidate, kingValue: king, higherIsBetter: true });
+  const lower = (candidate, king) => ({ candidateValue: candidate, kingValue: king, higherIsBetter: false });
+
+  it("with margin 0 behaves like the strict comparison", () => {
+    expect(decisionWinner(higher(0.2, 0.1))).toBe("candidate"); // ahead
+    expect(decisionWinner(higher(0.1, 0.2))).toBe("king"); // behind
+    expect(decisionWinner(higher(0.1, 0.1))).toBe("tie"); // exact tie
+    // "fewer is better" flips direction: fewer invalid runs wins.
+    expect(decisionWinner(lower(0, 3))).toBe("candidate");
+    expect(decisionWinner(lower(3, 0))).toBe("king");
+  });
+
+  it("treats an ahead-but-within-margin lead as a tie (defers)", () => {
+    // candidate 0.10 vs king 0.071, margin 0.143 -> lead 0.029 < margin -> tie
+    expect(decisionWinner(higher(0.1, 0.071), 0.143)).toBe("tie");
+    // clearly past the bar -> candidate
+    expect(decisionWinner(higher(0.3, 0.071), 0.143)).toBe("candidate");
+    // behind is still the king regardless of margin
+    expect(decisionWinner(higher(0.0, 0.071), 0.143)).toBe("king");
+  });
+
+  it("applies the margin on reversed (fewer-is-better) signals too", () => {
+    // candidate 2 invalid vs king-avg 2.75: lead 0.75 < margin 2 -> tie
+    expect(decisionWinner(lower(2, 2.75), 2)).toBe("tie");
+    // candidate 0 invalid vs king 2.75: lead 2.75 > margin 2 -> candidate
+    expect(decisionWinner(lower(0, 2.75), 2)).toBe("candidate");
+    // candidate has MORE invalid runs -> behind -> king
+    expect(decisionWinner(lower(4, 2.75), 2)).toBe("king");
+  });
+
+  it("boundary: a lead exactly equal to the margin is a tie (must exceed)", () => {
+    expect(decisionWinner(higher(0.5, 0.0), 0.5)).toBe("tie");
+    expect(decisionWinner(higher(0.5001, 0.0), 0.5)).toBe("candidate");
   });
 });

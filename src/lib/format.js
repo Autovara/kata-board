@@ -380,16 +380,27 @@ export function replicaStatusLabel(replica) {
   return "fail";
 }
 
-export function decisionWinner(step) {
+// Mirrors the kata-bot one-sided promotion gate. `margin` is that signal's promotion
+// margin (0 by default): the challenger wins the signal only by beating the king by MORE
+// than the margin; being behind hands it to the king; a lead within the margin (or a tie)
+// is "too close to call" and defers to the next signal. At margin 0 this reduces to the
+// strict comparison (behind -> king, ahead -> candidate, exact tie -> tie).
+export function decisionWinner(step, margin = 0) {
   const candidate = normalizedDecisionValue(step.candidateValue);
   const king = normalizedDecisionValue(step.kingValue);
-  if (candidate == null || king == null || candidate === king) {
+  if (candidate == null || king == null) {
     return "tie";
   }
-  if (step.higherIsBetter) {
-    return candidate > king ? "candidate" : "king";
+  const m = Math.abs(Number(margin) || 0);
+  // Direction-aware lead: how much BETTER the challenger is on this signal.
+  const lead = step.higherIsBetter ? candidate - king : king - candidate;
+  if (lead < 0) {
+    return "king";
   }
-  return candidate < king ? "candidate" : "king";
+  if (lead > m) {
+    return "candidate";
+  }
+  return "tie";
 }
 
 export function normalizedDecisionValue(value) {

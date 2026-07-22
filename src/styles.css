@@ -4450,6 +4450,13 @@ html {
   text-transform: uppercase;
 }
 
+.decision-margin {
+  margin: 2px 0 0;
+  color: rgba(185, 255, 93, 0.72);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
 .decision-step-active {
   border-color: rgba(185, 255, 93, 0.38);
   box-shadow:

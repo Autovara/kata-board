@@ -304,7 +304,7 @@ function DocScoring({ selectedLane }) {
     [
       "4",
       "Fewer invalid runs",
-      "Agents with fewer broken, timeout, or scorer-error runs rank higher.",
+      "The one reversed signal — fewer is better: agents with fewer broken, timeout, or scorer-error runs rank higher. It sits below detection, so it only decides when you've tied the king on pass score, projects, and true positives.",
     ],
     [
       "5",

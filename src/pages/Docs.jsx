@@ -321,10 +321,13 @@ function DocScoring({ selectedLane }) {
         Kata is a continuous king of the hill. When your PR clears screening it challenges the
         reigning king: both run on the same evaluator-selected projects, and your this-challenge
         result is compared against the king&apos;s <strong>running average</strong> over its whole
-        reign. To take the crown you must beat that average — and beat it by more than each
-        signal&apos;s <strong>promotion margin</strong>: a lead too small to be decisive counts as a
-        tie, and a tie keeps the reigning king. The averaging plus the margin are what filter out
-        luck, so a strong candidate wins but a single fortunate run does not.
+        reign. The signals are checked in priority order, and the crown is settled on the highest
+        signal where you differ: to take it you must beat the king&apos;s average there by more than
+        that signal&apos;s <strong>promotion margin</strong>. The margin is one-sided — it only lets
+        you win. If you&apos;re behind on that signal, or ahead but not past the margin, the king
+        keeps the crown; you can&apos;t make up a deficit on a lower signal. The averaging plus the
+        margin filter out luck, so a clearly stronger candidate wins but a single fortunate run does
+        not.
       </p>
 
       <div className="doc-score-summary">
@@ -335,16 +338,18 @@ function DocScoring({ selectedLane }) {
         />
         <DocCard
           title="Promotion margin"
-          text="Each ranking signal has a margin. You take the crown on a signal only by leading the king's average there by more than that margin; a closer gap is a tie and the king holds. This keeps a lucky one-off from flipping the crown. Your PR comment shows each signal's margin."
+          text="Each signal has its own margin, and it is one-sided. You take the crown on the highest signal where you differ, and only by leading the king's average there by more than that margin. Falling behind — or leading by too little — keeps the king, and you can't recover on a lower signal. Your PR comment shows each signal's margin."
         />
       </div>
 
       <h2>Promotion order</h2>
       <p>
         Kata compares your this-challenge result against the king&apos;s running average in this
-        order. The crown is settled at the first row where one of you pulls clearly ahead — by more
-        than that row&apos;s margin; a closer gap is a tie and the comparison falls through to the
-        next row. So stable performance across a reign beats a noisy one-off.
+        order, top first. The crown is settled on the highest row where you two differ: you take it
+        only by beating the king&apos;s average there by more than that row&apos;s margin. Behind, or
+        ahead but not past the margin, keeps the king — a win on a lower row can&apos;t make up a
+        deficit on a higher one. So the path to the throne is to clearly beat the king high up
+        (pass score first).
       </p>
       <div className="doc-rank-order">
         {promotionOrder.map(([rank, title, text]) => (
@@ -409,7 +414,7 @@ function DocScoring({ selectedLane }) {
         result simply scores 0 for that project.
       </p>
       <CodeBlock
-        value={`per-project score = best of its replica runs\nproject_pass_score = passed_projects / selected_projects\n\nthe king is re-scored every challenge; its six signals are AVERAGED over its whole reign\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  challenger (this challenge) outranks the king's AVERAGE, in order, on:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error runs\n    precision\n    f1 score\n  a signal decides only when the lead there exceeds its promotion margin;\n  a within-margin lead is a tie and falls through to the next signal;\n  all signals within margin => the king keeps the crown`}
+        value={`per-project score = best of its replica runs\nproject_pass_score = passed_projects / selected_projects\n\nthe king is re-scored every challenge; its six signals are AVERAGED over its whole reign\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  challenger (this challenge) beats the king's AVERAGE, in priority order:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error runs\n    precision\n    f1 score\n  walk the signals top to bottom; the highest one where you differ decides:\n    candidate < king avg            => king holds (behind)\n    candidate > king avg + margin   => promote\n    candidate = king avg + margin   => move to the next signal\n    otherwise (ahead but not past)  => king holds\n  the margin is one-sided: a deficit on a higher signal is never\n  recovered on a lower one`}
       />
       <h2>Reading the live board</h2>
       <p>

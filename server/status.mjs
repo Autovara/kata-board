@@ -168,6 +168,7 @@ export async function loadBoardStatus(env) {
     latestLaneWinners: leaderboard.latestLaneWinners,
     identityAliases,
   });
+  lanes = enrichLaneKingsWithProof(lanes, publicProof);
   const notes = buildNotes({
     leaderboard,
     validator,
@@ -2506,6 +2507,36 @@ function normalizeIsoDate(value) {
     return null;
   }
   return date.toISOString();
+}
+
+// The lane's king is built from lane state, which historically did not record the winning
+// PR number (it was written only to the published proof). When the published proof's current
+// king matches a lane's king (same artifact hash, else same author), backfill the source PR
+// so the Winners page can show and link it. Only fills a gap -- never overrides a value the
+// lane state already has, and never touches a seeded king.
+export function enrichLaneKingsWithProof(lanes, publicProof) {
+  const proofKing = publicProof?.currentKing;
+  const proofPull = proofKing?.sourcePullRequest ?? null;
+  if (!Array.isArray(lanes) || proofPull == null) {
+    return lanes;
+  }
+  const proofHash = String(proofKing?.artifactHash || "").toLowerCase();
+  const proofAuthor = String(proofKing?.author || "").toLowerCase();
+  return lanes.map((lane) => {
+    const king = lane?.king;
+    if (!king || king.seeded || king.sourcePullRequest != null) {
+      return lane;
+    }
+    const laneHash = String(king.artifactHash || "").toLowerCase();
+    const laneAuthor = String(king.author || "").toLowerCase();
+    const matches =
+      (proofHash && laneHash && proofHash === laneHash) ||
+      (proofAuthor && laneAuthor && proofAuthor === laneAuthor);
+    if (!matches) {
+      return lane;
+    }
+    return { ...lane, king: { ...king, sourcePullRequest: proofPull } };
+  });
 }
 
 function enrichChallengeKingIdentity(challenge, leaderboard) {

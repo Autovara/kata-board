@@ -7,6 +7,13 @@ import { inferSubmissionAuthorFromId } from "../shared/submissionAuthor.mjs";
 import { collectFiles, listDirectories, readJsonSafe } from "./status/fsUtil.mjs";
 import { resolveAuthorAlias } from "./status/identity.mjs";
 
+// A PR number as a positive integer, else null. numberOrNull turns null/"" into 0
+// (Number(null) === 0), which is not a valid PR and must not block the proof backfill.
+function pullNumberOrNull(value) {
+  const number = numberOrNull(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
 export function loadEvaluatorLanes({ kataRoot, latestLaneWinners, identityAliases = new Map() }) {
   const lanesRoot = path.join(kataRoot, "lanes");
   const registry = readJsonSafe(path.join(lanesRoot, "registry.json"));
@@ -41,6 +48,9 @@ function loadEvaluatorLane(kataRoot, laneId, latestLaneWinners, identityAliases)
     challengeRunId: null,
     artifactHash: state.king?.current_king_artifact_hash || null,
     source: state.king?.promotion_source_pr || "evaluator lane",
+    // The winning PR number, when the lane state records it (a positive int; null/0/absent
+    // stays null so status.mjs can backfill it from the published proof).
+    sourcePullRequest: pullNumberOrNull(state.king?.promotion_source_pr),
     updatedAt: state.king?.promotion_timestamp || state.king?.updated_at || null,
     seeded: !state.king?.current_king_submission_id,
   };

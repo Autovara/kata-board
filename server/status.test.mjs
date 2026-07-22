@@ -8,6 +8,7 @@ import test from "node:test";
 
 import {
   buildByLane,
+  enrichLaneKingsWithProof,
   loadBoardStatus,
   loadLocalArtifactLeaderboard,
   loadPublicProof,
@@ -191,6 +192,85 @@ test("discovers the active SN60 lane from the central pack registry", async () =
   assert.equal(lane.repoPack, "sn60__bitsec");
   assert.equal(lane.mode, "miner");
   assert.equal(lane.king.submissionId, "alice-20260701-01");
+});
+
+test("enrichLaneKingsWithProof backfills the king's source PR from the published proof", () => {
+  const proof = {
+    currentKing: { author: "alice", artifactHash: "KING-HASH", sourcePullRequest: 424 },
+  };
+  // Lane king matches by artifact hash but has no source PR (the live bug) -> backfilled.
+  const [byHash] = enrichLaneKingsWithProof(
+    [{ id: "l", king: { author: "someone-else", artifactHash: "king-hash", sourcePullRequest: null, seeded: false } }],
+    proof
+  );
+  assert.equal(byHash.king.sourcePullRequest, 424);
+
+  // Falls back to an author match when the hash is absent.
+  const [byAuthor] = enrichLaneKingsWithProof(
+    [{ id: "l", king: { author: "Alice", artifactHash: null, sourcePullRequest: null, seeded: false } }],
+    proof
+  );
+  assert.equal(byAuthor.king.sourcePullRequest, 424);
+
+  // Never overrides a PR the lane already has, never touches a non-matching or seeded king.
+  const [kept] = enrichLaneKingsWithProof(
+    [{ id: "l", king: { author: "alice", artifactHash: "king-hash", sourcePullRequest: 7, seeded: false } }],
+    proof
+  );
+  assert.equal(kept.king.sourcePullRequest, 7);
+  const [mismatch] = enrichLaneKingsWithProof(
+    [{ id: "l", king: { author: "bob", artifactHash: "other", sourcePullRequest: null, seeded: false } }],
+    proof
+  );
+  assert.equal(mismatch.king.sourcePullRequest, null);
+  const [seeded] = enrichLaneKingsWithProof(
+    [{ id: "l", king: { author: "alice", artifactHash: "king-hash", sourcePullRequest: null, seeded: true } }],
+    proof
+  );
+  assert.equal(seeded.king.sourcePullRequest, null);
+});
+
+test("king card uses the lane-state source PR when the lane records it (null/0 stay empty)", async () => {
+  // Minimal fixture: no conflicting local winner, so the lane king is shown as-is.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "kata-king-pr-"));
+  const laneRoot = path.join(root, "lanes", "sn60__bitsec");
+  writeJson(laneRoot, "lane.json", {
+    schema_version: 1,
+    lane_id: "sn60__bitsec",
+    repo_pack: "sn60__bitsec",
+    mode: "miner",
+    evaluator_id: "sn60_bitsec",
+    active: true,
+    created_at: "2026-07-01T00:00:00+00:00",
+    updated_at: "2026-07-02T00:00:00+00:00",
+  });
+  writeJson(path.join(root, "lanes"), "registry.json", {
+    schema_version: 1,
+    packs: [{ lane_id: "sn60__bitsec", repo_pack: "sn60__bitsec", mode: "miner", evaluator_id: "sn60_bitsec", active: true }],
+    updated_at: "2026-07-02T00:00:00+00:00",
+  });
+  writeJson(laneRoot, "king.json", {
+    schema_version: 1,
+    current_king_submission_id: "alice-20260701-01",
+    current_king_artifact_hash: "king-hash",
+    promotion_source_pr: 512,
+    promotion_timestamp: "2026-07-01T12:00:00+00:00",
+    updated_at: "2026-07-01T12:00:00+00:00",
+  });
+  const status = await loadBoardStatus(boardEnv(root));
+  assert.equal(status.lanes[0].king.sourcePullRequest, 512);
+
+  // promotion_source_pr null -> sourcePullRequest null (not 0), so the proof backfill can run.
+  writeJson(laneRoot, "king.json", {
+    schema_version: 1,
+    current_king_submission_id: "alice-20260701-01",
+    current_king_artifact_hash: "king-hash",
+    promotion_source_pr: null,
+    promotion_timestamp: "2026-07-01T12:00:00+00:00",
+    updated_at: "2026-07-01T12:00:00+00:00",
+  });
+  const status2 = await loadBoardStatus(boardEnv(root));
+  assert.equal(status2.lanes[0].king.sourcePullRequest, null);
 });
 
 test("public proof resolves the challenge proof relative to kataRoot, incl. a per-lane subdir", () => {

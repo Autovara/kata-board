@@ -1295,8 +1295,12 @@ test("newer merged winner updates the displayed current holder", async () => {
 
   const lane = status.lanes[0];
   assert.equal(lane.currentHolder, "mallory");
-  assert.equal(lane.currentHolderPullNumber, null);
-  assert.equal(lane.currentHolderMergedAt, "2026-07-02T01:00:00+00:00");
+  // A CONFIRMED MERGE carries its real PR number, so the holder reports it. It used to
+  // read null only because an in-flight candidate (promotionReady activity) overwrote the
+  // lane winner with a null PR -- the same corruption that let an unmerged challenge
+  // winner supply the king's PR on the live board.
+  assert.equal(lane.currentHolderPullNumber, 9);
+  assert.equal(lane.currentHolderMergedAt, "2026-07-02T00:00:00Z");
   assert.equal(lane.king.staleLaneKing.author, "alice");
 });
 
@@ -1764,9 +1768,13 @@ test("exposes public proof from kata public-results/current.json", async () => {
 
   const status = await loadBoardStatus(boardEnv(root));
 
-  assert.equal(status.publicProof.currentKing.author, "bob");
-  assert.equal(status.publicProof.currentKing.submissionId, "bob-20260702-01");
-  assert.equal(status.publicProof.currentKing.sourcePullRequest, null);
+  // "bob-20260702-01" is the lane's CANDIDATE (challenge_state.json), not a promoted
+  // king -- the lane king here is alice. A candidate must never overwrite currentKing:
+  // that is exactly how the live board came to show the unmerged PR #197 as king. The
+  // published proof's own king stands until a real promotion replaces it.
+  assert.equal(status.publicProof.currentKing.author, "kiannidev");
+  assert.equal(status.publicProof.currentKing.submissionId, "kiannidev-20260708-01");
+  assert.equal(status.publicProof.currentKing.sourcePullRequest, 98);
   assert.equal(status.publicProof.latestChallenge.challengeNumber, 2);
   assert.equal(status.publicProof.latestChallenge.durationSeconds, 4984);
   assert.equal(status.publicProof.latestChallenge.winnerAuthor, "kiannidev");

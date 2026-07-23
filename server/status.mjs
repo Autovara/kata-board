@@ -152,7 +152,20 @@ export async function loadBoardStatus(env) {
     identityAliases,
     challengeLane
   );
-  let leaderboard = augmentLeaderboardWithActivity(baseLeaderboard, activity, identityAliases);
+  // The authoritative king per lane, read from the lane state the promotion itself wrote
+  // (lanes are loaded above with no winner overrides, so their king is that file verbatim).
+  // Nothing derived from a challenge may crown a submission this map does not name.
+  const authoritativeKingByLaneKey = new Map(
+    (lanes || [])
+      .map((lane) => [laneKeyForLane(lane), String(lane?.king?.submissionId || "").trim()])
+      .filter(([laneKey, submissionId]) => laneKey && submissionId)
+  );
+  let leaderboard = augmentLeaderboardWithActivity(
+    baseLeaderboard,
+    activity,
+    identityAliases,
+    authoritativeKingByLaneKey
+  );
   challenge = enrichChallengeKingIdentity(challenge, leaderboard);
   leaderboard = enrichLeaderboardLatestWinnerWithChallenge(leaderboard, challenge, challengeLane);
   leaderboard = await overlayLiveKataPulls(leaderboard, runtimeEnv);
@@ -2675,7 +2688,12 @@ function augmentLeaderboardWithChallenge(
   };
 }
 
-function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases = new Map()) {
+function augmentLeaderboardWithActivity(
+  leaderboard,
+  activity,
+  identityAliases = new Map(),
+  authoritativeKingByLaneKey = new Map()
+) {
   const byAuthor = new Map(
     (leaderboard.rows || []).map((row) => [
       resolveAuthorAlias(row.author, identityAliases),
@@ -2715,13 +2733,25 @@ function augmentLeaderboardWithActivity(leaderboard, activity, identityAliases =
     entry.lastActivityAt = maxDate(entry.lastActivityAt, item.createdAt);
     activityByAuthor.set(author, entry);
 
-    if (item.promotionReady && laneKey) {
+    // "promotionReady" only means the challenge judged this candidate ready -- the
+    // promotion can still be rejected afterwards (stale-king guard, held merge), leaving
+    // it unmerged. Crowning from it produced a king stitched from two sources: the author
+    // of the PREVIOUS real king with the losing candidate's submission id and a null PR,
+    // and that null then let the king's PR fall through to the challenge winner.
+    // Only the authoritative lane king, written by the promotion itself, may crown.
+    const authoritativeKing = laneKey
+      ? String(authoritativeKingByLaneKey.get(laneKey) || "").trim()
+      : "";
+    const activityIsReigningKing =
+      Boolean(authoritativeKing) &&
+      authoritativeKing === String(item.candidateSubmissionId || "").trim();
+    if (item.promotionReady && laneKey && activityIsReigningKing) {
       const current = latestLaneWinners.get(laneKey);
       if (!current || new Date(item.createdAt) > new Date(current.mergedAt || 0)) {
         latestLaneWinners.set(laneKey, {
+          ...(current || {}),
           author,
           mergedAt: item.createdAt,
-          pullNumber: null,
           submissionId: item.candidateSubmissionId || null,
         });
       }

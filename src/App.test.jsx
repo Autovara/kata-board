@@ -69,3 +69,56 @@ describe("App routes render without crashing", () => {
     expect(screen.queryByText(/qwen\/qwen/i)).not.toBeInTheDocument();
   });
 });
+
+describe("Arena latest-challenge outcome", () => {
+  // Regression for the PR #195/#197 incident: PR #197 WON its challenge but its promotion
+  // was rejected (stale-king guard), so it never became king. The card inferred "New king"
+  // from the mere presence of a winner and announced the wrong PR as the new king.
+  function arenaPayload({ kingPull, winnerSubmissionId }) {
+    return {
+      ...FIXTURE,
+      lanes: [
+        {
+          id: "sn60__bitsec:miner",
+          laneId: "sn60__bitsec",
+          subnetPack: "sn60__bitsec",
+          mode: "miner",
+          king: {
+            author: "bohdansolovie",
+            submissionId: "bohdansolovie-20260723-08",
+            sourcePullRequest: kingPull,
+          },
+        },
+      ],
+      byLane: {
+        "sn60__bitsec:miner": {
+          challenge: null,
+          challengeHistory: [
+            {
+              runId: "sn60-challenge-20260723T065433Z-081c92",
+              challengeNumber: 34,
+              winnerSubmissionId,
+            },
+          ],
+          publicProof: null,
+        },
+      },
+    };
+  }
+
+  it("does not crown a challenge winner that was never promoted", async () => {
+    mockStatus(arenaPayload({ kingPull: 195, winnerSubmissionId: "pr-197" }));
+    await renderRoute("/arena");
+
+    expect(screen.getByText(/Winner awaiting promotion/i)).toBeInTheDocument();
+    expect(screen.queryByText(/New king/i)).not.toBeInTheDocument();
+  });
+
+  it("still shows a new king when the winner is the reigning king", async () => {
+    mockStatus(arenaPayload({ kingPull: 195, winnerSubmissionId: "pr-195" }));
+    await renderRoute("/arena");
+
+    expect(screen.getByText(/New king/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Winner awaiting promotion/i)).not.toBeInTheDocument();
+  });
+});

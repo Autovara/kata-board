@@ -2146,7 +2146,7 @@ function winnerPullFromSubmission(winnerSubmissionId) {
   return match ? Number(match[1]) : null;
 }
 
-function ChallengeHistory({ challenges, kataRepoSlug }) {
+function ChallengeHistory({ challenges, kataRepoSlug, reigningKingPull }) {
   if (!challenges || !challenges.length) {
     return null;
   }
@@ -2158,8 +2158,15 @@ function ChallengeHistory({ challenges, kataRepoSlug }) {
       </div>
       <ul className="challenge-feed">
         {challenges.slice(0, 1).map((challenge, index) => {
-          const promoted = Boolean(challenge.winnerSubmissionId);
           const winnerPull = winnerPullFromSubmission(challenge.winnerSubmissionId);
+          // Winning a challenge is not the same as taking the crown: the promotion can
+          // still be rejected afterwards (stale-king guard, held merge). Only claim a new
+          // king when this winner IS the reigning king. Without that confirmation the
+          // card reports the win as pending rather than inventing a crown.
+          const hasWinner = Boolean(challenge.winnerSubmissionId);
+          const promoted =
+            hasWinner && winnerPull != null && winnerPull === reigningKingPull;
+          const pendingPromotion = hasWinner && !promoted;
           // "New king" is already covered by the outcome badge; keep the rest.
           const highlights = (challenge.achievements || []).filter(
             (item) => !/new king/i.test(item)
@@ -2181,7 +2188,11 @@ function ChallengeHistory({ challenges, kataRepoSlug }) {
                       promoted ? "challenge-outcome-new" : "challenge-outcome-held"
                     }`}
                   >
-                    {promoted ? "👑 New king" : "🛡️ King defended"}
+                    {promoted
+                      ? "👑 New king"
+                      : pendingPromotion
+                        ? "⏳ Winner awaiting promotion"
+                        : "🛡️ King defended"}
                   </span>
                 </div>
                 <p className="challenge-card-summary">
@@ -2189,6 +2200,12 @@ function ChallengeHistory({ challenges, kataRepoSlug }) {
                     <>
                       A challenger beat the king and took the crown
                       {winnerPull ? <> — {prLabel(kataRepoSlug, winnerPull)}</> : null}.
+                    </>
+                  ) : pendingPromotion ? (
+                    <>
+                      A challenger won this match
+                      {winnerPull ? <> — {prLabel(kataRepoSlug, winnerPull)}</> : null} but has
+                      not been promoted, so the current king still holds the crown.
                     </>
                   ) : (
                     <>No challenger beat the king — the crown stayed put.</>
@@ -2251,7 +2268,11 @@ function Arena({ selectedLane, challenge, challengeHistory, kataRepoSlug }) {
       />
 
       {!detailOpen ? (
-        <ChallengeHistory challenges={challengeHistory} kataRepoSlug={kataRepoSlug} />
+        <ChallengeHistory
+          challenges={challengeHistory}
+          kataRepoSlug={kataRepoSlug}
+          reigningKingPull={selectedLane?.king?.sourcePullRequest ?? null}
+        />
       ) : null}
     </div>
   );

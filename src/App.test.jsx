@@ -122,3 +122,41 @@ describe("Arena latest-challenge outcome", () => {
     expect(screen.queryByText(/Winner awaiting promotion/i)).not.toBeInTheDocument();
   });
 });
+
+describe("interrupted round", () => {
+  // A round killed mid-challenge leaves challenge-status.json terminal-but-unfinished.
+  // The board must say so plainly instead of animating a phantom running challenge or
+  // silently showing a result-less panel.
+  it("explains an interrupted round instead of showing it as running", async () => {
+    mockStatus({
+      ...FIXTURE,
+      lanes: [
+        {
+          id: "sn60__bitsec:miner",
+          laneId: "sn60__bitsec",
+          subnetPack: "sn60__bitsec",
+          mode: "miner",
+          king: { author: "bohdansolovie", sourcePullRequest: 195 },
+        },
+      ],
+      byLane: {
+        "sn60__bitsec:miner": {
+          challenge: {
+            state: "interrupted",
+            runId: "sn60-challenge-20260723T135145Z-e749f1",
+            challengeNumber: 35,
+            winnerSubmissionId: null,
+            entrants: [{ pull_number: 197, status: "interrupted" }],
+          },
+          challengeHistory: [],
+          publicProof: null,
+        },
+      },
+    });
+    await renderRoute("/arena");
+
+    expect(screen.getByText("Round interrupted")).toBeInTheDocument();
+    expect(screen.getByText(/no result was recorded and the crown did not change/i)).toBeInTheDocument();
+    expect(screen.queryByText("New king")).not.toBeInTheDocument();
+  });
+});

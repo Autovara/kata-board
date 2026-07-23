@@ -998,16 +998,19 @@ function ChallengePanel({
   ) : null;
 
   const pausedNote =
-    state === "paused" || (challenge?.stale && state !== "completed") ? (
+    state === "paused" ||
+    state === "interrupted" ||
+    (challenge?.stale && state !== "completed") ? (
       <div className="round-verdict round-verdict-hold">
         <span className="round-verdict-crown" aria-hidden="true">
           ⏸
         </span>
         <div>
-          <strong>Round paused</strong>
+          <strong>{state === "interrupted" ? "Round interrupted" : "Round paused"}</strong>
           <p>
-            Below are the last scores from the challenge that was running. Resume the round to pick
-            up where it left off.
+            {state === "interrupted"
+              ? "This round stopped before it finished, so no result was recorded and the crown did not change. Below are the last scores it captured."
+              : "Below are the last scores from the challenge that was running. Resume the round to pick up where it left off."}
           </p>
         </div>
       </div>

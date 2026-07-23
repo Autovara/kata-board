@@ -159,3 +159,42 @@ test("a challenge winner that IS the reigning king still crowns normally", () =>
   assert.equal(proof.currentKing.submissionId, "bohdansolovie-20260723-08");
   assert.equal(proof.latestChallenge.outcome, "king_promoted");
 });
+
+test("the king card fills its submission id from authoritative lane state", () => {
+  // A GitHub merged-winner record carries only author/PR/mergedAt. The card must still
+  // name the king's submission -- and must take it from the lane state, never from the
+  // outgoing king or an in-flight candidate.
+  const proof = enrichPublicProofWithLiveWinner(
+    {
+      schemaVersion: 1,
+      activePack: "sn60__bitsec",
+      activeMode: "miner",
+      currentKing: {
+        author: "someone-older",
+        submissionId: "someone-older-20260701-01",
+        artifactHash: "stale-hash",
+      },
+      latestChallenge: {},
+    },
+    {
+      challenge: null,
+      challengeHistory: [UNPROMOTED_WINNER_CHALLENGE],
+      leaderboard: {
+        latestLaneWinners: {
+          "sn60__bitsec::miner": {
+            author: "bohdansolovie",
+            mergedAt: "2026-07-23T01:24:36.684335+00:00",
+            pullNumber: 195,
+          },
+        },
+      },
+      activeLane: { ...ACTIVE_LANE, king: { ...ACTIVE_LANE.king, artifactHash: "f11754ac" } },
+    }
+  );
+
+  assert.equal(proof.currentKing.author, "bohdansolovie");
+  assert.equal(proof.currentKing.sourcePullRequest, 195);
+  assert.equal(proof.currentKing.submissionId, "bohdansolovie-20260723-08");
+  // The outgoing king's hash must not survive onto the new king.
+  assert.equal(proof.currentKing.artifactHash, "f11754ac");
+});

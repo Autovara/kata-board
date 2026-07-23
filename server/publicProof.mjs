@@ -191,7 +191,19 @@ export function enrichPublicProofWithLiveWinner(
     proof.currentKing = {
       ...proof.currentKing,
       author: winnerAuthor,
-      submissionId: winnerSubmissionId || null,
+      // A GitHub merged-winner record carries only author/PR/mergedAt. Rather than leave
+      // the card blank -- or keep the OUTGOING king's id, which is how two kings got
+      // mixed into one card -- fall back to the authoritative lane state, but only when
+      // it names the same king we are crowning.
+      submissionId:
+        winnerSubmissionId ||
+        (inferSubmissionAuthorFromId(authoritativeKingSubmissionId) === winnerAuthor
+          ? authoritativeKingSubmissionId
+          : null),
+      artifactHash:
+        inferSubmissionAuthorFromId(authoritativeKingSubmissionId) === winnerAuthor
+          ? activeLane?.king?.artifactHash || proof.currentKing.artifactHash || null
+          : proof.currentKing.artifactHash || null,
       sourcePullRequest: winnerPullNumber ?? null,
       path:
         proof.currentKing.path ||

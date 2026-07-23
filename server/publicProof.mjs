@@ -135,17 +135,38 @@ export function enrichPublicProofWithLiveWinner(
     ? leaderboard?.latestLaneWinners?.[activeLaneKey] || null
     : null;
   const completedChallenge = challenge?.state === "completed" && challenge.winnerSubmissionId ? challenge : null;
-  const latestChallenge =
+  const latestChallengeCandidate =
     completedChallenge ||
     (Array.isArray(challengeHistory) ? challengeHistory.find((item) => item?.winnerSubmissionId) : null);
+  // A challenge winner only becomes the king once the promotion actually lands, and a
+  // promotion can be rejected afterwards (stale-king guard, held merge). Trust the
+  // authoritative lane king written by the promotion; if the latest challenge winner is
+  // not that king, it must not supply ANY field of currentKing -- otherwise the proof is
+  // assembled from two different kings (right author, wrong PR/submission).
+  const authoritativeKingSubmissionId = String(activeLane?.king?.submissionId || "").trim();
+  const candidateEntrant = findWinnerEntrant(
+    latestChallengeCandidate,
+    prNumberFromSubmissionId(latestChallengeCandidate?.winnerSubmissionId)
+  );
+  const candidateSubmissionId = String(
+    candidateEntrant?.submission_id || candidateEntrant?.submissionId || ""
+  ).trim();
+  const challengeWinnerIsKing =
+    Boolean(authoritativeKingSubmissionId) &&
+    authoritativeKingSubmissionId === candidateSubmissionId;
+  // The latest challenge still drives the "last challenge" section -- it just may not
+  // speak for the crown. Only a challenge whose winner IS the reigning king may feed
+  // currentKing.
+  const latestChallenge = latestChallengeCandidate;
+  const kingChallenge = challengeWinnerIsKing ? latestChallenge : null;
   const winnerPullNumber =
-    latestWinner?.pullNumber || prNumberFromSubmissionId(latestChallenge?.winnerSubmissionId);
-  const winnerEntrant = findWinnerEntrant(latestChallenge, winnerPullNumber);
+    latestWinner?.pullNumber || prNumberFromSubmissionId(kingChallenge?.winnerSubmissionId);
+  const winnerEntrant = findWinnerEntrant(kingChallenge, winnerPullNumber);
   const winnerSubmissionId =
     latestWinner?.submissionId ||
     winnerEntrant?.submission_id ||
     winnerEntrant?.submissionId ||
-    latestChallenge?.winnerSubmissionId ||
+    kingChallenge?.winnerSubmissionId ||
     null;
   const winnerAuthor =
     latestWinner?.author ||
@@ -155,8 +176,8 @@ export function enrichPublicProofWithLiveWinner(
     null;
   const promotedAt =
     latestWinner?.mergedAt ||
-    latestChallenge?.generatedAt ||
-    latestChallenge?.finishedAt ||
+    kingChallenge?.generatedAt ||
+    kingChallenge?.finishedAt ||
     proof.currentKing.promotedAt ||
     null;
   const proofPromotionTime = proof.currentKing.promotedAt || proof.latestChallenge.finishedAt;
@@ -198,10 +219,27 @@ export function enrichPublicProofWithLiveWinner(
       candidateCount:
         latestChallenge.candidateCount ??
         (entrants.length ? entrants.length : (proof.latestChallenge.candidateCount ?? null)),
-      outcome: latestChallenge.winnerSubmissionId ? "king_promoted" : proof.latestChallenge.outcome,
-      winnerPullRequest: winnerPullNumber ?? proof.latestChallenge.winnerPullRequest ?? null,
-      winnerAuthor: winnerAuthor || proof.latestChallenge.winnerAuthor || null,
-      winnerSubmissionId: winnerSubmissionId || proof.latestChallenge.winnerSubmissionId || null,
+      // "king_promoted" is a claim about the CROWN, so it may only be made when this
+      // challenge's winner actually is the reigning king. A winner whose promotion was
+      // rejected or is still pending is reported as awaiting promotion, never as king.
+      outcome: latestChallenge.winnerSubmissionId
+        ? challengeWinnerIsKing
+          ? "king_promoted"
+          : "winner_pending_promotion"
+        : proof.latestChallenge.outcome,
+      // The last-challenge section reports THIS challenge's winner, which is not
+      // necessarily the king -- so it uses the challenge's own entrant, not the king's.
+      winnerPullRequest:
+        prNumberFromSubmissionId(latestChallenge.winnerSubmissionId) ??
+        proof.latestChallenge.winnerPullRequest ??
+        null,
+      winnerAuthor:
+        candidateEntrant?.author ||
+        inferSubmissionAuthorFromId(candidateSubmissionId) ||
+        proof.latestChallenge.winnerAuthor ||
+        null,
+      winnerSubmissionId:
+        candidateSubmissionId || latestChallenge.winnerSubmissionId || proof.latestChallenge.winnerSubmissionId || null,
       bestTruePositives:
         maxEntrantMetric(entrants, "true_positives") ??
         latestChallenge.bestTruePositives ??

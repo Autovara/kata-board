@@ -377,6 +377,21 @@ function enrichLeaderboardLatestWinnerWithChallenge(leaderboard, challenge, chal
   if (!laneKey) {
     return leaderboard;
   }
+  // Winning a challenge is NOT the same as being king: the promotion can still be
+  // rejected afterwards (a stale-king guard, a held merge), leaving the PR unmerged.
+  // Only accept this winner as the lane's king when the authoritative lane state --
+  // written by the promotion itself -- already says it IS the king. Otherwise the
+  // board would crown an unmerged challenger and report its PR number as the king's.
+  const authoritativeKingSubmissionId = String(challengeLane?.king?.submissionId || "").trim();
+  const challengeWinnerSubmissionId = String(
+    winnerEntrant.submission_id || winnerEntrant.submissionId || ""
+  ).trim();
+  if (
+    !authoritativeKingSubmissionId ||
+    authoritativeKingSubmissionId !== challengeWinnerSubmissionId
+  ) {
+    return leaderboard;
+  }
   const current = leaderboard?.latestLaneWinners?.[laneKey] || {};
   const winnerPull =
     Number(winnerEntrant.pull_number ?? winnerEntrant.pullNumber) ||

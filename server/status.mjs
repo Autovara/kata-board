@@ -74,7 +74,7 @@ function lanePublicResultsCurrentPath(kataRoot, laneId) {
 
 // One lane's competition fields, read from its lane-scoped bot state (`state/<laneId>/…`) and its
 // published proof. The challenge/history are sequenced the same way the global flow does.
-function loadLaneCompetition(kataRoot, stateDir, laneId) {
+function loadLaneCompetition(kataRoot, stateDir, laneId, env) {
   const laneStateDir = path.join(stateDir, laneId);
   let challenge = loadChallengeStatus(path.join(laneStateDir, "challenge-status.json"));
   if (challenge) {
@@ -82,6 +82,9 @@ function loadLaneCompetition(kataRoot, stateDir, laneId) {
       path.join(laneStateDir, "challenge-progress.json"),
       kataRoot
     );
+    // Applied here, not only on the root read: a killed challenge leaves state "executing"
+    // forever, and without this a lane would animate a phantom running challenge.
+    challenge = applyChallengeStalenessGuard(challenge, env);
   }
   let challengeHistory = loadChallengeHistory(path.join(laneStateDir, "challenge-history.json"));
   ({ challenge, challengeHistory } = assignChallengeSequence(challenge, challengeHistory));
@@ -93,14 +96,22 @@ export function buildByLane(lanes, fields, context = {}) {
   if (!Array.isArray(lanes) || !lanes.length) {
     return {};
   }
-  if (lanes.length === 1) {
-    return { [lanes[0].id]: { ...fields } };
-  }
-  const { kataRoot, stateDir } = context;
+  const { kataRoot, stateDir, env, primaryLaneId } = context;
   const out = {};
   for (const lane of lanes) {
     const laneId = lane.laneId || lane.subnetPack;
-    const competition = loadLaneCompetition(kataRoot, stateDir, laneId);
+    // The primary lane's state was already read and pushed through the enrichment pipeline, so
+    // reuse those objects BY REFERENCE. That keeps the legacy top-level fields a byte-identical
+    // alias of this lane (so a cache-hit liveProgress refresh propagates to both) and avoids a
+    // second, unenriched read that would disagree with the top level.
+    const competition =
+      laneId && laneId === primaryLaneId
+        ? {
+            challenge: fields.challenge,
+            challengeHistory: fields.challengeHistory,
+            publicProof: fields.publicProof,
+          }
+        : loadLaneCompetition(kataRoot, stateDir, laneId, env);
     out[lane.id] = {
       challenge: competition.challenge,
       challengeHistory: competition.challengeHistory,
@@ -112,6 +123,43 @@ export function buildByLane(lanes, fields, context = {}) {
   return out;
 }
 
+// The lane ids this board serves, discovered before any state is read (state paths are keyed by
+// lane id). Identity aliases are not available yet and are not needed for discovery.
+function discoverLaneIds(kataRoot) {
+  return loadEvaluatorLanes({ kataRoot, latestLaneWinners: {} })
+    .map((lane) => lane.laneId || lane.subnetPack)
+    .filter(Boolean);
+}
+
+// A state root must be the PARENT of lane directories. Validated against the configured lane ids
+// rather than by sniffing files: the intended default (`/srv/kata-bot/state`) legitimately holds a
+// top-level `queue.json` today, and pre-migration files may be kept deliberately for rollback, so
+// "contains queue.json" would reject the correct value.
+export function assertBoardStateRoot(boardStateRoot, laneIds) {
+  const basename = path.basename(path.resolve(boardStateRoot));
+  if (laneIds.includes(basename)) {
+    throw new Error(
+      `KATA_BOARD_STATE_ROOT must be the directory CONTAINING lane directories, but ` +
+        `${boardStateRoot} is lane "${basename}" itself. Set it to that directory's parent.`
+    );
+  }
+  return path.resolve(boardStateRoot);
+}
+
+// Runtime (non-competition) state for one lane. S1e moves these alongside the competition files,
+// so reading them from the root would leave the dashboard showing a stale queue and a phantom
+// active evaluation after migration.
+function laneRuntimeRoots(roots, laneId) {
+  const laneStateDir = path.join(roots.boardStateRoot, laneId);
+  return {
+    ...roots,
+    queueStatePath: path.join(laneStateDir, "queue.json"),
+    liveStatusPath: path.join(laneStateDir, "live-status.json"),
+    reviewApprovalsPath: path.join(laneStateDir, "review-approvals.json"),
+    workRoot: path.join(roots.workRoot, laneId),
+  };
+}
+
 export async function loadBoardStatus(env) {
   const cacheTtlMs = readCacheTtlMs(env);
   const roots = resolveRoots(env);
@@ -121,22 +169,35 @@ export async function loadBoardStatus(env) {
     // challenge, while the rest of the payload (GitHub PRs, leaderboard) is slow and
     // rate-limited. Refresh just the progress on a cache hit so the dashboard
     // animates smoothly every stream frame without re-hitting GitHub.
-    if (cachedStatus.challenge) {
-      cachedStatus.challenge.liveProgress = loadChallengeProgress(roots.challengeProgressPath, roots.kataRoot);
-      cachedStatus.challenge = applyChallengeStalenessGuard(cachedStatus.challenge, env);
-    }
-    refreshByLaneChallengeProgress(cachedStatus, roots);
+    // Every lane refreshes from ITS OWN lane-scoped progress file. The primary lane's entry is the
+    // same object as the top-level challenge, so refreshing it in place updates both -- no root
+    // path is involved. The staleness guard is re-applied afterwards on the aliased object.
+    // The refresh applies the staleness guard itself, to both sides of the primary lane's alias.
+    // Re-guarding here would be the very thing that split them.
+    refreshByLaneChallengeProgress(cachedStatus, roots, env);
     return cachedStatus;
   }
-  const validator = await loadValidatorStatus(runtimeEnv, roots);
-  let challenge = loadChallengeStatus(roots.challengeStatusPath);
-  if (challenge) {
-    challenge.liveProgress = loadChallengeProgress(roots.challengeProgressPath, roots.kataRoot);
-    challenge = applyChallengeStalenessGuard(challenge, env);
-  }
-  let challengeHistory = loadChallengeHistory(roots.challengeHistoryPath);
+  // Lane ids first: every bot-state path is keyed by lane, so nothing can be read before we know
+  // which lanes exist. The legacy top-level fields mirror the PRIMARY lane (the only lane in a
+  // one-lane deployment); multi-lane consumers should read `byLane`.
+  const laneIds = discoverLaneIds(roots.kataRoot);
+  const boardStateRoot = assertBoardStateRoot(roots.boardStateRoot, laneIds);
+  const primaryLaneId = laneIds[0] || null;
+
+  // Lane-scoped, with NO fallback to root state: after S1e the root files still exist but are
+  // frozen at their pre-migration contents, so a fallback would render stale data as current --
+  // the exact silent failure this contract exists to prevent.
+  const validator = await loadValidatorStatus(
+    runtimeEnv,
+    primaryLaneId ? laneRuntimeRoots({ ...roots, boardStateRoot }, primaryLaneId) : roots
+  );
+  const primaryCompetition = primaryLaneId
+    ? loadLaneCompetition(roots.kataRoot, boardStateRoot, primaryLaneId, env)
+    : { challenge: null, challengeHistory: [], publicProof: null };
+  let challenge = primaryCompetition.challenge;
+  let challengeHistory = primaryCompetition.challengeHistory;
   ({ challenge, challengeHistory } = assignChallengeSequence(challenge, challengeHistory));
-  let publicProof = loadPublicProof(roots.publicResultsCurrentPath, roots.kataRoot);
+  let publicProof = primaryCompetition.publicProof;
   const activity = loadRecentActivity(roots.kataRoot, runtimeEnv);
   const identityAliases = buildIdentityAliases({ validator, challenge });
   challenge = applyChallengeIdentityAliases(challenge, identityAliases);
@@ -196,7 +257,7 @@ export async function loadBoardStatus(env) {
       leaderboard,
       activity,
     },
-    { kataRoot: roots.kataRoot, stateDir: path.dirname(roots.challengeStatusPath) }
+    { kataRoot: roots.kataRoot, stateDir: boardStateRoot, env, primaryLaneId }
   );
 
   cachedStatus = {
@@ -276,6 +337,13 @@ function resolveRoots(env) {
     boardRoot,
     kataRoot,
     kataBotRoot,
+    // S1d: the directory CONTAINING lane directories -- `<root>/<laneId>/challenge-status.json`.
+    // Explicit, never inferred from KATA_QUEUE_STATE_PATH: inferring it would give the wrong
+    // parent the moment a second lane exists, and pointing it at a lane directory makes the old
+    // one-lane shortcut appear to work while silently breaking multi-lane.
+    boardStateRoot: path.resolve(
+      env.KATA_BOARD_STATE_ROOT || path.join(kataBotRoot, "state")
+    ),
     benchmarkFile:
       env.KATA_BENCHMARK_FILE || env.KATA_SN60_BENCHMARK_FILE
         ? path.resolve(env.KATA_BENCHMARK_FILE || env.KATA_SN60_BENCHMARK_FILE)

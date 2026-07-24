@@ -15,6 +15,18 @@ import {
   refreshByLaneChallengeProgress,
 } from "./status.mjs";
 
+// S1d: bot state is lane-scoped -- the board reads `<KATA_BOARD_STATE_ROOT>/<laneId>/…` and never
+// a root-level competition file. These helpers keep the fixtures on that contract.
+const TEST_LANE_ID = "sn60__bitsec";
+
+function laneStateDir(root, laneId = TEST_LANE_ID) {
+  return path.join(root, "bot-state", laneId);
+}
+
+function boardStateRootOf(root) {
+  return path.join(root, "bot-state");
+}
+
 function writeJson(dir, name, payload) {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, name), JSON.stringify(payload, null, 2) + "\n");
@@ -152,6 +164,7 @@ function boardEnv(root) {
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   };
 }
@@ -301,26 +314,32 @@ test("refreshByLaneChallengeProgress reloads each lane's progress from its lane-
     lanes: [{ id: "b__y:miner", laneId: "b__y" }],
     byLane: { "b__y:miner": { challenge: { liveProgress: { runId: "STALE" } } } },
   };
-  refreshByLaneChallengeProgress(status, {
-    challengeStatusPath: path.join(stateDir, "challenge-status.json"),
-    kataRoot,
-  });
+  refreshByLaneChallengeProgress(status, { boardStateRoot: stateDir, kataRoot }, {});
   assert.equal(status.byLane["b__y:miner"].challenge.liveProgress.runId, "b-challenge-1");
 });
 
-test("refreshByLaneChallengeProgress skips the sole lane that shares the top-level challenge object", () => {
-  const sharedChallenge = { liveProgress: { runId: "top" } };
-  const status = {
-    challenge: sharedChallenge,
-    lanes: [{ id: "a:miner", laneId: "a" }],
-    byLane: { "a:miner": { challenge: sharedChallenge } },
-  };
-  // Nonexistent paths: it must skip (entry.challenge === status.challenge) and not read anything.
-  refreshByLaneChallengeProgress(status, {
-    challengeStatusPath: "/nonexistent/challenge-status.json",
-    kataRoot: "/nonexistent",
+test("refreshByLaneChallengeProgress refreshes the sole lane, which IS the top-level challenge", () => {
+  // The sole lane's entry and the top-level challenge are the same object by design, so this one
+  // in-place refresh moves both. Before S1d the caller refreshed the top level from a ROOT
+  // progress file and this function skipped the alias -- after a state move that root file is
+  // frozen, so the dashboard would have animated stale progress forever.
+  const kataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kata-board-laneprog-sole-"));
+  const stateDir = path.join(kataRoot, "state");
+  writeJson(path.join(stateDir, TEST_LANE_ID), "challenge-progress.json", {
+    state: "executing",
+    run_id: "sole-lane-progress",
   });
-  assert.equal(status.byLane["a:miner"].challenge.liveProgress.runId, "top");
+  const challenge = { liveProgress: { runId: "STALE" } };
+  const status = {
+    challenge,
+    lanes: [{ id: "sn60__bitsec:miner", laneId: TEST_LANE_ID }],
+    byLane: { "sn60__bitsec:miner": { challenge } },
+  };
+
+  refreshByLaneChallengeProgress(status, { boardStateRoot: stateDir, kataRoot }, {});
+
+  assert.equal(status.challenge.liveProgress.runId, "sole-lane-progress");
+  assert.strictEqual(status.byLane["sn60__bitsec:miner"].challenge, status.challenge);
 });
 
 test("byLane reads each lane's own challenge and proof when there are multiple lanes", () => {
@@ -463,7 +482,7 @@ test("uses the completed challenge's configured lane instead of an SN60 fallback
     schema_version: 1,
     packs: [{ lane_id: laneId, repo_pack: laneId, mode: "miner", active: true }],
   });
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root, laneId), "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     lane_id: laneId,
@@ -481,7 +500,6 @@ test("uses the completed challenge's configured lane instead of an SN60 fallback
 
   const status = await loadBoardStatus({
     ...boardEnv(root),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
   });
 
   assert.equal(status.publicProof.activePack, laneId);
@@ -509,8 +527,8 @@ test("loads recent activity from challenge summaries", async () => {
 test("merges live status with active SN60 worktree progress", async () => {
   const root = makeKataRoot();
   const botRoot = path.join(root, "bot");
-  const queuePath = path.join(botRoot, "state", "queue.json");
-  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const queuePath = path.join(botRoot, "state", TEST_LANE_ID, "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", TEST_LANE_ID, "live-status.json");
   const workRoot = path.join(botRoot, "work");
   const jobId = "job-1";
   writeJson(path.dirname(queuePath), "queue.json", {
@@ -559,7 +577,7 @@ test("merges live status with active SN60 worktree progress", async () => {
     result: { result: "FAIL", true_positives: 0 },
   });
 
-  const workspace = path.join(workRoot, "kata-bot-job-active");
+  const workspace = path.join(workRoot, TEST_LANE_ID, "kata-bot-job-active");
   fs.mkdirSync(workspace, { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "changed-paths.txt"),
@@ -613,6 +631,7 @@ test("merges live status with active SN60 worktree progress", async () => {
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_BOARD_STATE_ROOT: path.dirname(path.dirname(queuePath)),
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_WORK_ROOT: workRoot,
     KATA_SN60_BENCHMARK_FILE: benchmarkPath,
@@ -649,8 +668,8 @@ test("merges live status with active SN60 worktree progress", async () => {
 test("ignores malformed queue and live-status elements", async () => {
   const root = makeKataRoot();
   const botRoot = path.join(root, "bot");
-  const queuePath = path.join(botRoot, "state", "queue.json");
-  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const queuePath = path.join(botRoot, "state", TEST_LANE_ID, "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", TEST_LANE_ID, "live-status.json");
   const jobId = "job-malformed";
   writeJson(path.dirname(queuePath), "queue.json", {
     schema_version: 1,
@@ -696,6 +715,7 @@ test("ignores malformed queue and live-status elements", async () => {
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_BOARD_STATE_ROOT: path.dirname(path.dirname(queuePath)),
     KATA_LIVE_STATUS_PATH: liveStatusPath,
   });
 
@@ -707,8 +727,8 @@ test("ignores malformed queue and live-status elements", async () => {
 test("keeps latest completed SN60 duel visible after queue finishes", async () => {
   const root = makeKataRoot();
   const botRoot = path.join(root, "bot");
-  const queuePath = path.join(botRoot, "state", "queue.json");
-  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const queuePath = path.join(botRoot, "state", TEST_LANE_ID, "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", TEST_LANE_ID, "live-status.json");
   const workRoot = path.join(botRoot, "work");
   const jobId = "job-completed";
   writeJson(path.dirname(queuePath), "queue.json", {
@@ -749,7 +769,7 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
     },
   });
 
-  const workspace = path.join(workRoot, "kata-bot-job-completed");
+  const workspace = path.join(workRoot, TEST_LANE_ID, "kata-bot-job-completed");
   fs.mkdirSync(workspace, { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "changed-paths.txt"),
@@ -795,6 +815,7 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_BOARD_STATE_ROOT: path.dirname(path.dirname(queuePath)),
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_WORK_ROOT: workRoot,
   });
@@ -817,8 +838,8 @@ test("keeps latest completed SN60 duel visible after queue finishes", async () =
 test("shows live SN60 screening project and timeout before result exists", async () => {
   const root = makeKataRoot();
   const botRoot = path.join(root, "bot");
-  const queuePath = path.join(botRoot, "state", "queue.json");
-  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const queuePath = path.join(botRoot, "state", TEST_LANE_ID, "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", TEST_LANE_ID, "live-status.json");
   const workRoot = path.join(botRoot, "work");
   const jobId = "job-screening";
   writeJson(path.dirname(queuePath), "queue.json", {
@@ -857,7 +878,7 @@ test("shows live SN60 screening project and timeout before result exists", async
       started_at: "2026-07-02T02:01:00+00:00",
     },
   });
-  const workspace = path.join(workRoot, "kata-bot-job-screening");
+  const workspace = path.join(workRoot, TEST_LANE_ID, "kata-bot-job-screening");
   fs.mkdirSync(
     path.join(workspace, "runs-initial", "sn60-screening-live", "reports", "project-alpha"),
     { recursive: true }
@@ -871,6 +892,7 @@ test("shows live SN60 screening project and timeout before result exists", async
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_BOARD_STATE_ROOT: path.dirname(path.dirname(queuePath)),
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_WORK_ROOT: workRoot,
   });
@@ -888,8 +910,8 @@ test("shows live SN60 screening project and timeout before result exists", async
 test("completed SN60 screening failure overrides stale lane winner state", async () => {
   const root = makeKataRoot();
   const botRoot = path.join(root, "bot");
-  const queuePath = path.join(botRoot, "state", "queue.json");
-  const liveStatusPath = path.join(botRoot, "state", "live-status.json");
+  const queuePath = path.join(botRoot, "state", TEST_LANE_ID, "queue.json");
+  const liveStatusPath = path.join(botRoot, "state", TEST_LANE_ID, "live-status.json");
   const workRoot = path.join(botRoot, "work");
   const jobId = "job-screen-failed";
   const reason =
@@ -932,7 +954,7 @@ test("completed SN60 screening failure overrides stale lane winner state", async
     },
   });
 
-  const workspace = path.join(workRoot, "kata-bot-job-screen-failed");
+  const workspace = path.join(workRoot, TEST_LANE_ID, "kata-bot-job-screen-failed");
   fs.mkdirSync(workspace, { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "changed-paths.txt"),
@@ -968,6 +990,7 @@ test("completed SN60 screening failure overrides stale lane winner state", async
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
     KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_BOARD_STATE_ROOT: path.dirname(path.dirname(queuePath)),
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_WORK_ROOT: workRoot,
   });
@@ -1375,7 +1398,8 @@ test("leaderboard does not split a known PR winner by submission id prefix", asy
 
 test("leaderboard uses completed validator identity when github history is unavailable", async () => {
   const root = makeKataRoot();
-  const botStateRoot = path.join(root, "bot", "state");
+  const boardStateRoot = path.join(root, "bot", "state");
+  const botStateRoot = path.join(boardStateRoot, TEST_LANE_ID);
   const queuePath = path.join(botStateRoot, "queue.json");
   const liveStatusPath = path.join(botStateRoot, "live-status.json");
   const challengeStatusPath = path.join(botStateRoot, "challenge-status.json");
@@ -1441,6 +1465,7 @@ test("leaderboard uses completed validator identity when github history is unava
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_QUEUE_STATE_PATH: queuePath,
+    KATA_BOARD_STATE_ROOT: path.dirname(path.dirname(queuePath)),
     KATA_LIVE_STATUS_PATH: liveStatusPath,
     KATA_CHALLENGE_STATUS_PATH: challengeStatusPath,
     KATA_REPO_SLUG: "",
@@ -1461,7 +1486,7 @@ test("leaderboard uses completed validator identity when github history is unava
 test("leaderboard falls back to challenge entrants when github history is unavailable", async () => {
   const root = makeKataRoot();
   const challengeStatusPath = path.join(root, "challenge-status.json");
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     generated_at: "2026-07-02T02:00:00Z",
@@ -1606,7 +1631,7 @@ test("completed challenge keeps the king identity from before promotion", async 
     promotion_timestamp: "2026-07-07T16:46:38Z",
     updated_at: "2026-07-07T16:46:38Z",
   });
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     generated_at: "2026-07-07T16:36:32Z",
@@ -1630,7 +1655,6 @@ test("completed challenge keeps the king identity from before promotion", async 
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_REPO_SLUG: "",
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
     KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
 
@@ -1642,7 +1666,7 @@ test("completed challenge keeps the king identity from before promotion", async 
 
 test("exposes the current competition challenge from challenge-status.json", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "completed",
     generated_at: "2026-07-06T12:00:00Z",
@@ -1684,7 +1708,7 @@ test("exposes the current competition challenge from challenge-status.json", asy
       },
     },
   });
-  writeJson(root, "challenge-history.json", {
+  writeJson(laneStateDir(root), "challenge-history.json", {
     schema_version: 1,
     challenges: [
       {
@@ -1706,8 +1730,7 @@ test("exposes the current competition challenge from challenge-status.json", asy
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
-    KATA_CHALLENGE_HISTORY_PATH: path.join(root, "challenge-history.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
@@ -1785,7 +1808,7 @@ test("exposes public proof from kata public-results/current.json", async () => {
 
 test("exposes a failed preflight challenge and its note for the dashboard", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "failed",
     note: "Challenge failed preflight: chutes_scoring unavailable.",
@@ -1797,7 +1820,6 @@ test("exposes a failed preflight challenge and its note for the dashboard", asyn
   });
   const status = await loadBoardStatus({
     ...boardEnv(root),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
   });
   assert.equal(status.challenge.state, "failed");
   assert.equal(status.challenge.note, "Challenge failed preflight: chutes_scoring unavailable.");
@@ -1808,8 +1830,11 @@ test("exposes a failed preflight challenge and its note for the dashboard", asyn
 test("exposes submission label counts and review approvals without internal fields", async () => {
   const root = makeKataRoot();
   const botRoot = path.join(root, "bot");
-  writeJson(botRoot, "queue.json", { schema_version: 1, jobs: [] });
-  writeJson(botRoot, "review-approvals.json", {
+  // Runtime state is lane-scoped too: S1e moves queue/live-status/review-approvals alongside the
+  // competition files, so the board must read them from the lane, not the root.
+  const botLaneStateDir = path.join(botRoot, TEST_LANE_ID);
+  writeJson(botLaneStateDir, "queue.json", { schema_version: 1, jobs: [] });
+  writeJson(botLaneStateDir, "review-approvals.json", {
     schema_version: 1,
     approvals: [
       {
@@ -1844,8 +1869,7 @@ test("exposes submission label counts and review approvals without internal fiel
   const status = await loadBoardStatus({
     ...boardEnv(root),
     KATA_BOT_ROOT: botRoot,
-    KATA_QUEUE_STATE_PATH: path.join(botRoot, "queue.json"),
-    KATA_REVIEW_APPROVALS_PATH: path.join(botRoot, "review-approvals.json"),
+    KATA_BOARD_STATE_ROOT: botRoot,
     KATA_BOARD_EVENT_LOG: eventLogPath,
     KATA_LEADERBOARD_CACHE_TTL_MS: "0",
   });
@@ -1858,6 +1882,54 @@ test("exposes submission label counts and review approvals without internal fiel
   assert.equal(status.submissionStatus.reviewApprovals.recent[0].reason_fingerprint, undefined);
 });
 
+test("S1d: a one-lane board renders LANE state, never the root file, top level and in byLane", async () => {
+  // The regression this exists for: `loadBoardStatus` used to read root competition files and
+  // `buildByLane` aliased them for the sole lane. After S1e the root files still exist, frozen at
+  // their pre-migration contents -- so reading them renders stale data as current, silently.
+  const root = makeKataRoot();
+  const rootStateDir = boardStateRootOf(root);
+  writeJson(rootStateDir, "challenge-status.json", {
+    schema_version: 1,
+    state: "completed",
+    run_id: "ROOT-MUST-NOT-BE-READ",
+  });
+  writeJson(rootStateDir, "challenge-history.json", {
+    schema_version: 1,
+    challenges: [{ run_id: "ROOT-HISTORY-MUST-NOT-BE-READ", state: "completed" }],
+  });
+  writeJson(laneStateDir(root), "challenge-status.json", {
+    schema_version: 1,
+    state: "completed",
+    run_id: "LANE-VALUE",
+  });
+  writeJson(laneStateDir(root), "challenge-history.json", {
+    schema_version: 1,
+    challenges: [{ run_id: "LANE-HISTORY", state: "completed" }],
+  });
+
+  const status = await loadBoardStatus(boardEnv(root));
+
+  assert.equal(status.challenge.runId, "LANE-VALUE");
+  assert.equal(status.challengeHistory[0].runId, "LANE-HISTORY");
+  const laneEntry = status.byLane[Object.keys(status.byLane)[0]];
+  assert.equal(laneEntry.challenge.runId, "LANE-VALUE");
+  // Top level and byLane are the same object, so they can never drift apart.
+  assert.strictEqual(laneEntry.challenge, status.challenge);
+});
+
+test("S1d: a one-lane board shows NOTHING when the lane has no state, even if root state exists", async () => {
+  const root = makeKataRoot();
+  writeJson(boardStateRootOf(root), "challenge-status.json", {
+    schema_version: 1,
+    state: "completed",
+    run_id: "ROOT-MUST-NOT-BE-READ",
+  });
+
+  const status = await loadBoardStatus(boardEnv(root));
+
+  assert.equal(status.challenge, null);
+});
+
 test("challenge is null when no challenge-status file exists", async () => {
   const root = makeKataRoot();
   const status = await loadBoardStatus(boardEnv(root));
@@ -1866,7 +1938,7 @@ test("challenge is null when no challenge-status file exists", async () => {
 
 test("attaches live per-candidate progress while a challenge is executing", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [
@@ -1874,7 +1946,7 @@ test("attaches live per-candidate progress while a challenge is executing", asyn
       { pull_number: 6, submission_id: "m-6", status: "executing" },
     ],
   });
-  writeJson(root, "challenge-progress.json", {
+  writeJson(laneStateDir(root), "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
     run_id: "sn60-challenge-live",
@@ -1962,7 +2034,7 @@ test("attaches live per-candidate progress while a challenge is executing", asyn
     ),
     { recursive: true }
   );
-  writeJson(root, "challenge-history.json", {
+  writeJson(laneStateDir(root), "challenge-history.json", {
     schema_version: 1,
     challenges: [
       {
@@ -1978,9 +2050,7 @@ test("attaches live per-candidate progress while a challenge is executing", asyn
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
-    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
-    KATA_CHALLENGE_HISTORY_PATH: path.join(root, "challenge-history.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
@@ -2009,12 +2079,12 @@ test("attaches live per-candidate progress while a challenge is executing", asyn
 
 test("live project pass uses replica threshold instead of last replica row", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "challenge-progress.json", {
+  writeJson(laneStateDir(root), "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
     run_id: "sn60-challenge-live",
@@ -2070,8 +2140,7 @@ test("live project pass uses replica threshold instead of last replica row", asy
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
-    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
@@ -2083,12 +2152,12 @@ test("live project pass uses replica threshold instead of last replica row", asy
 
 test("live project replica denominator uses configured challenge replicas before all artifacts exist", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "challenge-progress.json", {
+  writeJson(laneStateDir(root), "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
     run_id: "sn60-challenge-live",
@@ -2125,8 +2194,7 @@ test("live project replica denominator uses configured challenge replicas before
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
-    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
@@ -2139,12 +2207,12 @@ test("live project replica denominator uses configured challenge replicas before
 
 test("candidate progress does not invent projects from generic duel artifacts", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "challenge-progress.json", {
+  writeJson(laneStateDir(root), "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
     run_id: "sn60-challenge-live",
@@ -2170,8 +2238,7 @@ test("candidate progress does not invent projects from generic duel artifacts", 
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
-    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
@@ -2180,7 +2247,7 @@ test("candidate progress does not invent projects from generic duel artifacts", 
 
 test("exposes the challenge-history feed from challenge-history.json", async () => {
   const root = makeKataRoot();
-  writeJson(root, "challenge-history.json", {
+  writeJson(laneStateDir(root), "challenge-history.json", {
     schema_version: 1,
     challenges: [
       {
@@ -2210,7 +2277,7 @@ test("exposes the challenge-history feed from challenge-history.json", async () 
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_HISTORY_PATH: path.join(root, "challenge-history.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 
@@ -2238,13 +2305,13 @@ test("a stalled executing challenge is presented as paused (not animated) but ke
   // on state === "executing", so marking it "paused" stops the animation -- BUT its last
   // recorded status is kept, never deleted just because time passed.
   const root = makeKataRoot();
-  writeJson(root, "challenge-status.json", {
+  writeJson(laneStateDir(root), "challenge-status.json", {
     schema_version: 1,
     state: "executing",
     generated_at: "2026-07-06T12:00:00Z",
     entrants: [{ pull_number: 5, submission_id: "m-5", status: "executing" }],
   });
-  writeJson(root, "challenge-progress.json", {
+  writeJson(laneStateDir(root), "challenge-progress.json", {
     schema_version: 1,
     state: "executing",
     run_id: "sn60-challenge-dead",
@@ -2256,8 +2323,7 @@ test("a stalled executing challenge is presented as paused (not animated) but ke
     KATA_ROOT: root,
     KATA_BOT_ROOT: path.join(root, "no-bot"),
     KATA_QUEUE_STATE_PATH: path.join(root, "no-bot", "queue.json"),
-    KATA_CHALLENGE_STATUS_PATH: path.join(root, "challenge-status.json"),
-    KATA_CHALLENGE_PROGRESS_PATH: path.join(root, "challenge-progress.json"),
+    KATA_BOARD_STATE_ROOT: boardStateRootOf(root),
     KATA_STATUS_CACHE_TTL_MS: "0",
   });
 

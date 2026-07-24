@@ -19,20 +19,34 @@ import { maxDate } from "./leaderboardRows.mjs";
 // Refresh each lane's live challenge progress on a cache hit. The sole lane's byLane entry shares the
 // top-level challenge object (already refreshed by the caller); additional lanes read their own
 // lane-scoped state/<laneId>/challenge-progress.json so their live progress also advances every frame.
-export function refreshByLaneChallengeProgress(status, roots) {
+export function refreshByLaneChallengeProgress(status, roots, env) {
   if (!status || !status.byLane) {
     return;
   }
-  const stateDir = path.dirname(roots.challengeStatusPath);
+  // S1d: lane-scoped state root, NOT `dirname(challengeStatusPath)`. Deriving it from the root
+  // challenge path meant every lane's live progress was read relative to pre-migration state.
+  const stateDir = roots.boardStateRoot;
   for (const lane of status.lanes || []) {
     const entry = status.byLane[lane.id];
-    if (!entry || !entry.challenge || entry.challenge === status.challenge) {
+    if (!entry || !entry.challenge) {
       continue;
     }
+    // No skip for the primary lane: its entry IS the top-level challenge object, so refreshing it
+    // here is what keeps the top level moving -- the caller no longer reads a root progress file.
+    const isPrimary = entry.challenge === status.challenge;
     entry.challenge.liveProgress = loadChallengeProgress(
       path.join(stateDir, lane.laneId, "challenge-progress.json"),
       roots.kataRoot
     );
+    // Guard ONCE per lane and write the result to both sides of the alias. A stale challenge is
+    // returned as a NEW paused object, so guarding the top level separately would leave
+    // byLane[primary] pointing at the old executing object -- top level paused, lane still
+    // animating a phantom challenge, and the alias silently broken.
+    const guarded = applyChallengeStalenessGuard(entry.challenge, env);
+    entry.challenge = guarded;
+    if (isPrimary) {
+      status.challenge = guarded;
+    }
   }
 }
 

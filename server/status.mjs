@@ -1,6 +1,18 @@
 import { execFileSync } from "node:child_process";
-import { dateIsAfter, f1Score, normalizeLabelNames, numberOrNull, positiveIntegerOrNull, summarizeTaskStatusCounts, uniqueStrings } from "./status_utils.mjs";
-import { loadEvaluatorActivityMetrics, loadEvaluatorLanes, loadRecentActivity } from "./evaluator.mjs";
+import {
+  dateIsAfter,
+  f1Score,
+  normalizeLabelNames,
+  numberOrNull,
+  positiveIntegerOrNull,
+  summarizeTaskStatusCounts,
+  uniqueStrings,
+} from "./status_utils.mjs";
+import {
+  loadEvaluatorActivityMetrics,
+  loadEvaluatorLanes,
+  loadRecentActivity,
+} from "./evaluator.mjs";
 import {
   enrichPublicProofWithLiveWinner,
   findWinnerEntrant,
@@ -341,9 +353,7 @@ function resolveRoots(env) {
     // Explicit, never inferred from KATA_QUEUE_STATE_PATH: inferring it would give the wrong
     // parent the moment a second lane exists, and pointing it at a lane directory makes the old
     // one-lane shortcut appear to work while silently breaking multi-lane.
-    boardStateRoot: path.resolve(
-      env.KATA_BOARD_STATE_ROOT || path.join(kataBotRoot, "state")
-    ),
+    boardStateRoot: path.resolve(env.KATA_BOARD_STATE_ROOT || path.join(kataBotRoot, "state")),
     benchmarkFile:
       env.KATA_BENCHMARK_FILE || env.KATA_SN60_BENCHMARK_FILE
         ? path.resolve(env.KATA_BENCHMARK_FILE || env.KATA_SN60_BENCHMARK_FILE)
@@ -2262,7 +2272,7 @@ export function loadLocalArtifactLeaderboard(kataRoot) {
   }
   const value = augmentLeaderboardWithChallengeResults(
     loadLocalGitWinnerLeaderboard(kataRoot),
-    kataRoot,
+    kataRoot
   );
   localArtifactLeaderboardCache = { key, at: now, value };
   return value;
@@ -3071,7 +3081,9 @@ function resolveChallengeLane(challenge, lanes, publicProof) {
   const knownLanes = Array.isArray(lanes) ? lanes : [];
   const challengeLaneId = String(challenge?.laneId || "").trim();
   if (challengeLaneId) {
-    const byId = knownLanes.find((lane) => lane.laneId === challengeLaneId || lane.id === challengeLaneId);
+    const byId = knownLanes.find(
+      (lane) => lane.laneId === challengeLaneId || lane.id === challengeLaneId
+    );
     if (byId) {
       return byId;
     }
@@ -3083,4 +3095,3 @@ function resolveChallengeLane(challenge, lanes, publicProof) {
   );
   return byProof || (knownLanes.length === 1 ? knownLanes[0] : null);
 }
-

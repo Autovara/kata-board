@@ -213,31 +213,61 @@ test("enrichLaneKingsWithProof backfills the king's source PR from the published
   };
   // Lane king matches by artifact hash but has no source PR (the live bug) -> backfilled.
   const [byHash] = enrichLaneKingsWithProof(
-    [{ id: "l", king: { author: "someone-else", artifactHash: "king-hash", sourcePullRequest: null, seeded: false } }],
+    [
+      {
+        id: "l",
+        king: {
+          author: "someone-else",
+          artifactHash: "king-hash",
+          sourcePullRequest: null,
+          seeded: false,
+        },
+      },
+    ],
     proof
   );
   assert.equal(byHash.king.sourcePullRequest, 424);
 
   // Falls back to an author match when the hash is absent.
   const [byAuthor] = enrichLaneKingsWithProof(
-    [{ id: "l", king: { author: "Alice", artifactHash: null, sourcePullRequest: null, seeded: false } }],
+    [
+      {
+        id: "l",
+        king: { author: "Alice", artifactHash: null, sourcePullRequest: null, seeded: false },
+      },
+    ],
     proof
   );
   assert.equal(byAuthor.king.sourcePullRequest, 424);
 
   // Never overrides a PR the lane already has, never touches a non-matching or seeded king.
   const [kept] = enrichLaneKingsWithProof(
-    [{ id: "l", king: { author: "alice", artifactHash: "king-hash", sourcePullRequest: 7, seeded: false } }],
+    [
+      {
+        id: "l",
+        king: { author: "alice", artifactHash: "king-hash", sourcePullRequest: 7, seeded: false },
+      },
+    ],
     proof
   );
   assert.equal(kept.king.sourcePullRequest, 7);
   const [mismatch] = enrichLaneKingsWithProof(
-    [{ id: "l", king: { author: "bob", artifactHash: "other", sourcePullRequest: null, seeded: false } }],
+    [
+      {
+        id: "l",
+        king: { author: "bob", artifactHash: "other", sourcePullRequest: null, seeded: false },
+      },
+    ],
     proof
   );
   assert.equal(mismatch.king.sourcePullRequest, null);
   const [seeded] = enrichLaneKingsWithProof(
-    [{ id: "l", king: { author: "alice", artifactHash: "king-hash", sourcePullRequest: null, seeded: true } }],
+    [
+      {
+        id: "l",
+        king: { author: "alice", artifactHash: "king-hash", sourcePullRequest: null, seeded: true },
+      },
+    ],
     proof
   );
   assert.equal(seeded.king.sourcePullRequest, null);
@@ -259,7 +289,15 @@ test("king card uses the lane-state source PR when the lane records it (null/0 s
   });
   writeJson(path.join(root, "lanes"), "registry.json", {
     schema_version: 1,
-    packs: [{ lane_id: "sn60__bitsec", repo_pack: "sn60__bitsec", mode: "miner", evaluator_id: "sn60_bitsec", active: true }],
+    packs: [
+      {
+        lane_id: "sn60__bitsec",
+        repo_pack: "sn60__bitsec",
+        mode: "miner",
+        evaluator_id: "sn60_bitsec",
+        active: true,
+      },
+    ],
     updated_at: "2026-07-02T00:00:00+00:00",
   });
   writeJson(laneRoot, "king.json", {
@@ -2285,7 +2323,10 @@ test("exposes the challenge-history feed from challenge-history.json", async () 
   assert.equal(status.challengeHistory[0].challengeNumber, 2);
   assert.equal(status.challengeHistory[0].winnerSubmissionId, "m-1");
   assert.equal(status.challengeHistory[0].bestDetection, 0.5);
-  assert.deepEqual(status.challengeHistory[0].achievements, ["👑 New king", "🥇 First true positive"]);
+  assert.deepEqual(status.challengeHistory[0].achievements, [
+    "👑 New king",
+    "🥇 First true positive",
+  ]);
   assert.equal(status.challengeHistory[1].challengeNumber, 1);
 });
 

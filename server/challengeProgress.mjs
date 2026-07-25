@@ -161,6 +161,13 @@ export function loadChallengeStatus(challengeStatusPath) {
         ? status.promotion_margins
         : null,
     winnerSubmissionId: status.winner_submission_id || null,
+    // Per-side inference-provider warnings (e.g. a side's key is out of credits), with the ACTUAL
+    // reason, so the dashboard explains a 0 rather than looking like a real defeat.
+    inferenceWarnings: Array.isArray(status.inference_warnings) ? status.inference_warnings : [],
+    kingInference:
+      status.king_inference && typeof status.king_inference === "object"
+        ? status.king_inference
+        : null,
     entrants: (Array.isArray(status.entrants) ? status.entrants : []).map((entrant) => ({
       ...entrant,
       author: entrant.author || inferSubmissionAuthorFromId(entrant.submission_id),

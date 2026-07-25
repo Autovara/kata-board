@@ -975,6 +975,22 @@ function ChallengePanel({
     </div>
   ) : null;
 
+  // Per-side inference-provider warnings: a 0 here is not necessarily a weak agent -- the side's
+  // provider key may be out of credits. Show the ACTUAL reason so king/miners can act.
+  const inferenceWarnings = (challenge?.inferenceWarnings || []).length ? (
+    <div className="challenge-note challenge-note-warn" role="status">
+      {(challenge.inferenceWarnings || []).map((warning, index) => (
+        <div key={`${warning.side}-${index}`}>
+          ⚠{" "}
+          {warning.side === "king"
+            ? "King"
+            : `Challenger${warning.submission_id ? ` ${warning.submission_id}` : ""}`}
+          : {warning.message}. This side&apos;s score reflects no live inference this round.
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   const verdict = challenge?.winnerSubmissionId ? (
     <div className="round-verdict round-verdict-win">
       <span className="round-verdict-crown" aria-hidden="true">
@@ -1020,6 +1036,7 @@ function ChallengePanel({
     <>
       {arenaHead}
       {note}
+      {inferenceWarnings}
       {pausedNote}
       {verdict}
       {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
@@ -1061,6 +1078,7 @@ function ChallengePanel({
       ) : (
         <>
           {note}
+          {inferenceWarnings}
           {pausedNote}
           {verdict}
           <Empty text="No challenger has entered yet — the king holds the crown until one does." />

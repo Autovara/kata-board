@@ -951,9 +951,7 @@ function ChallengePanel({
 
   // Challenge mode is a 1v1 king-of-the-hill: show the duel detail directly, no table.
   const primaryEntrant = rankedEntrants[0] || null;
-  const primaryProgress = primaryEntrant
-    ? resultByPull[primaryEntrant.pull_number] || null
-    : null;
+  const primaryProgress = primaryEntrant ? resultByPull[primaryEntrant.pull_number] || null : null;
 
   const arenaHead = (
     <div className="challenge-block-head">
@@ -1014,9 +1012,7 @@ function ChallengePanel({
   ) : null;
 
   const pausedNote =
-    state === "paused" ||
-    state === "interrupted" ||
-    (challenge?.stale && state !== "completed") ? (
+    state === "paused" || state === "interrupted" || (challenge?.stale && state !== "completed") ? (
       <div className="round-verdict round-verdict-hold">
         <span className="round-verdict-crown" aria-hidden="true">
           ⏸
@@ -1684,11 +1680,41 @@ function DuelDetail({
 }
 
 const DECISION_SIGNALS = [
-  { rank: 1, key: "pass_score", label: "Project pass score", note: "First decision signal", higherIsBetter: true },
-  { rank: 2, key: "codebase_pass_count", label: "Projects passed", note: "Used if pass score is tied", higherIsBetter: true },
-  { rank: 3, key: "true_positives", label: "True positives", note: "Confirmed benchmark matches", higherIsBetter: true },
-  { rank: 4, key: "invalid_runs", label: "Invalid runs", note: "Lower is better", higherIsBetter: false },
-  { rank: 5, key: "precision", label: "Precision", note: "Cleaner reports win ties", higherIsBetter: true },
+  {
+    rank: 1,
+    key: "pass_score",
+    label: "Project pass score",
+    note: "First decision signal",
+    higherIsBetter: true,
+  },
+  {
+    rank: 2,
+    key: "codebase_pass_count",
+    label: "Projects passed",
+    note: "Used if pass score is tied",
+    higherIsBetter: true,
+  },
+  {
+    rank: 3,
+    key: "true_positives",
+    label: "True positives",
+    note: "Confirmed benchmark matches",
+    higherIsBetter: true,
+  },
+  {
+    rank: 4,
+    key: "invalid_runs",
+    label: "Invalid runs",
+    note: "Lower is better",
+    higherIsBetter: false,
+  },
+  {
+    rank: 5,
+    key: "precision",
+    label: "Precision",
+    note: "Cleaner reports win ties",
+    higherIsBetter: true,
+  },
   { rank: 6, key: "f1_score", label: "F1 score", note: "Final tie-breaker", higherIsBetter: true },
 ];
 
@@ -2185,8 +2211,7 @@ function ChallengeHistory({ challenges, kataRepoSlug, reigningKingPull }) {
           // king when this winner IS the reigning king. Without that confirmation the
           // card reports the win as pending rather than inventing a crown.
           const hasWinner = Boolean(challenge.winnerSubmissionId);
-          const promoted =
-            hasWinner && winnerPull != null && winnerPull === reigningKingPull;
+          const promoted = hasWinner && winnerPull != null && winnerPull === reigningKingPull;
           const pendingPromotion = hasWinner && !promoted;
           // "New king" is already covered by the outcome badge; keep the rest.
           const highlights = (challenge.achievements || []).filter(
@@ -2225,8 +2250,8 @@ function ChallengeHistory({ challenges, kataRepoSlug, reigningKingPull }) {
                   ) : pendingPromotion ? (
                     <>
                       A challenger won this match
-                      {winnerPull ? <> — {prLabel(kataRepoSlug, winnerPull)}</> : null} but has
-                      not been promoted, so the current king still holds the crown.
+                      {winnerPull ? <> — {prLabel(kataRepoSlug, winnerPull)}</> : null} but has not
+                      been promoted, so the current king still holds the crown.
                     </>
                   ) : (
                     <>No challenger beat the king — the crown stayed put.</>
@@ -2415,9 +2440,7 @@ function Leaderboard({ leaderboard }) {
               <strong className="lb-num lb-score">
                 {formatNumber(row.gittensorScore ?? row.score)}
               </strong>
-              <span
-                className={`lb-num lb-share${row.poolShare > 0 ? "" : " lb-share-empty"}`}
-              >
+              <span className={`lb-num lb-share${row.poolShare > 0 ? "" : " lb-share-empty"}`}>
                 {formatPoolShare(row.poolShare)}
               </span>
             </div>

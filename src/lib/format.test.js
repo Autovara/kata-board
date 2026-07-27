@@ -36,11 +36,43 @@ describe("replicaAwareProblemTotals (best-of, not summed)", () => {
   it("the whole king detail sums to the headline (5), not the replica sum (11)", () => {
     const projects = [
       proj0, // tp 1
-      { true_positives: 0, total_expected: 1, total_found: 3, replicas: [{ evaluated: true, true_positives: 0 }] },
-      { true_positives: 1, total_expected: 4, total_found: 6, replicas: [{ evaluated: true, true_positives: 0 }, { evaluated: true, true_positives: 1 }, { evaluated: true, true_positives: 0 }] },
+      {
+        true_positives: 0,
+        total_expected: 1,
+        total_found: 3,
+        replicas: [{ evaluated: true, true_positives: 0 }],
+      },
+      {
+        true_positives: 1,
+        total_expected: 4,
+        total_found: 6,
+        replicas: [
+          { evaluated: true, true_positives: 0 },
+          { evaluated: true, true_positives: 1 },
+          { evaluated: true, true_positives: 0 },
+        ],
+      },
       { true_positives: 0, total_expected: 2, total_found: 2, replicas: [] },
-      { true_positives: 1, total_expected: 2, total_found: 3, replicas: [{ evaluated: true, true_positives: 0 }, { evaluated: true, true_positives: 1 }, { evaluated: true, true_positives: 0 }] },
-      { true_positives: 2, total_expected: 7, total_found: 3, replicas: [{ evaluated: true, true_positives: 2 }, { evaluated: true, true_positives: 2 }, { evaluated: true, true_positives: 2 }] },
+      {
+        true_positives: 1,
+        total_expected: 2,
+        total_found: 3,
+        replicas: [
+          { evaluated: true, true_positives: 0 },
+          { evaluated: true, true_positives: 1 },
+          { evaluated: true, true_positives: 0 },
+        ],
+      },
+      {
+        true_positives: 2,
+        total_expected: 7,
+        total_found: 3,
+        replicas: [
+          { evaluated: true, true_positives: 2 },
+          { evaluated: true, true_positives: 2 },
+          { evaluated: true, true_positives: 2 },
+        ],
+      },
       { true_positives: 0, total_expected: 3, total_found: 1, replicas: [] },
     ];
     const sum = projects.reduce((n, p) => n + replicaAwareProblemTotals(p, 3).truePositives, 0);
@@ -151,8 +183,16 @@ describe("formatTruePositives (count with denominator)", () => {
 });
 
 describe("decisionWinner (one-sided promotion margin)", () => {
-  const higher = (candidate, king) => ({ candidateValue: candidate, kingValue: king, higherIsBetter: true });
-  const lower = (candidate, king) => ({ candidateValue: candidate, kingValue: king, higherIsBetter: false });
+  const higher = (candidate, king) => ({
+    candidateValue: candidate,
+    kingValue: king,
+    higherIsBetter: true,
+  });
+  const lower = (candidate, king) => ({
+    candidateValue: candidate,
+    kingValue: king,
+    higherIsBetter: false,
+  });
 
   it("with margin 0 behaves like the strict comparison", () => {
     expect(decisionWinner(higher(0.2, 0.1))).toBe("candidate"); // ahead

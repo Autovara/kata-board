@@ -249,38 +249,51 @@ test("loadGithubLeaderboard builds from labels without per-PR file fetches", asy
       return new Response(
         JSON.stringify([
           {
-            number: 156, title: "add miner", state: "closed",
-            merged_at: "2026-07-18T09:58:00Z", created_at: "2026-07-17T14:00:00Z",
+            number: 156,
+            title: "add miner",
+            state: "closed",
+            merged_at: "2026-07-18T09:58:00Z",
+            created_at: "2026-07-17T14:00:00Z",
             updated_at: "2026-07-18T09:58:00Z",
             html_url: "https://github.com/Autovara/kata/pull/156",
             user: { login: "bohdansolovie" },
             labels: [{ name: "kata:winner:sn60__bitsec" }],
           },
           {
-            number: 160, title: "another miner", state: "open", merged_at: null,
-            created_at: "2026-07-19T02:00:00Z", updated_at: "2026-07-19T02:49:00Z",
+            number: 160,
+            title: "another miner",
+            state: "open",
+            merged_at: null,
+            created_at: "2026-07-19T02:00:00Z",
+            updated_at: "2026-07-19T02:49:00Z",
             html_url: "https://github.com/Autovara/kata/pull/160",
             user: { login: "someminer" },
             labels: [{ name: "kata:executing" }],
           },
           {
-            number: 3, title: "engine fix (not a submission)", state: "closed",
-            merged_at: "2026-07-10T00:00:00Z", created_at: "2026-07-09T00:00:00Z",
+            number: 3,
+            title: "engine fix (not a submission)",
+            state: "closed",
+            merged_at: "2026-07-10T00:00:00Z",
+            created_at: "2026-07-09T00:00:00Z",
             updated_at: "2026-07-10T00:00:00Z",
             html_url: "https://github.com/Autovara/kata/pull/3",
-            user: { login: "maintainer" }, labels: [],
+            user: { login: "maintainer" },
+            labels: [],
           },
         ]),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
     return new Response(JSON.stringify([]), {
-      status: 200, headers: { "Content-Type": "application/json" },
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
   };
 
   const leaderboard = await loadGithubLeaderboard({
-    repoSlug: "Autovara/kata", githubTokens: ["read-a"],
+    repoSlug: "Autovara/kata",
+    githubTokens: ["read-a"],
   });
 
   // The N+1 per-PR /files fetch (what tripped GitHub's secondary rate limit) is gone.
@@ -352,7 +365,10 @@ test("loadGithubLeaderboard paginates past a full first page (no silent 200-PR c
     githubTokens: ["read-a"],
   });
 
-  assert.ok(requested.some((r) => r.page === 2), "must request page 2 after a full page 1");
+  assert.ok(
+    requested.some((r) => r.page === 2),
+    "must request page 2 after a full page 1"
+  );
   assert.equal(requested[0].perPage, "100"); // 100/page, not the old 50
   // The winner PR that would fall past a 200-PR cap is still included.
   assert.ok(leaderboard.rows.some((row) => row.author === "oldwinner"));

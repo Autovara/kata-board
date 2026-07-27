@@ -134,10 +134,13 @@ export function enrichPublicProofWithLiveWinner(
   const latestWinner = activeLaneKey
     ? leaderboard?.latestLaneWinners?.[activeLaneKey] || null
     : null;
-  const completedChallenge = challenge?.state === "completed" && challenge.winnerSubmissionId ? challenge : null;
+  const completedChallenge =
+    challenge?.state === "completed" && challenge.winnerSubmissionId ? challenge : null;
   const latestChallengeCandidate =
     completedChallenge ||
-    (Array.isArray(challengeHistory) ? challengeHistory.find((item) => item?.winnerSubmissionId) : null);
+    (Array.isArray(challengeHistory)
+      ? challengeHistory.find((item) => item?.winnerSubmissionId)
+      : null);
   // A challenge winner only becomes the king once the promotion actually lands, and a
   // promotion can be rejected afterwards (stale-king guard, held merge). Trust the
   // authoritative lane king written by the promotion; if the latest challenge winner is
@@ -214,20 +217,25 @@ export function enrichPublicProofWithLiveWinner(
 
   if (latestChallenge?.runId || latestChallenge?.winnerSubmissionId) {
     const entrants = Array.isArray(latestChallenge.entrants) ? latestChallenge.entrants : [];
-    const sameProofChallenge = latestChallenge.runId && latestChallenge.runId === proof.latestChallenge.challengeId;
+    const sameProofChallenge =
+      latestChallenge.runId && latestChallenge.runId === proof.latestChallenge.challengeId;
     proof.latestChallenge = {
       ...proof.latestChallenge,
       challengeId: latestChallenge.runId || proof.latestChallenge.challengeId || null,
-      challengeNumber: latestChallenge.challengeNumber ?? proof.latestChallenge.challengeNumber ?? null,
-      competitionMode: latestChallenge.competitionMode || proof.latestChallenge.competitionMode || null,
-      startedAt: latestChallenge.startedAt || (sameProofChallenge ? proof.latestChallenge.startedAt : null),
+      challengeNumber:
+        latestChallenge.challengeNumber ?? proof.latestChallenge.challengeNumber ?? null,
+      competitionMode:
+        latestChallenge.competitionMode || proof.latestChallenge.competitionMode || null,
+      startedAt:
+        latestChallenge.startedAt || (sameProofChallenge ? proof.latestChallenge.startedAt : null),
       finishedAt:
         latestChallenge.finishedAt ||
         latestChallenge.generatedAt ||
         (sameProofChallenge ? proof.latestChallenge.finishedAt : null) ||
         null,
       durationSeconds:
-        latestChallenge.durationSeconds ?? (sameProofChallenge ? proof.latestChallenge.durationSeconds : null),
+        latestChallenge.durationSeconds ??
+        (sameProofChallenge ? proof.latestChallenge.durationSeconds : null),
       candidateCount:
         latestChallenge.candidateCount ??
         (entrants.length ? entrants.length : (proof.latestChallenge.candidateCount ?? null)),
@@ -251,7 +259,10 @@ export function enrichPublicProofWithLiveWinner(
         proof.latestChallenge.winnerAuthor ||
         null,
       winnerSubmissionId:
-        candidateSubmissionId || latestChallenge.winnerSubmissionId || proof.latestChallenge.winnerSubmissionId || null,
+        candidateSubmissionId ||
+        latestChallenge.winnerSubmissionId ||
+        proof.latestChallenge.winnerSubmissionId ||
+        null,
       bestTruePositives:
         maxEntrantMetric(entrants, "true_positives") ??
         latestChallenge.bestTruePositives ??

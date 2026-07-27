@@ -31,7 +31,14 @@ function writeLedger(dir, kingHash, records) {
 }
 
 const RECORDS = [
-  { pass_score: 0, codebase_pass_count: 0, true_positives: 3, invalid_runs: 0, precision: 0.05, f1_score: 0.06 },
+  {
+    pass_score: 0,
+    codebase_pass_count: 0,
+    true_positives: 3,
+    invalid_runs: 0,
+    precision: 0.05,
+    f1_score: 0.06,
+  },
 ];
 
 test("loadChallengeStatus exposes reign records when the ledger is for this king", () => {

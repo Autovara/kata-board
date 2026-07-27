@@ -156,7 +156,9 @@ describe("interrupted round", () => {
     await renderRoute("/arena");
 
     expect(screen.getByText("Round interrupted")).toBeInTheDocument();
-    expect(screen.getByText(/no result was recorded and the crown did not change/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/no result was recorded and the crown did not change/i)
+    ).toBeInTheDocument();
     expect(screen.queryByText("New king")).not.toBeInTheDocument();
   });
 });

@@ -28,7 +28,10 @@ test("streamStamp is stable when nothing changes", () => {
 });
 
 test("streamStamp tolerates a missing challenge or progress", () => {
-  assert.equal(streamStamp({ generatedAt: "t" }), streamStamp({ generatedAt: "t", challenge: null }));
+  assert.equal(
+    streamStamp({ generatedAt: "t" }),
+    streamStamp({ generatedAt: "t", challenge: null })
+  );
 });
 
 test("streamStamp reflects per-lane byLane progress so multi-lane challenges stream", () => {

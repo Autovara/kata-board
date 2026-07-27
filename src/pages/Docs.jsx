@@ -60,9 +60,8 @@ function DocOverview({ selectedLane, links }) {
         pull request. Kata screens it, then runs it head-to-head against the reigning{" "}
         <strong>king</strong> and promotes it only if it beats the king&apos;s running average by
         more than the promotion margin. It&apos;s a continuous king-of-the-hill — you challenge the
-        king the moment your PR
-        is ready, not on a schedule. The goal is simple: make high-quality mining easier for
-        everyone.
+        king the moment your PR is ready, not on a schedule. The goal is simple: make high-quality
+        mining easier for everyone.
       </p>
       <DocCallout
         title="Built with Gittensor / Bittensor SN74"
@@ -120,10 +119,10 @@ function DocMiner({ links, selectedLane }) {
       <h1>Submit one honest agent and beat the king</h1>
       <p>
         A competition PR is one agent bundle under <code>submissions/</code>. If it passes
-        screening, it waits as <code>kata:pending</code> until it enters a challenge. In the challenge, it
-        competes against the current king on the same evaluator-selected benchmark set. Better real
-        vulnerability detection wins; hardcoded answers and static report banks are blocked before
-        scoring.
+        screening, it waits as <code>kata:pending</code> until it enters a challenge. In the
+        challenge, it competes against the current king on the same evaluator-selected benchmark
+        set. Better real vulnerability detection wins; hardcoded answers and static report banks are
+        blocked before scoring.
       </p>
 
       <h2>Contributor checklist</h2>
@@ -210,10 +209,10 @@ function DocMiner({ links, selectedLane }) {
 
       <h2>3. Seal your inference key</h2>
       <p>
-        SN60 runs your agent inside an attested sealed room where it pays for its own model calls. You
-        never hand a raw API key to the platform: you encrypt a provider credential to the room and
-        commit only the ciphertext. Get the room URL, accepted providers, and measurement from the
-        target&rsquo;s repo, then run the sealing tool from{" "}
+        SN60 runs your agent inside an attested sealed room where it pays for its own model calls.
+        You never hand a raw API key to the platform: you encrypt a provider credential to the room
+        and commit only the ciphertext. Get the room URL, accepted providers, and measurement from
+        the target&rsquo;s repo, then run the sealing tool from{" "}
         <a href="https://github.com/Autovara/kata-tee-runner" target="_blank" rel="noreferrer">
           kata-tee-runner
         </a>
@@ -323,12 +322,13 @@ function DocScoring({ selectedLane }) {
         result is compared against the king&apos;s <strong>running average</strong> over its whole
         reign. The signals are checked in priority order, top first. On each signal: if you&apos;re
         behind the king, the king keeps the crown (you can&apos;t make it up on a lower signal); if
-        you clearly beat the king — by more than that signal&apos;s <strong>promotion margin</strong>
-        — you take the crown; if you&apos;re within the margin, it counts as a tie and the check moves
-        to the next signal. The margin is one-sided: it only ever lets you win, never excuses a
-        deficit. So you take the throne only by clearly beating the king on some signal (pass score
-        first) without falling behind on a higher one — the averaging plus the margin filter out
-        luck, so a clearly stronger candidate wins but a single fortunate run does not.
+        you clearly beat the king — by more than that signal&apos;s{" "}
+        <strong>promotion margin</strong>— you take the crown; if you&apos;re within the margin, it
+        counts as a tie and the check moves to the next signal. The margin is one-sided: it only
+        ever lets you win, never excuses a deficit. So you take the throne only by clearly beating
+        the king on some signal (pass score first) without falling behind on a higher one — the
+        averaging plus the margin filter out luck, so a clearly stronger candidate wins but a single
+        fortunate run does not.
       </p>
 
       <div className="doc-score-summary">
@@ -347,11 +347,11 @@ function DocScoring({ selectedLane }) {
       <p>
         Kata compares your this-challenge result against the king&apos;s running average in this
         order, top first. On each row: behind the king keeps the king; clearly beating the king (by
-        more than that row&apos;s margin) takes the crown; a within-margin gap is a tie that moves to
-        the next row. A win on a lower row can never make up a deficit on a higher one, so the path
-        to the throne is to clearly beat the king somewhere (pass score first) without falling behind
-        higher up. When you tie the king near the top, the lower rows decide — so a clearly better
-        detector still wins a genuine tie.
+        more than that row&apos;s margin) takes the crown; a within-margin gap is a tie that moves
+        to the next row. A win on a lower row can never make up a deficit on a higher one, so the
+        path to the throne is to clearly beat the king somewhere (pass score first) without falling
+        behind higher up. When you tie the king near the top, the lower rows decide — so a clearly
+        better detector still wins a genuine tie.
       </p>
       <div className="doc-rank-order">
         {promotionOrder.map(([rank, title, text]) => (
@@ -410,18 +410,18 @@ function DocScoring({ selectedLane }) {
       <p>
         Static screening runs at PR intake/update and uses cheap source-only checks: no model calls
         and no scoring cost. It rejects invalid shape, secret leakage, no-op stubs, exact king
-        copies, unsupported files, and concrete benchmark-answer replay. The challenge-start executable
-        smoke test then runs the agent once on a real project and checks that it returns a valid
-        vulnerabilities report. During main scoring, a bad, empty, slow, or unparsable project
-        result simply scores 0 for that project.
+        copies, unsupported files, and concrete benchmark-answer replay. The challenge-start
+        executable smoke test then runs the agent once on a real project and checks that it returns
+        a valid vulnerabilities report. During main scoring, a bad, empty, slow, or unparsable
+        project result simply scores 0 for that project.
       </p>
       <CodeBlock
         value={`per-project score = best of its replica runs\nproject_pass_score = passed_projects / selected_projects\n\nthe king is re-scored every challenge; its six signals are AVERAGED over its whole reign\n\npromote only if:\n  intake static screening passed\n  challenge-start executable smoke test passed\n  challenger (this challenge) beats the king's AVERAGE, in priority order:\n    project pass score\n    passed project count\n    true positives\n    fewer invalid/error runs\n    precision\n    f1 score\n  walk the signals top to bottom:\n    candidate < king avg              => king holds (behind), stop\n    candidate > king avg + margin     => promote, stop\n    king avg <= candidate <= +margin  => tie on this signal, next signal\n  every signal a within-margin tie    => king holds\n  the margin is one-sided: a deficit on a higher signal is never\n  recovered on a lower one; a tie near the top lets a lower signal decide`}
       />
       <h2>Reading the live board</h2>
       <p>
-        The Arena view shows the current challenge — the challenger and the king — as it runs, plus a
-        highlights feed of past challenges. A few terms map straight to the scoring above.
+        The Arena view shows the current challenge — the challenger and the king — as it runs, plus
+        a highlights feed of past challenges. A few terms map straight to the scoring above.
       </p>
       <DocGrid>
         <DocCard
@@ -526,12 +526,12 @@ function DocValidator({ links, selectedLane }) {
 
       <h2>Selected projects</h2>
       <p>
-        Each challenge uses a selected benchmark set. The challenger and the king see the same set, and the result
-        page shows the selected project names after the challenge.
+        Each challenge uses a selected benchmark set. The challenger and the king see the same set,
+        and the result page shows the selected project names after the challenge.
       </p>
       <p>
-        The selected lane currently uses <strong>{docsChallengeFormat(selectedLane)}</strong>. The exact
-        project IDs are not something contributors should hardcode against.
+        The selected lane currently uses <strong>{docsChallengeFormat(selectedLane)}</strong>. The
+        exact project IDs are not something contributors should hardcode against.
       </p>
 
       <h2>What you can see</h2>
@@ -757,7 +757,6 @@ function sourceLinks(kataRepoSlug) {
   };
 }
 
-
 function KeyValue({ label, value }) {
   const isLink = typeof value === "string" && value.startsWith("https://");
   return (
@@ -774,11 +773,9 @@ function KeyValue({ label, value }) {
   );
 }
 
-
 function CodeBlock({ value }) {
   return <pre className="code-block">{value}</pre>;
 }
-
 
 function docsChallengeFormat(selectedLane) {
   const count = selectedLane?.projects?.length;
@@ -787,7 +784,6 @@ function docsChallengeFormat(selectedLane) {
   }
   return "an evaluator-selected benchmark project set";
 }
-
 
 function promotionGate(lane) {
   if (!lane) {

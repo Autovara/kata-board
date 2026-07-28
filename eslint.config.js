@@ -1,26 +1,25 @@
+import eslintReact from "@eslint-react/eslint-plugin";
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import globals from "globals";
-import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
-export default [
+export default defineConfig(
   { ignores: ["dist/**", "node_modules/**"] },
   js.configs.recommended,
   {
     files: ["src/**/*.{js,jsx}"],
+    extends: [
+      eslintReact.configs.recommended,
+      reactHooks.configs.flat.recommended,
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
       globals: { ...globals.browser },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
-    plugins: { react, "react-hooks": reactHooks },
-    settings: { react: { version: "detect" } },
     rules: {
-      ...react.configs.flat.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-      "react/react-in-jsx-scope": "off",
-      "react/prop-types": "off",
       // Opinionated perf/style hints, not correctness bugs — surface as warnings.
       "react-hooks/exhaustive-deps": "warn",
       "react-hooks/set-state-in-effect": "warn",
@@ -43,4 +42,4 @@ export default [
       globals: { ...globals.browser, ...globals.node },
     },
   },
-];
+);

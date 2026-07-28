@@ -57,6 +57,8 @@ import {
   SubnetMetric,
 } from "./components/ui.jsx";
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export default function App() {
   const [pathname, setPathname] = useState(readCurrentRoute);
   const [selectedLaneId, setSelectedLaneId] = useState(null);
@@ -132,6 +134,20 @@ export default function App() {
       pollId = window.setInterval(fetchOnce, POLL_INTERVAL_MS);
     }
 
+    function onHeartbeat() {
+      lastFrameAt = Date.now();
+      receivedAny = true;
+    }
+
+    function closeSource() {
+      if (!source) {
+        return;
+      }
+      source.removeEventListener("heartbeat", onHeartbeat);
+      source.close();
+      source = null;
+    }
+
     function connectStream() {
       source = new EventSource(streamUrl());
       source.onmessage = (event) => {
@@ -145,15 +161,13 @@ export default function App() {
       };
       // Named liveness event: keeps the freshness watchdog satisfied during idle
       // WITHOUT firing onmessage, so the rendered state is never disturbed.
-      source.addEventListener("heartbeat", () => {
-        lastFrameAt = Date.now();
-        receivedAny = true;
-      });
+      // closeSource removes this exact named listener on reconnect and effect cleanup.
+      // eslint-disable-next-line @eslint-react/web-api-no-leaked-event-listener
+      source.addEventListener("heartbeat", onHeartbeat);
       source.onerror = () => {
         if (!receivedAny && source) {
           // Never got a frame: the stream is unusable here, fall back to polling.
-          source.close();
-          source = null;
+          closeSource();
           startPolling();
         }
         // otherwise let EventSource auto-reconnect (and the watchdog backstops it).
@@ -175,7 +189,7 @@ export default function App() {
           if (Date.now() - lastFrameAt > STREAM_STALE_MS) {
             lastFrameAt = Date.now(); // reset so we reconnect at most once per window
             try {
-              source.close();
+              closeSource();
             } catch {
               // already closing
             }
@@ -191,9 +205,7 @@ export default function App() {
 
     return () => {
       cancelled = true;
-      if (source) {
-        source.close();
-      }
+      closeSource();
       if (pollId) {
         window.clearInterval(pollId);
       }
@@ -302,7 +314,6 @@ function DataNotice({ notice }) {
 }
 
 function Footer({ kataRepoSlug, onNavigate }) {
-  const year = new Date().getFullYear();
   const repo = kataRepoSlug || "Autovara/kata";
   return (
     <footer className="site-footer">
@@ -344,7 +355,7 @@ function Footer({ kataRepoSlug, onNavigate }) {
         </nav>
       </div>
       <div className="site-footer-bottom">
-        <span>© {year} Kata</span>
+        <span>© {CURRENT_YEAR} Kata</span>
         <span>MIT licensed</span>
       </div>
     </footer>
@@ -694,8 +705,8 @@ function DashboardWorkflow() {
           <text className="wf-loop-label" x="797" y="20" textAnchor="middle">
             the new king becomes the next challenger&apos;s bar to beat
           </text>
-          {edges.map((d, i) => (
-            <path key={i} className="wf-edge" d={d} markerEnd="url(#wfArrow)" />
+          {edges.map((d) => (
+            <path key={d} className="wf-edge" d={d} markerEnd="url(#wfArrow)" />
           ))}
           {subnets.map((node) => (
             <g key={node.t}>
@@ -977,8 +988,10 @@ function ChallengePanel({
   // provider key may be out of credits. Show the ACTUAL reason so king/miners can act.
   const inferenceWarnings = (challenge?.inferenceWarnings || []).length ? (
     <div className="challenge-note challenge-note-warn" role="status">
-      {(challenge.inferenceWarnings || []).map((warning, index) => (
-        <div key={`${warning.side}-${index}`}>
+      {(challenge.inferenceWarnings || []).map((warning) => (
+        <div
+          key={`${warning.side}-${warning.submission_id || ""}-${warning.message}`}
+        >
           ⚠{" "}
           {warning.side === "king"
             ? "King"
@@ -2004,8 +2017,11 @@ function DecisionStepDialog({ step, onClose }) {
             <h4>👑 King — every challenge in its reign</h4>
             {step.kingHistory.rows.length ? (
               <ul className="decision-dialog-history">
-                {step.kingHistory.rows.map((row, index) => (
-                  <li key={`${row.label}-${index}`} className={row.live ? "is-live" : ""}>
+                {step.kingHistory.rows.map((row) => (
+                  <li
+                    key={`${row.label}-${row.value}-${row.live ? "live" : "past"}`}
+                    className={row.live ? "is-live" : ""}
+                  >
                     <span>{row.label}</span>
                     <strong>{formatKingHistoryValue(step.key, row.value)}</strong>
                   </li>
@@ -2204,7 +2220,7 @@ function ChallengeHistory({ challenges, kataRepoSlug, reigningKingPull }) {
         <p className="section-lead">How the most recent king-of-the-hill match finished.</p>
       </div>
       <ul className="challenge-feed">
-        {challenges.slice(0, 1).map((challenge, index) => {
+        {challenges.slice(0, 1).map((challenge) => {
           const winnerPull = winnerPullFromSubmission(challenge.winnerSubmissionId);
           // Winning a challenge is not the same as taking the crown: the promotion can
           // still be rejected afterwards (stale-king guard, held merge). Only claim a new
@@ -2220,7 +2236,12 @@ function ChallengeHistory({ challenges, kataRepoSlug, reigningKingPull }) {
           return (
             <li
               className={`challenge-card ${promoted ? "is-promoted" : "is-defended"}`}
-              key={challenge.runId || index}
+              key={
+                challenge.runId ||
+                `${challenge.challengeNumber || "challenge"}-${
+                  challenge.updatedAt || challenge.winnerSubmissionId || "unknown"
+                }`
+              }
             >
               <div className="challenge-card-main">
                 <div className="challenge-card-top">

@@ -603,7 +603,7 @@ function dedupeRecentPulls(pulls) {
 }
 
 async function overlayLiveKataPulls(leaderboard, env) {
-  let livePulls = [];
+  let livePulls;
   try {
     livePulls = await withTimeout(
       loadLiveKataPulls(env),
@@ -611,7 +611,7 @@ async function overlayLiveKataPulls(leaderboard, env) {
       "live Kata PR overlay"
     );
   } catch {
-    livePulls = [];
+    return leaderboard;
   }
   if (!livePulls.length) {
     return leaderboard;

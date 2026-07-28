@@ -31,7 +31,7 @@ export function collectFiles(rootPath, fileName) {
 }
 
 export function walk(rootPath, visitor) {
-  let entries = [];
+  let entries;
   try {
     entries = fs.readdirSync(rootPath, { withFileTypes: true });
   } catch {

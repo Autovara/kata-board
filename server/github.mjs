@@ -365,7 +365,9 @@ export async function githubRequest(path, githubToken) {
     );
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(`GitHub API request timed out after ${GITHUB_REQUEST_TIMEOUT_MS}ms`);
+      throw new Error(`GitHub API request timed out after ${GITHUB_REQUEST_TIMEOUT_MS}ms`, {
+        cause: error,
+      });
     }
     throw error;
   }

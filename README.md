@@ -78,7 +78,7 @@ lane there is no selector and the board looks the same as a single-lane setup.
 
 ## Requirements
 
-You need Node 20.19 or newer. The toolchain is Vite 8 and Vitest 4, and neither
+You need Node 22 or newer. The toolchain is Vite 8, Vitest 4, and ESLint 10, and none
 runs on Node 18.
 
 This matters most in production. If a machine's system Node is 18 (common when

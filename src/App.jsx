@@ -274,7 +274,10 @@ export default function App() {
         ) : null}
         {payload && (pathname === "/arena" || pathname === "/live") ? (
           <Arena
+            lanes={lanes}
+            byLane={payload.byLane}
             selectedLane={selectedLane}
+            onSelectLane={setSelectedLaneId}
             challenge={laneData.challenge}
             challengeHistory={laneData.challengeHistory}
             kataRepoSlug={payload.publicLinks?.kataRepo}
@@ -288,7 +291,7 @@ export default function App() {
           />
         ) : null}
         {payload && pathname === "/leaderboard" ? (
-          <Leaderboard leaderboard={laneData.leaderboard} />
+          <Leaderboard leaderboard={payload.leaderboard || laneData.leaderboard} />
         ) : null}
         {payload && pathname === "/docs" ? (
           <Docs selectedLane={selectedLane} kataRepoSlug={payload.publicLinks?.kataRepo} />
@@ -545,7 +548,7 @@ function DashboardSubnets({ payload, lanes, selectedLane, onNavigate, onSelectLa
   );
 }
 
-function SubnetCard({ lane, data, active, onEnter }) {
+function SubnetCard({ lane, data, active, onEnter, cta = "Enter arena →" }) {
   const challenge = data.challenge || {};
   const live = challenge.state === "executing";
   const kingName = lane.king?.seeded ? "seed king" : lane.currentHolder || lane.king?.author || "—";
@@ -581,7 +584,7 @@ function SubnetCard({ lane, data, active, onEnter }) {
         <SubnetMetric label="Challenges run" value={challenges} />
         <SubnetMetric label="Challengers" value={challengers} />
       </div>
-      <span className="subnet-enter">Enter arena →</span>
+      <span className="subnet-enter">{cta}</span>
     </article>
   );
 }
@@ -2314,7 +2317,15 @@ function ChallengeHistory({ challenges, kataRepoSlug, reigningKingPull }) {
   );
 }
 
-function Arena({ selectedLane, challenge, challengeHistory, kataRepoSlug }) {
+function Arena({
+  lanes,
+  byLane,
+  selectedLane,
+  onSelectLane,
+  challenge,
+  challengeHistory,
+  kataRepoSlug,
+}) {
   const [selectedPull, setSelectedPull] = useState(null);
   const entrants = challenge?.entrants || [];
   // A duel detail page is open — hide everything else (recent challenges) so the page
@@ -2325,6 +2336,19 @@ function Arena({ selectedLane, challenge, challengeHistory, kataRepoSlug }) {
 
   return (
     <div className="stack">
+      <ArenaSubnets
+        lanes={lanes}
+        byLane={byLane}
+        selectedLane={selectedLane}
+        onSelectLane={(laneId) => {
+          // Switching subnets must clear the open duel: a pull number is scoped to the lane it was
+          // opened from, and carrying it across would render one subnet's PR against another's
+          // king. Both are real numbers, so nothing would look wrong.
+          setSelectedPull(null);
+          onSelectLane?.(laneId);
+        }}
+      />
+
       <ChallengePanel
         challenge={challenge}
         kataRepoSlug={kataRepoSlug}
@@ -2342,6 +2366,43 @@ function Arena({ selectedLane, challenge, challengeHistory, kataRepoSlug }) {
         />
       ) : null}
     </div>
+  );
+}
+
+/** The active subnets, as cards, above the duel. Clicking one switches which subnet's challenge the
+ *  rest of the page shows.
+ *
+ *  The cards stay visible rather than being replaced by the duel: the point of a two-subnet board is
+ *  that you can see at a glance which lane is scoring right now, and a card grid you have to
+ *  navigate back to hides exactly that. With one lane there is nothing to choose, so it renders
+ *  nothing and the page is unchanged from the single-subnet board.
+ */
+function ArenaSubnets({ lanes, byLane, selectedLane, onSelectLane }) {
+  const laneList = Array.isArray(lanes) ? lanes : [];
+  if (laneList.length < 2) {
+    return null;
+  }
+  const data = byLane || {};
+  return (
+    <section className="arena-subnets" aria-label="Active subnets">
+      <div className="dash-section-head">
+        <span className="showcase-kicker">Subnets</span>
+        <h2>{laneList.length} active</h2>
+        <p>Each runs its own continuous challenge. Pick one to watch its current duel.</p>
+      </div>
+      <div className="dash-subnet-grid">
+        {laneList.map((lane) => (
+          <SubnetCard
+            key={lane.id}
+            lane={lane}
+            data={data[lane.id] || {}}
+            active={selectedLane?.id === lane.id}
+            cta={selectedLane?.id === lane.id ? "Showing below ↓" : "Watch this duel →"}
+            onEnter={() => onSelectLane?.(lane.id)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

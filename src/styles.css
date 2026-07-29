@@ -6737,6 +6737,14 @@ html {
 .dash-subnets {
   margin-bottom: 60px;
 }
+/* The arena's subnet chooser. Tighter than the dashboard's showcase grid because the duel it
+   selects sits directly underneath and should stay above the fold. */
+.arena-subnets {
+  margin-bottom: 28px;
+}
+.arena-subnets .dash-section-head {
+  margin-bottom: 18px;
+}
 .dash-subnet-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));

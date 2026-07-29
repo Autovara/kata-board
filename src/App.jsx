@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import GridBackground from "./GridBackground.jsx";
 import heroImage from "../assets/hero.png";
 import { PAGES, POLL_INTERVAL_MS } from "./constants.js";
-import { readCurrentRoute, routeUrl, statusUrl, streamUrl } from "./lib/route.js";
+import {
+  arenaPackFromRoute,
+  arenaPackUrl,
+  readCurrentRoute,
+  routeUrl,
+  statusUrl,
+  streamUrl,
+} from "./lib/route.js";
 import { Docs } from "./pages/Docs.jsx";
 import {
   buildDashboardLatestStatus,
@@ -221,9 +228,19 @@ export default function App() {
   // fallback, so no effect is needed to auto-select (which would setState during render).
   const lanes = useMemo(() => payload?.lanes ?? [], [payload]);
 
+  const arenaPack = arenaPackFromRoute(pathname);
+  const routeLaneId = useMemo(() => {
+    if (!arenaPack) {
+      return null;
+    }
+    const match = lanes.find((lane) => lane.subnetPack === arenaPack || lane.id === arenaPack);
+    return match ? match.id : null;
+  }, [arenaPack, lanes]);
+
+  // The route wins over the manual picker: on /arena/<pack> the URL IS the selection.
   const selectedLane = useMemo(
-    () => lanes.find((lane) => lane.id === selectedLaneId) || lanes[0] || null,
-    [lanes, selectedLaneId]
+    () => lanes.find((lane) => lane.id === (routeLaneId || selectedLaneId)) || lanes[0] || null,
+    [lanes, routeLaneId, selectedLaneId]
   );
   // The selected lane's competition fields (challenge / proof / leaderboard / activity). On a
   // single-lane board byLane[selectedLane.id] holds the same objects as the top-level payload, so
@@ -272,12 +289,14 @@ export default function App() {
             onSelectLane={setSelectedLaneId}
           />
         ) : null}
-        {payload && (pathname === "/arena" || pathname === "/live") ? (
+        {payload && (pathname === "/arena" || pathname === "/live" || arenaPack) ? (
           <Arena
             lanes={lanes}
             byLane={payload.byLane}
             selectedLane={selectedLane}
-            onSelectLane={setSelectedLaneId}
+            openedPack={arenaPack}
+            onOpenLane={(lane) => navigate(arenaPackUrl(lane.subnetPack || lane.id))}
+            onBack={() => navigate("/arena")}
             challenge={laneData.challenge}
             challengeHistory={laneData.challengeHistory}
             kataRepoSlug={payload.publicLinks?.kataRepo}
@@ -2321,39 +2340,21 @@ function Arena({
   lanes,
   byLane,
   selectedLane,
-  onSelectLane,
+  openedPack,
+  onOpenLane,
+  onBack,
   challenge,
   challengeHistory,
   kataRepoSlug,
 }) {
   const [selectedPull, setSelectedPull] = useState(null);
-  // Which subnet the visitor has opened. `null` means the chooser is showing.
-  //
-  // Deliberately NOT derived from selectedLane: that always resolves to a lane (it falls back to
-  // the first), so a page keyed on it could never show the chooser. "No subnet opened yet" is a
-  // real state and needs its own flag.
-  const [openedLaneId, setOpenedLaneId] = useState(null);
   const laneList = Array.isArray(lanes) ? lanes : [];
-  // With one subnet there is nothing to choose, so the chooser is skipped entirely and the page is
-  // identical to the single-subnet board.
+  // With one subnet there is nothing to choose, so /arena is that subnet's duel directly and the
+  // page is identical to the single-subnet board.
   const chooserApplies = laneList.length > 1;
-  const opened = !chooserApplies || openedLaneId != null;
 
-  function openLane(laneId) {
-    // A pull number is scoped to the lane it was opened from. Carrying one across subnets would
-    // render one subnet's PR against another's king, and both are real numbers, so nothing would
-    // look wrong.
-    setSelectedPull(null);
-    setOpenedLaneId(laneId);
-    onSelectLane?.(laneId);
-  }
-
-  if (!opened) {
-    return (
-      <div className="stack">
-        <ArenaSubnets lanes={laneList} byLane={byLane} onOpenLane={openLane} />
-      </div>
-    );
+  if (chooserApplies && !openedPack) {
+    return <ArenaSubnets lanes={laneList} byLane={byLane} onOpenLane={onOpenLane} />;
   }
 
   const entrants = challenge?.entrants || [];
@@ -2366,14 +2367,7 @@ function Arena({
   return (
     <div className="stack">
       {chooserApplies ? (
-        <button
-          type="button"
-          className="arena-back"
-          onClick={() => {
-            setSelectedPull(null);
-            setOpenedLaneId(null);
-          }}
-        >
+        <button type="button" className="arena-back" onClick={onBack}>
           ← All subnets
         </button>
       ) : null}
@@ -2398,31 +2392,24 @@ function Arena({
   );
 }
 
-/** The arena's landing view: every active subnet as a card. Clicking one opens that subnet's live
- *  duel.
+/** The arena's landing page: the active subnets, and nothing else.
  *
- *  This is a chooser, not a filter — it is replaced by the duel rather than sitting above it, so the
- *  duel page reads the same whether the board serves one subnet or five.
+ *  No heading, kicker or blurb on purpose. The cards already say what they are, and a page whose
+ *  only content is a short list does not need a paragraph explaining that the list is a list.
  */
 function ArenaSubnets({ lanes, byLane, onOpenLane }) {
-  const laneList = Array.isArray(lanes) ? lanes : [];
   const data = byLane || {};
   return (
     <section className="arena-subnets" aria-label="Active subnets">
-      <PageIntro
-        eyebrow="Arena"
-        title={`${laneList.length} active subnet${laneList.length === 1 ? "" : "s"}`}
-        text="Each subnet keeps its own king and runs its own continuous challenges. Open one to watch its live duel."
-      />
       <div className="dash-subnet-grid">
-        {laneList.map((lane) => (
+        {lanes.map((lane) => (
           <SubnetCard
             key={lane.id}
             lane={lane}
             data={data[lane.id] || {}}
             active={false}
             cta="Watch live duel →"
-            onEnter={() => onOpenLane?.(lane.id)}
+            onEnter={() => onOpenLane?.(lane)}
           />
         ))}
       </div>

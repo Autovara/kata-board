@@ -22,3 +22,15 @@ export function normalizeRoute(value) {
   const withLeading = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
   return withLeading === "" ? "/" : withLeading;
 }
+
+// `/arena/<subnet-pack>` — a subnet's duel is its own PAGE, not a mode of the arena. It gets a real
+// URL so it can be linked, refreshed and reached with the back button; the server already falls
+// through to index.html for unknown paths, so a hard refresh here loads the app rather than 404ing.
+export function arenaPackFromRoute(value) {
+  const match = /^\/(?:arena|live)\/(.+)$/.exec(normalizeRoute(value));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function arenaPackUrl(pack) {
+  return `/arena/${encodeURIComponent(pack)}`;
+}

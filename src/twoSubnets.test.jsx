@@ -63,6 +63,12 @@ function mockStatus(payload = TWO_LANE) {
   global.fetch = vi.fn(async () => ({ ok: true, json: async () => payload }));
 }
 
+/** The duel header names the challenge number, which is the one thing that differs between the two
+ *  lanes in this fixture -- so it is how a test tells SN22's duel from SN60's. */
+function duelHeading() {
+  return document.querySelector(".challenge-block .section-title")?.textContent ?? null;
+}
+
 async function renderRoute(path) {
   window.history.pushState({}, "", path);
   render(<App />);
@@ -89,33 +95,45 @@ describe("dashboard", () => {
 });
 
 describe("arena", () => {
-  it("lands on a card for every active subnet, with no duel yet", async () => {
+  it("lands on a bare card list — no heading, no blurb, no duel", async () => {
     await renderRoute("/arena");
-    const cards = document.querySelectorAll(".arena-subnets .subnet-card");
-    expect(cards.length).toBe(2);
-    // The chooser REPLACES the duel rather than sitting above it, so nothing subnet-specific is
-    // shown until one is picked. Otherwise the page would silently be showing lane one's duel.
+    expect(document.querySelectorAll(".arena-subnets .subnet-card").length).toBe(2);
+    // The chooser REPLACES the duel rather than sitting above it; otherwise the page would
+    // silently be showing lane one's duel before anything was picked.
     expect(document.querySelector(".challenge-block")).toBeNull();
+    // Nothing but the cards. A heading here was removed deliberately, and a page-intro creeping
+    // back in is exactly the kind of change that gets made without anyone deciding to make it.
+    expect(document.querySelector(".arena-subnets .page-intro")).toBeNull();
   });
 
-  it("opens the clicked subnet's live duel", async () => {
+  it("navigates to the subnet's own URL when its card is clicked", async () => {
     await renderRoute("/arena");
     const sn22Card = [...document.querySelectorAll(".subnet-card")].find((card) =>
       within(card).queryByText("sn22__desearch")
     );
     fireEvent.click(sn22Card);
-    await waitFor(() => expect(document.querySelector(".arena-subnets")).toBeNull());
-    expect(document.querySelector(".challenge-block")).toBeTruthy();
+    // A real page, not a mode: the duel must be linkable, refreshable and back-buttonable.
+    await waitFor(() => expect(window.location.pathname).toBe("/arena/sn22__desearch"));
+    expect(document.querySelector(".arena-subnets")).toBeNull();
+    expect(duelHeading()).toBe("Current challenge · Challenge 1");
   });
 
-  it("goes back to the chooser from a subnet's duel", async () => {
-    await renderRoute("/arena");
-    fireEvent.click(document.querySelector(".subnet-card"));
-    await waitFor(() => expect(document.querySelector(".arena-back")).toBeTruthy());
+  it("opens a subnet's duel directly from its URL", async () => {
+    // The route IS the selection. If the page read the manually-picked lane instead, a shared link
+    // would show whichever subnet the visitor last clicked -- with no sign anything was wrong.
+    await renderRoute("/arena/sn22__desearch");
+    expect(document.querySelector(".arena-subnets")).toBeNull();
+    // Assert WHICH subnet, not merely that a duel rendered. SN22 is on challenge 1 and SN60 on 19,
+    // so a page that ignored the URL and fell back to the picked lane would show 19 here -- and an
+    // assertion that only checked "a duel exists" would pass on exactly that bug.
+    expect(duelHeading()).toBe("Current challenge · Challenge 1");
+  });
+
+  it("goes back to the card list", async () => {
+    await renderRoute("/arena/sn22__desearch");
     fireEvent.click(document.querySelector(".arena-back"));
-    await waitFor(() =>
-      expect(document.querySelectorAll(".arena-subnets .subnet-card").length).toBe(2)
-    );
+    await waitFor(() => expect(window.location.pathname).toBe("/arena"));
+    expect(document.querySelectorAll(".arena-subnets .subnet-card").length).toBe(2);
   });
 
   it("marks the live subnet as scoring and the idle one as idle", async () => {
@@ -160,4 +178,5 @@ describe("leaderboard", () => {
     expect(within(rows[1]).getByText("kata")).toBeInTheDocument();
   });
 });
+
 

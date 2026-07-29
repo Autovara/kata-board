@@ -2327,6 +2327,35 @@ function Arena({
   kataRepoSlug,
 }) {
   const [selectedPull, setSelectedPull] = useState(null);
+  // Which subnet the visitor has opened. `null` means the chooser is showing.
+  //
+  // Deliberately NOT derived from selectedLane: that always resolves to a lane (it falls back to
+  // the first), so a page keyed on it could never show the chooser. "No subnet opened yet" is a
+  // real state and needs its own flag.
+  const [openedLaneId, setOpenedLaneId] = useState(null);
+  const laneList = Array.isArray(lanes) ? lanes : [];
+  // With one subnet there is nothing to choose, so the chooser is skipped entirely and the page is
+  // identical to the single-subnet board.
+  const chooserApplies = laneList.length > 1;
+  const opened = !chooserApplies || openedLaneId != null;
+
+  function openLane(laneId) {
+    // A pull number is scoped to the lane it was opened from. Carrying one across subnets would
+    // render one subnet's PR against another's king, and both are real numbers, so nothing would
+    // look wrong.
+    setSelectedPull(null);
+    setOpenedLaneId(laneId);
+    onSelectLane?.(laneId);
+  }
+
+  if (!opened) {
+    return (
+      <div className="stack">
+        <ArenaSubnets lanes={laneList} byLane={byLane} onOpenLane={openLane} />
+      </div>
+    );
+  }
+
   const entrants = challenge?.entrants || [];
   // A duel detail page is open — hide everything else (recent challenges) so the page
   // shows only that PR's duel.
@@ -2336,18 +2365,18 @@ function Arena({
 
   return (
     <div className="stack">
-      <ArenaSubnets
-        lanes={lanes}
-        byLane={byLane}
-        selectedLane={selectedLane}
-        onSelectLane={(laneId) => {
-          // Switching subnets must clear the open duel: a pull number is scoped to the lane it was
-          // opened from, and carrying it across would render one subnet's PR against another's
-          // king. Both are real numbers, so nothing would look wrong.
-          setSelectedPull(null);
-          onSelectLane?.(laneId);
-        }}
-      />
+      {chooserApplies ? (
+        <button
+          type="button"
+          className="arena-back"
+          onClick={() => {
+            setSelectedPull(null);
+            setOpenedLaneId(null);
+          }}
+        >
+          ← All subnets
+        </button>
+      ) : null}
 
       <ChallengePanel
         challenge={challenge}
@@ -2369,36 +2398,31 @@ function Arena({
   );
 }
 
-/** The active subnets, as cards, above the duel. Clicking one switches which subnet's challenge the
- *  rest of the page shows.
+/** The arena's landing view: every active subnet as a card. Clicking one opens that subnet's live
+ *  duel.
  *
- *  The cards stay visible rather than being replaced by the duel: the point of a two-subnet board is
- *  that you can see at a glance which lane is scoring right now, and a card grid you have to
- *  navigate back to hides exactly that. With one lane there is nothing to choose, so it renders
- *  nothing and the page is unchanged from the single-subnet board.
+ *  This is a chooser, not a filter — it is replaced by the duel rather than sitting above it, so the
+ *  duel page reads the same whether the board serves one subnet or five.
  */
-function ArenaSubnets({ lanes, byLane, selectedLane, onSelectLane }) {
+function ArenaSubnets({ lanes, byLane, onOpenLane }) {
   const laneList = Array.isArray(lanes) ? lanes : [];
-  if (laneList.length < 2) {
-    return null;
-  }
   const data = byLane || {};
   return (
     <section className="arena-subnets" aria-label="Active subnets">
-      <div className="dash-section-head">
-        <span className="showcase-kicker">Subnets</span>
-        <h2>{laneList.length} active</h2>
-        <p>Each runs its own continuous challenge. Pick one to watch its current duel.</p>
-      </div>
+      <PageIntro
+        eyebrow="Arena"
+        title={`${laneList.length} active subnet${laneList.length === 1 ? "" : "s"}`}
+        text="Each subnet keeps its own king and runs its own continuous challenges. Open one to watch its live duel."
+      />
       <div className="dash-subnet-grid">
         {laneList.map((lane) => (
           <SubnetCard
             key={lane.id}
             lane={lane}
             data={data[lane.id] || {}}
-            active={selectedLane?.id === lane.id}
-            cta={selectedLane?.id === lane.id ? "Showing below ↓" : "Watch this duel →"}
-            onEnter={() => onSelectLane?.(lane.id)}
+            active={false}
+            cta="Watch live duel →"
+            onEnter={() => onOpenLane?.(lane.id)}
           />
         ))}
       </div>

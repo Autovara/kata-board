@@ -89,25 +89,33 @@ describe("dashboard", () => {
 });
 
 describe("arena", () => {
-  it("shows a card for every active subnet", async () => {
+  it("lands on a card for every active subnet, with no duel yet", async () => {
     await renderRoute("/arena");
-    const cards = document.querySelectorAll(".arena-subnets .subnet-card:not(.subnet-card-ghost)");
+    const cards = document.querySelectorAll(".arena-subnets .subnet-card");
     expect(cards.length).toBe(2);
+    // The chooser REPLACES the duel rather than sitting above it, so nothing subnet-specific is
+    // shown until one is picked. Otherwise the page would silently be showing lane one's duel.
+    expect(document.querySelector(".challenge-block")).toBeNull();
   });
 
-  it("shows the duel of the subnet whose card is clicked", async () => {
+  it("opens the clicked subnet's live duel", async () => {
     await renderRoute("/arena");
-    // SN60 is selected by default (first lane) and is the one executing.
-    const sn22Card = screen
-      .getAllByText("sn22__desearch")
-      .map((node) => node.closest(".subnet-card"))
-      .find(Boolean);
-    fireEvent.click(sn22Card);
-    await waitFor(() =>
-      expect(document.querySelector(".arena-subnets .subnet-card-active")).toBeTruthy()
+    const sn22Card = [...document.querySelectorAll(".subnet-card")].find((card) =>
+      within(card).queryByText("sn22__desearch")
     );
-    const active = document.querySelector(".arena-subnets .subnet-card-active");
-    expect(within(active).getByText("sn22__desearch")).toBeInTheDocument();
+    fireEvent.click(sn22Card);
+    await waitFor(() => expect(document.querySelector(".arena-subnets")).toBeNull());
+    expect(document.querySelector(".challenge-block")).toBeTruthy();
+  });
+
+  it("goes back to the chooser from a subnet's duel", async () => {
+    await renderRoute("/arena");
+    fireEvent.click(document.querySelector(".subnet-card"));
+    await waitFor(() => expect(document.querySelector(".arena-back")).toBeTruthy());
+    fireEvent.click(document.querySelector(".arena-back"));
+    await waitFor(() =>
+      expect(document.querySelectorAll(".arena-subnets .subnet-card").length).toBe(2)
+    );
   });
 
   it("marks the live subnet as scoring and the idle one as idle", async () => {

@@ -8,7 +8,7 @@
 // The lane-activation gate itself (a lane must be `active: true` to appear at all) is server-side
 // and covered by server/twoLaneSn22.test.mjs. This file assumes discovery already happened.
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./GridBackground.jsx", () => ({ default: () => null }));
@@ -134,6 +134,28 @@ describe("arena", () => {
     fireEvent.click(document.querySelector(".arena-back"));
     await waitFor(() => expect(window.location.pathname).toBe("/arena"));
     expect(document.querySelectorAll(".arena-subnets .subnet-card").length).toBe(2);
+  });
+
+  it("shows no global lane tabs on any page", async () => {
+    // The tabs were a second, competing way to pick a subnet. With the arena's own card list, the
+    // winners page showing every king, and a cross-subnet leaderboard, they only offered a way to
+    // put the page into a state its own controls disagreed with.
+    for (const route of ["/", "/arena", "/winners", "/leaderboard"]) {
+      await renderRoute(route);
+      expect(document.querySelector(".lane-tabs")).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("names the subnet on its duel page", async () => {
+    // A duel page that does not say which subnet it is leaves a shared link, or a back-button
+    // landing, unreadable -- the panel below only ever says "Current challenge".
+    await renderRoute("/arena/sn22__desearch");
+    const head = document.querySelector(".arena-lane-head");
+    expect(head).toBeTruthy();
+    expect(within(head).getByText("SN22 Desearch")).toBeInTheDocument();
+    expect(within(head).getByText("sn22__desearch")).toBeInTheDocument();
+    expect(within(head).getByText("idle")).toBeInTheDocument();
   });
 
   it("marks the live subnet as scoring and the idle one as idle", async () => {

@@ -439,7 +439,6 @@ button {
 .winner-head span,
 .table-head span,
 .status,
-.lane-tab span,
 .stage-label,
 .task-line span {
   color: var(--muted);
@@ -558,45 +557,11 @@ button {
   font-size: 56px;
 }
 
-.lane-tabs {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 
-.lane-tab {
-  min-width: 220px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 14px;
-  color: var(--text);
-  background: var(--panel);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease;
-}
 
-.lane-tab.active {
-  border-color: rgba(185, 255, 93, 0.8);
-  background: rgba(185, 255, 93, 0.08);
-}
 
-.lane-tab:hover {
-  transform: translateY(-2px);
-}
 
-.lane-tab strong {
-  display: block;
-  font-size: 15px;
-}
 
-.lane-tab span {
-  display: block;
-  margin-top: 6px;
-}
 
 .battle {
   display: grid;
@@ -1921,7 +1886,6 @@ html {
 .arena-meta-card,
 .winner-card,
 .doc-card,
-.lane-tab,
 .table-row,
 .button,
 .nav-item,
@@ -1954,9 +1918,6 @@ html {
   transform: translateY(-2px);
   color: var(--green);
 }
-.lane-tab:hover {
-  transform: translateY(-2px);
-}
 .table-row:hover {
   background: var(--panel-2);
 }
@@ -1964,7 +1925,6 @@ html {
 /* keyboard accessibility */
 .nav-item:focus-visible,
 .button:focus-visible,
-.lane-tab:focus-visible,
 .social-link:focus-visible,
 .docs-side button:focus-visible {
   outline: 2px solid var(--cyan);
@@ -2065,9 +2025,6 @@ html {
   .stat-row > *,
   [class$="-grid"] > *,
   .table-section .table-row,
-  .lane-tabs > * {
-    animation: kata-fade-up 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
   .stat-row > *:nth-child(2),
   [class$="-grid"] > *:nth-child(2),
   .table-section .table-row:nth-child(2) {
@@ -6741,6 +6698,46 @@ html {
    selects sits directly underneath and should stay above the fold. */
 .arena-subnets {
   margin-bottom: 28px;
+}
+/* The duel page's identity strip: back, subnet name, live state, on one line. */
+.arena-lane-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.arena-lane-id {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.arena-lane-id h1 {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.arena-lane-head .subnet-pill {
+  margin-left: auto;
+}
+/* The card grid is the whole page here, so it carries the page's own top spacing. */
+.arena-subnets .dash-subnet-grid {
+  margin-top: 4px;
+}
+/* The card is one big target -- say so on hover rather than relying on the arrow alone. */
+.arena-subnets .subnet-card {
+  transition:
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+.arena-subnets .subnet-card:hover {
+  border-color: var(--text);
+  transform: translateY(-2px);
+}
+.arena-subnets .subnet-card:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
 }
 .arena-back {
   align-self: flex-start;

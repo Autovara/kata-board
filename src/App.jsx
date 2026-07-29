@@ -272,10 +272,6 @@ export default function App() {
 
         {payload?.dataNotice ? <DataNotice notice={payload.dataNotice} /> : null}
 
-        {lanes.length > 1 ? (
-          <LaneSelector lanes={lanes} selectedLane={selectedLane} onSelect={setSelectedLaneId} />
-        ) : null}
-
         {state.error ? <div className="alert">{state.error}</div> : null}
         {!payload && state.loading ? <div className="empty-page">Loading board...</div> : null}
 
@@ -2367,9 +2363,7 @@ function Arena({
   return (
     <div className="stack">
       {chooserApplies ? (
-        <button type="button" className="arena-back" onClick={onBack}>
-          ← All subnets
-        </button>
+        <ArenaLaneHeader lane={selectedLane} challenge={challenge} onBack={onBack} />
       ) : null}
 
       <ChallengePanel
@@ -2388,6 +2382,31 @@ function Arena({
           reigningKingPull={selectedLane?.king?.sourcePullRequest ?? null}
         />
       ) : null}
+    </div>
+  );
+}
+
+/** Which subnet's duel this page is, and the way back.
+ *
+ *  Without it the detail page is anonymous: the panel below says "Current challenge" and names a
+ *  challenge number, but nothing on screen says WHICH subnet -- so a shared link, or a back-button
+ *  landing, leaves the reader guessing. The status pill repeats the card's, so the page you opened
+ *  and the page you land on agree.
+ */
+function ArenaLaneHeader({ lane, challenge, onBack }) {
+  const live = challenge?.state === "executing";
+  return (
+    <div className="arena-lane-head">
+      <button type="button" className="arena-back" onClick={onBack}>
+        ← All subnets
+      </button>
+      <div className="arena-lane-id">
+        <h1>{formatPackLabel(lane?.subnetPack)}</h1>
+        <span className="subnet-pack">{lane?.subnetPack}</span>
+      </div>
+      <span className={`subnet-pill ${live ? "subnet-pill-live" : "subnet-pill-idle"}`}>
+        {live ? "scoring" : "idle"}
+      </span>
     </div>
   );
 }
@@ -2546,23 +2565,3 @@ function Leaderboard({ leaderboard }) {
   );
 }
 
-function LaneSelector({ lanes, selectedLane, onSelect }) {
-  if (!lanes.length) {
-    return <Empty text="No active lanes." />;
-  }
-  return (
-    <div className="lane-tabs">
-      {lanes.map((lane) => (
-        <button
-          type="button"
-          className={`lane-tab ${selectedLane?.id === lane.id ? "active" : ""}`}
-          key={lane.id}
-          onClick={() => onSelect(lane.id)}
-        >
-          <strong>{lane.repoName}</strong>
-          <span>{lane.mode}</span>
-        </button>
-      ))}
-    </div>
-  );
-}

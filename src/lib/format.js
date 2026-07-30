@@ -459,10 +459,6 @@ export function screeningHeadline(screening) {
   return "Waiting for screening";
 }
 
-export function nextScreeningEntry(screening) {
-  return (screening?.entries || []).find((entry) => entry.state === "queued") || null;
-}
-
 export function screeningStatusLabel(entry, { short = false } = {}) {
   if (!entry) {
     return short ? "wait" : "waiting";

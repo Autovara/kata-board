@@ -251,3 +251,25 @@ describe("screeningElapsedLabel", () => {
     expect(screeningElapsedLabel({ screening_started_at: "nonsense" }, now)).toBe("screening…");
   });
 });
+
+describe("screening gate panel contract", () => {
+  // The panel renders from these two shapes. Pinning them here keeps the data contract honest
+  // without mounting the whole app: the gate is driven by a candidate in state "screening" in the
+  // live challenge progress, and its only real progress signal is elapsed-against-budget.
+  it("recognises a candidate sitting in the challenge-time gate", () => {
+    const candidates = [
+      { submission_id: "pr-208", state: "screening", screening_started_at: "2026-07-30T01:55:13Z" },
+      { submission_id: "pr-209", state: "queued" },
+    ];
+    const gate = candidates.find((c) => c?.state === "screening") || null;
+    expect(gate?.submission_id).toBe("pr-208");
+    expect(
+      screeningElapsedLabel(gate, Date.parse("2026-07-30T02:00:13Z")),
+    ).toBe("screening… 5m00s");
+  });
+
+  it("has no gate when nothing is screening", () => {
+    const candidates = [{ submission_id: "pr-208", state: "queued" }];
+    expect(candidates.find((c) => c?.state === "screening") || null).toBeNull();
+  });
+});

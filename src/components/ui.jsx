@@ -156,15 +156,6 @@ export function ChallengeMeta({ label, value }) {
   );
 }
 
-export function ScreeningCount({ label, value, tone }) {
-  return (
-    <div className={`screening-count screening-count-${tone || "neutral"}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 export function ProgressBar({ done, total, label, tone = "candidate" }) {
   const safeTotal = total > 0 ? total : 0;
   const pct = safeTotal > 0 ? Math.round((done / safeTotal) * 100) : 0;

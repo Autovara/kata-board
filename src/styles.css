@@ -5932,45 +5932,6 @@ html {
   color: var(--muted);
   font-size: 13px;
 }
-.round-screening-meta {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-.screening-count {
-  min-height: 58px;
-  display: grid;
-  align-content: center;
-  gap: 3px;
-  padding: 10px 11px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(244, 247, 239, 0.035);
-}
-.screening-count span {
-  color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.screening-count strong {
-  color: var(--text);
-  font-size: 17px;
-  line-height: 1;
-  overflow-wrap: anywhere;
-}
-.screening-count-passed {
-  border-color: rgba(185, 255, 93, 0.28);
-}
-.screening-count-running {
-  border-color: rgba(37, 208, 171, 0.42);
-  background: rgba(37, 208, 171, 0.07);
-}
-.screening-count-failed {
-  border-color: rgba(255, 95, 90, 0.42);
-  background: rgba(255, 95, 90, 0.07);
-}
 .round-screening-steps {
   grid-column: 1 / -1;
   display: grid;
@@ -6452,10 +6413,6 @@ html {
 
   .round-screening-gate {
     grid-template-columns: 1fr;
-  }
-
-  .round-screening-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .round-screening-steps {

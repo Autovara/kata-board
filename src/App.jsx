@@ -32,7 +32,6 @@ import {
   formatTpExpectedFound,
   inferReplicasPerProject,
   kingAgentLink,
-  nextScreeningEntry,
   normalizeReplicaRows,
   percentMetric,
   problemResult,
@@ -57,7 +56,6 @@ import {
   ProgressBar,
   ProofFact,
   Reveal,
-  ScreeningCount,
   SectionTitle,
   StatTile,
   Status,
@@ -875,7 +873,16 @@ function ChallengePanel({
       screeningByPull[entry.pullNumber] = entry;
     }
   });
-  const showScreeningGate = Boolean(live?.screening) && live.screening.state !== "complete";
+  // The challenge-time gate is a different thing from intake screening and has its own signal:
+  // a candidate sitting in state "screening" in the live challenge progress. Keying the panel on
+  // intake alone hid the gate exactly when it mattered -- during the minutes it actually runs.
+  const gateProgress =
+    (challenge?.liveProgress?.candidates || []).find(
+      (candidate) => candidate?.state === "screening",
+    ) || null;
+  const showScreeningGate =
+    Boolean(gateProgress) ||
+    (Boolean(live?.screening) && live.screening.state !== "complete");
 
   // Per-PR result feed (published as each PR finishes, and after the challenge ends) —
   // used by the detail page so a finished PR keeps its full result. Not gated on
@@ -1066,7 +1073,9 @@ function ChallengePanel({
       {inferenceWarnings}
       {pausedNote}
       {verdict}
-      {showScreeningGate ? <ScreeningGatePanel screening={live.screening} /> : null}
+      {showScreeningGate ? (
+        <ScreeningGatePanel screening={live?.screening} gateProgress={gateProgress} />
+      ) : null}
     </>
   );
 
@@ -1666,13 +1675,7 @@ function DuelDetail({
               <SideProgressBar
                 progress={
                   progress
-                    ? {
-                        done: progress.done,
-                        total: progress.total,
-                        state: progress.state,
-                        screening_started_at: progress.screening_started_at,
-                        screening_timeout_seconds: progress.screening_timeout_seconds,
-                      }
+                    ? { done: progress.done, total: progress.total, state: progress.state }
                     : null
                 }
                 role="candidate"
@@ -2118,7 +2121,7 @@ function SideProgressBar({ progress, role, label }) {
         : progress.state === "queued"
           ? "waiting to score"
           : progress.state === "screening"
-            ? screeningElapsedLabel(progress)
+            ? "screening…"
             : progress.state === "pending"
               ? "waiting for screening"
               : progress.state || "";
@@ -2156,49 +2159,36 @@ function qualityRatio(value, figures) {
   );
 }
 
-function ScreeningGatePanel({ screening }) {
-  if (!screening) {
+// The one-time gate every challenger clears before anything is scored.
+//
+// Deliberately spare. It used to carry a progress bar plus five count cards (cleared / screening /
+// waiting / failed / current), which is a lot of chrome for what is almost always ONE pull request
+// in one of four states -- the counts mostly read "1, 0, 0, 0" and the bar mostly read "0/1". The
+// per-PR chips already say all of that, so what is left is the headline, the chips, and the one
+// number the chips cannot show: how long the PR in the gate has been there.
+function ScreeningGatePanel({ screening, gateProgress }) {
+  if (!screening && !gateProgress) {
     return null;
   }
-  const done = Number(screening.passed || 0) + Number(screening.failed || 0);
-  const current = screening.current;
-  const next = nextScreeningEntry(screening);
-  const headline = screeningHeadline(screening);
+  const current = screening?.current;
+  const headline = gateProgress
+    ? `Screening ${gateProgress.submission_id || "challenger"}`
+    : screeningHeadline(screening);
+  // Elapsed against the enforced budget. The gate is a single sealed-room agent run with no
+  // intermediate ticks, so this is the only real progress there is -- and it belongs here rather
+  // than under the hero card, where it was describing a side that was not being scored yet.
+  const elapsed = gateProgress ? screeningElapsedLabel(gateProgress) : null;
   return (
     <div className="round-screening-gate">
       <div className="round-screening-head">
         <div className="round-screening-title">
           <span>screening gate</span>
           <strong>{headline}</strong>
-          <small>
-            {done} of {screening.total} PR{screening.total === 1 ? "" : "s"} checked
-          </small>
+          {elapsed ? <small>{elapsed}</small> : null}
         </div>
-        <ProgressBar
-          done={done}
-          total={screening.total}
-          label={`${done}/${screening.total}`}
-          tone="screening"
-        />
-      </div>
-      <div className="round-screening-meta" aria-label="Screening status counts">
-        <ScreeningCount label="cleared" value={screening.passed || 0} tone="passed" />
-        <ScreeningCount label="screening" value={screening.running || 0} tone="running" />
-        <ScreeningCount label="waiting" value={screening.queued || 0} tone="queued" />
-        <ScreeningCount label="failed" value={screening.failed || 0} tone="failed" />
-        {current ? (
-          <ScreeningCount
-            label={current.state === "queued" ? "next" : "current"}
-            value={`#${current.pullNumber}`}
-            tone={current.state}
-          />
-        ) : null}
-        {!current && next ? (
-          <ScreeningCount label="next" value={`#${next.pullNumber}`} tone="queued" />
-        ) : null}
       </div>
       <div className="round-screening-steps" aria-label="Per-PR screening progress">
-        {(screening.entries || []).map((entry) => (
+        {(screening?.entries || []).map((entry) => (
           <div
             className={`screening-step screening-step-${entry.state}`}
             aria-current={entry.pullNumber === current?.pullNumber ? "step" : undefined}

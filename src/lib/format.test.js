@@ -7,7 +7,8 @@ import {
   formatTruePositives,
   replicaAwareProblemTotals,
   sideDetectionTotals,
-  screeningElapsedLabel,} from "./format.js";
+  screeningElapsedLabel,
+  bestProjectRowsByKey,} from "./format.js";
 
 const ev = (tp) => ({ evaluated: true, true_positives: tp });
 
@@ -269,5 +270,51 @@ describe("screening gate panel contract", () => {
   it("has no gate when nothing is screening", () => {
     const candidates = [{ submission_id: "pr-208", state: "queued" }];
     expect(candidates.find((c) => c?.state === "screening") || null).toBeNull();
+  });
+});
+
+describe("bestProjectRowsByKey", () => {
+  // The live rows for code4rena_forte-float128-solidity-library_2025_04 that produced `1/5/0`.
+  const forte = [
+    { project_key: "forte", true_positives: 1, total_expected: 5, total_found: 6, precision: 0.1667, detection_rate: 0.2 },
+    { project_key: "forte", true_positives: 1, total_expected: 5, total_found: 5, precision: 0.2, detection_rate: 0.2 },
+    { project_key: "forte", true_positives: 0, total_expected: 5, total_found: 0, precision: 0, detection_rate: 0 },
+  ];
+
+  it("keeps true positives and found from the SAME replica", () => {
+    const totals = bestProjectRowsByKey(forte, 3).get("forte").__totals;
+    // Not 0 (the last row) and not 11 (a cross-replica sum): the best replica scored 1 of 5
+    // expected while reporting 5 findings, so precision = 1/5 stays coherent.
+    expect(totals.truePositives).toBe(1);
+    expect(totals.totalExpected).toBe(5);
+    expect(totals.totalFound).toBe(5);
+  });
+
+  it("does not let a replica with an empty evaluation win", () => {
+    const withEmpty = [
+      { project_key: "p", true_positives: 2, total_expected: 4, total_found: 7, precision: 0.28 },
+      { project_key: "p", true_positives: 0, total_expected: 4, total_found: 0 },
+    ];
+    const totals = bestProjectRowsByKey(withEmpty, 2).get("p").__totals;
+    expect(totals.truePositives).toBe(2);
+    expect(totals.totalFound).toBe(7);
+  });
+
+  it("breaks a true-positive tie on precision, like the engine does", () => {
+    const tie = [
+      { project_key: "p", true_positives: 1, total_expected: 5, total_found: 9, precision: 0.11 },
+      { project_key: "p", true_positives: 1, total_expected: 5, total_found: 3, precision: 0.33 },
+    ];
+    // Same true positives, fewer false positives -> the tighter run is the project's score.
+    expect(bestProjectRowsByKey(tie, 2).get("p").__totals.totalFound).toBe(3);
+  });
+
+  it("collapses each project independently", () => {
+    const rows = [
+      { project_key: "a", true_positives: 1, total_expected: 2, total_found: 3 },
+      { project_key: "b", true_positives: 0, total_expected: 2, total_found: 0 },
+    ];
+    const best = bestProjectRowsByKey(rows, 1);
+    expect([...best.keys()].sort()).toEqual(["a", "b"]);
   });
 });

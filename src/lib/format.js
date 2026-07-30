@@ -216,11 +216,61 @@ export function replicaAwareProblemTotals(project, replicasPerProject = 0) {
   const bestReplicaTp = normalizeReplicaRows(project, replicasPerProject)
     .filter((replica) => replica.evaluated)
     .reduce((max, replica) => Math.max(max, Number(replica.true_positives ?? 0)), -1);
+  // ``project.total_found`` is authoritative on a COLLAPSED row: the engine already picked the
+  // best replica and recorded its found count there, and the ``replicas`` array beside it is
+  // display detail that can legitimately differ. The live per-replica shape is collapsed by
+  // ``bestProjectRowsByKey`` BEFORE this runs, so by here there is always exactly one row to read.
   return {
     truePositives: bestReplicaTp >= 0 ? bestReplicaTp : Number(project.true_positives ?? 0),
     totalExpected: Number(project.total_expected ?? expectedPerReplica),
     totalFound: Number(project.total_found ?? 0),
   };
+}
+
+
+// Backend order for "which replica is this project's score": most true positives, then precision,
+// then detection rate (kata_sn60.sn60_bitsec.summarize_project). Mirrored here so the board never
+// disagrees with the score the engine records.
+function replicaRank(totals) {
+  return [
+    Number(totals?.truePositives ?? totals?.true_positives ?? 0),
+    Number(totals?.precision ?? 0),
+    Number(totals?.detection_rate ?? 0),
+  ];
+}
+
+function outranks(candidate, incumbent) {
+  if (!incumbent) return true;
+  const a = replicaRank(candidate);
+  const b = replicaRank(incumbent);
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return a[i] > b[i];
+  }
+  return false;
+}
+
+/**
+ * Collapse a side's project rows to ONE best-of row per project.
+ *
+ * A live variant arrives as one entry PER REPLICA sharing a project_key, so a plain
+ * `byKey[project_key] = project` keeps whichever replica happened to be written last. That is how
+ * a problem row came to read `1/5/0`: true positives were computed best-of across replicas while
+ * "found" was read off the last row — which, for a replica whose evaluation was empty, is zero.
+ * Taking the whole winning row keeps true-positives and found from the SAME replica, so precision
+ * stays coherent and the table agrees with the header totals.
+ */
+export function bestProjectRowsByKey(projects, replicasPerProject = 0) {
+  const best = new Map();
+  (Array.isArray(projects) ? projects : []).forEach((project, index) => {
+    const key = project?.project_key || project?.projectKey || `#${index}`;
+    const totals = replicaAwareProblemTotals(project, replicasPerProject);
+    const merged = { ...project, ...(totals || {}), precision: project?.precision };
+    const prev = best.get(key);
+    if (outranks(merged, prev?.__rank)) {
+      best.set(key, { ...project, __rank: merged, __totals: totals });
+    }
+  });
+  return best;
 }
 
 export function sideDetectionTotals(side, replicasPerProject = 0) {

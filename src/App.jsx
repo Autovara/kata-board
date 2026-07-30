@@ -44,7 +44,8 @@ import {
   screeningHeadline,
   screeningStatusLabel,
   selectedProjectKeysFromChallenge,
-  screeningElapsedLabel,} from "./lib/format.js";
+  screeningElapsedLabel,
+  bestProjectRowsByKey,} from "./lib/format.js";
 import {
   Avatar,
   DiscordIcon,
@@ -1506,16 +1507,17 @@ function DuelDetail({
   const won = entrant.beats_king === true;
   const decided = entrant.status !== "executing" && entrant.aggregated_score != null;
   const scoring = progress && progress.state === "scoring";
-  const kingProjects = {};
-  (king?.projects || []).forEach((project) => {
-    kingProjects[project.project_key] = project;
-  });
+  // BEST-OF per project, for BOTH sides and identically. A live variant arrives as one entry per
+  // REPLICA sharing a project_key, so assigning by key kept whichever replica was written last --
+  // which is how a row read `1/5/0`: best-of true positives beside the last replica's found count.
+  const kingProjects = Object.fromEntries(
+    bestProjectRowsByKey(king?.projects || [], replicasPerProject)
+  );
   const projects = entrant.projects || [];
   // Show ALL sampled problems up front; scored ones fill in, the rest stay "scoring".
-  const candidateByKey = {};
-  projects.forEach((project) => {
-    candidateByKey[project.project_key] = project;
-  });
+  const candidateByKey = Object.fromEntries(
+    bestProjectRowsByKey(projects, replicasPerProject)
+  );
   const problemKeys =
     projectKeys && projectKeys.length
       ? projectKeys

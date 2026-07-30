@@ -2171,20 +2171,17 @@ function ScreeningGatePanel({ screening, gateProgress }) {
     return null;
   }
   const current = screening?.current;
-  const headline = gateProgress
-    ? `Screening ${gateProgress.submission_id || "challenger"}`
-    : screeningHeadline(screening);
-  // Elapsed against the enforced budget. The gate is a single sealed-room agent run with no
-  // intermediate ticks, so this is the only real progress there is -- and it belongs here rather
-  // than under the hero card, where it was describing a side that was not being scored yet.
+  // Elapsed against the enforced budget IS the headline. The gate is a single sealed-room agent
+  // run with no intermediate ticks, so time is the only thing here that actually moves -- and
+  // naming the PR again would only repeat what the chip below already says. When no challenge-time
+  // gate is running the panel falls back to describing intake screening instead.
   const elapsed = gateProgress ? screeningElapsedLabel(gateProgress) : null;
   return (
     <div className="round-screening-gate">
       <div className="round-screening-head">
         <div className="round-screening-title">
           <span>screening gate</span>
-          <strong>{headline}</strong>
-          {elapsed ? <small>{elapsed}</small> : null}
+          <strong>{elapsed || screeningHeadline(screening)}</strong>
         </div>
       </div>
       <div className="round-screening-steps" aria-label="Per-PR screening progress">

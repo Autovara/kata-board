@@ -237,18 +237,16 @@ describe("screeningElapsedLabel", () => {
         { screening_started_at: started, screening_timeout_seconds: 1020 },
         now,
       ),
-    ).toBe("screening… 4m30s of 17m");
+    ).toBe("4m30s of 17m");
   });
 
   it("still shows elapsed when no budget is published", () => {
-    expect(screeningElapsedLabel({ screening_started_at: started }, now)).toBe(
-      "screening… 4m30s",
-    );
+    expect(screeningElapsedLabel({ screening_started_at: started }, now)).toBe("4m30s");
   });
 
   it("falls back rather than rendering NaN when the start time is missing", () => {
-    expect(screeningElapsedLabel({}, now)).toBe("screening…");
-    expect(screeningElapsedLabel({ screening_started_at: "nonsense" }, now)).toBe("screening…");
+    expect(screeningElapsedLabel({}, now)).toBe("in progress");
+    expect(screeningElapsedLabel({ screening_started_at: "nonsense" }, now)).toBe("in progress");
   });
 });
 
@@ -265,7 +263,7 @@ describe("screening gate panel contract", () => {
     expect(gate?.submission_id).toBe("pr-208");
     expect(
       screeningElapsedLabel(gate, Date.parse("2026-07-30T02:00:13Z")),
-    ).toBe("screening… 5m00s");
+    ).toBe("5m00s");
   });
 
   it("has no gate when nothing is screening", () => {

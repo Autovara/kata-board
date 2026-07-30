@@ -630,12 +630,14 @@ export function formatDate(value) {
 export function screeningElapsedLabel(progress, now = Date.now()) {
   const started = Date.parse(progress?.screening_started_at ?? "");
   if (!Number.isFinite(started)) {
-    return "screening…";
+    return "in progress";
   }
   const elapsed = Math.max(0, Math.round((now - started) / 1000));
   const budget = Number(progress?.screening_timeout_seconds);
   const mins = (seconds) => `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, "0")}s`;
+  // No "screening…" prefix: this sits directly under a heading that already says "screening gate",
+  // so the words were repeating the label instead of adding the one thing the panel is for.
   return Number.isFinite(budget) && budget > 0
-    ? `screening… ${mins(elapsed)} of ${Math.round(budget / 60)}m`
-    : `screening… ${mins(elapsed)}`;
+    ? `${mins(elapsed)} of ${Math.round(budget / 60)}m`
+    : mins(elapsed);
 }

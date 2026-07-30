@@ -1313,10 +1313,11 @@ function KingDetail({
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const scoring = progress?.state === "scoring";
   // Show every sampled problem up front; scored ones fill in, the rest stay pending.
-  const kingByKey = {};
-  projects.forEach((project) => {
-    kingByKey[project.project_key] = project;
-  });
+  // BEST-OF, same as the duel page: a live variant arrives as one entry per REPLICA sharing a
+  // project_key, so assigning by key would keep whichever replica was written last.
+  const kingByKey = Object.fromEntries(
+    bestProjectRowsByKey(projects, replicasPerProject)
+  );
   const problemKeys =
     projectKeys && projectKeys.length
       ? projectKeys

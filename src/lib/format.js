@@ -622,3 +622,24 @@ export function formatDate(value) {
     return value;
   }
 }
+
+/**
+ * Live text for a candidate sitting in the challenge-time screening gate.
+ *
+ * The gate is a SINGLE sealed-room agent run with no intermediate ticks, so there is no
+ * done/total to advance -- elapsed against the enforced budget is the only honest progress
+ * available. Showing it is what distinguishes "a slow room run is in flight" from "this has
+ * hung", which is exactly the distinction an operator could not make before.
+ */
+export function screeningElapsedLabel(progress, now = Date.now()) {
+  const started = Date.parse(progress?.screening_started_at ?? "");
+  if (!Number.isFinite(started)) {
+    return "screening…";
+  }
+  const elapsed = Math.max(0, Math.round((now - started) / 1000));
+  const budget = Number(progress?.screening_timeout_seconds);
+  const mins = (seconds) => `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, "0")}s`;
+  return Number.isFinite(budget) && budget > 0
+    ? `screening… ${mins(elapsed)} of ${Math.round(budget / 60)}m`
+    : `screening… ${mins(elapsed)}`;
+}

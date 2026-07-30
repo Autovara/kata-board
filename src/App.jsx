@@ -45,7 +45,7 @@ import {
   screeningHeadline,
   screeningStatusLabel,
   selectedProjectKeysFromChallenge,
-} from "./lib/format.js";
+  screeningElapsedLabel,} from "./lib/format.js";
 import {
   Avatar,
   DiscordIcon,
@@ -1666,7 +1666,13 @@ function DuelDetail({
               <SideProgressBar
                 progress={
                   progress
-                    ? { done: progress.done, total: progress.total, state: progress.state }
+                    ? {
+                        done: progress.done,
+                        total: progress.total,
+                        state: progress.state,
+                        screening_started_at: progress.screening_started_at,
+                        screening_timeout_seconds: progress.screening_timeout_seconds,
+                      }
                     : null
                 }
                 role="candidate"
@@ -2100,6 +2106,10 @@ function SideProgressBar({ progress, role, label }) {
   }
   const done = Number(progress.done || 0);
   const total = Number(progress.total);
+  // "screening" and "pending" are real stages, not unknown strings. The challenge-time gate runs
+  // ONE sealed-room agent run before anything is scored and can take many minutes, so the board
+  // has to name it -- it previously showed the king as "scoring" throughout, which read as a
+  // frozen bar asserting work that had not started.
   const stateLabel =
     progress.state === "scoring"
       ? "scoring…"
@@ -2107,7 +2117,11 @@ function SideProgressBar({ progress, role, label }) {
         ? "scored"
         : progress.state === "queued"
           ? "waiting to score"
-          : progress.state || "";
+          : progress.state === "screening"
+            ? screeningElapsedLabel(progress)
+            : progress.state === "pending"
+              ? "waiting for screening"
+              : progress.state || "";
   return (
     <div className={`side-progress side-progress-${role}`}>
       <div className="side-progress-head">

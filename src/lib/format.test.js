@@ -7,7 +7,7 @@ import {
   formatTruePositives,
   replicaAwareProblemTotals,
   sideDetectionTotals,
-} from "./format.js";
+  screeningElapsedLabel,} from "./format.js";
 
 const ev = (tp) => ({ evaluated: true, true_positives: tp });
 
@@ -224,5 +224,30 @@ describe("decisionWinner (one-sided promotion margin)", () => {
   it("boundary: a lead exactly equal to the margin is a tie (must exceed)", () => {
     expect(decisionWinner(higher(0.5, 0.0), 0.5)).toBe("tie");
     expect(decisionWinner(higher(0.5001, 0.0), 0.5)).toBe("candidate");
+  });
+});
+
+describe("screeningElapsedLabel", () => {
+  const started = "2026-07-30T01:15:06.000Z";
+  const now = Date.parse("2026-07-30T01:19:36.000Z"); // 4m30s later
+
+  it("shows elapsed against the enforced budget", () => {
+    expect(
+      screeningElapsedLabel(
+        { screening_started_at: started, screening_timeout_seconds: 1020 },
+        now,
+      ),
+    ).toBe("screening… 4m30s of 17m");
+  });
+
+  it("still shows elapsed when no budget is published", () => {
+    expect(screeningElapsedLabel({ screening_started_at: started }, now)).toBe(
+      "screening… 4m30s",
+    );
+  });
+
+  it("falls back rather than rendering NaN when the start time is missing", () => {
+    expect(screeningElapsedLabel({}, now)).toBe("screening…");
+    expect(screeningElapsedLabel({ screening_started_at: "nonsense" }, now)).toBe("screening…");
   });
 });
